@@ -1,5 +1,5 @@
 name: hermes-standard
-version: 0.1.1
+version: 0.1.2
 description: "HQ Pulse standard employee assistant: persona and skills"
 hermes_requires: ">=0.21.0"
 author: "HQ Pulse"
@@ -11,5 +11,5 @@ env_requires:
   - {name: TELEGRAM_ALLOWED_USERS, description: "Telegram user id(s) allowed", required: false}
 distribution_owned:
   - SOUL.md
-  - skills
+  - skills/pulse-analyst
   - distribution.yaml
