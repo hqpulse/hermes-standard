@@ -1,0 +1,15 @@
+name: hermes-standard
+version: 0.1.0
+description: "HQ Pulse standard employee assistant: persona and skills"
+hermes_requires: ">=0.21.0"
+author: "HQ Pulse"
+env_requires:
+  - {name: ANTHROPIC_API_KEY, description: "Model key (org-level)", required: true}
+  - {name: MCP_PULSE_API_KEY, description: "This person's Pulse key", required: true}
+  - {name: API_SERVER_KEY, description: "Chat API bearer for this pod", required: true}
+  - {name: TELEGRAM_BOT_TOKEN, description: "Optional Telegram bot", required: false}
+  - {name: TELEGRAM_ALLOWED_USERS, description: "Telegram user id(s) allowed", required: false}
+distribution_owned:
+  - SOUL.md
+  - skills
+  - distribution.yaml
