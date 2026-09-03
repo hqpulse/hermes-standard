@@ -1,5 +1,5 @@
 name: hermes-standard
-version: 0.1.4
+version: 0.1.5
 description: "HQ Pulse standard employee assistant: persona and skills"
 hermes_requires: ">=0.21.0"
 author: "HQ Pulse"
@@ -9,7 +9,23 @@ env_requires:
   - {name: API_SERVER_KEY, description: "Chat API bearer for this pod", required: true}
   - {name: TELEGRAM_BOT_TOKEN, description: "Optional Telegram bot", required: false}
   - {name: TELEGRAM_ALLOWED_USERS, description: "Telegram user id(s) allowed", required: false}
+# WHAT AN UPGRADE IS ALLOWED TO REPLACE.
+#
+# These paths are wiped and rewritten on every pack install. Anything listed
+# here that is a DIRECTORY takes its whole subtree with it — including files
+# the assistant wrote itself.
+#
+# That is not theoretical. On 2 Sep an assistant's curator wrote a real skill,
+# pulse-warehouse-execution, at skills/pulse-analyst/pulse-warehouse-execution/
+# — nesting inside our folder, which is the natural place for a skill related
+# to pulse-analyst. On 3 Sep a routine pack upgrade replaced
+# `skills/pulse-analyst` and the skill was gone from disk. It survived only
+# because the curator keeps a content-addressed blob, and it was restored from
+# that by checksum.
+#
+# So own the FILE, not the folder. We ship exactly one SKILL.md in there; the
+# folder itself belongs to whoever else writes into it.
 distribution_owned:
   - SOUL.md
-  - skills/pulse-analyst
+  - skills/pulse-analyst/SKILL.md
   - distribution.yaml
