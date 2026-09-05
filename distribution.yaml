@@ -1,5 +1,5 @@
 name: hermes-standard
-version: 0.1.9
+version: 0.1.10
 description: "HQ Pulse standard employee assistant: persona and skills"
 hermes_requires: ">=0.21.0"
 author: "HQ Pulse"
