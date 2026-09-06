@@ -1,5 +1,5 @@
 name: hermes-standard
-version: 0.1.12
+version: 0.1.13
 description: "HQ Pulse standard employee assistant: persona and skills"
 hermes_requires: ">=0.21.0"
 author: "HQ Pulse"
@@ -29,3 +29,12 @@ distribution_owned:
   - SOUL.md
   - skills/pulse-analyst/SKILL.md
   - distribution.yaml
+  - skills/note-taking/LICENSE-obsidian-skills
+  - skills/note-taking/json-canvas/SKILL.md
+  - skills/note-taking/json-canvas/references/EXAMPLES.md
+  - skills/note-taking/obsidian-bases/SKILL.md
+  - skills/note-taking/obsidian-bases/references/FUNCTIONS_REFERENCE.md
+  - skills/note-taking/obsidian-markdown/SKILL.md
+  - skills/note-taking/obsidian-markdown/references/CALLOUTS.md
+  - skills/note-taking/obsidian-markdown/references/EMBEDS.md
+  - skills/note-taking/obsidian-markdown/references/PROPERTIES.md
