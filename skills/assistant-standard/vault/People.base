@@ -1,0 +1,20 @@
+filters:
+  and:
+    - 'type == "person"'
+properties:
+  file.name:
+    displayName: "Person"
+  role:
+    displayName: "Role"
+  org:
+    displayName: "Org"
+  projects:
+    displayName: "Projects"
+views:
+  - type: table
+    name: "Everyone"
+    order:
+      - file.name
+      - role
+      - org
+      - projects

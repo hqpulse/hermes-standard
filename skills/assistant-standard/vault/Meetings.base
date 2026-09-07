@@ -1,0 +1,23 @@
+filters:
+  and:
+    - 'type == "meeting"'
+properties:
+  file.name:
+    displayName: "Meeting"
+  date:
+    displayName: "Date"
+  attendees:
+    displayName: "Attendees"
+  project:
+    displayName: "Project"
+views:
+  - type: table
+    name: "All meetings"
+    order:
+      - file.name
+      - date
+      - attendees
+      - project
+    sort:
+      - property: date
+        direction: DESC

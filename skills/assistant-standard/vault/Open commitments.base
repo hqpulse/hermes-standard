@@ -1,0 +1,38 @@
+# Every open promise, by owner, oldest due first. Read by the morning brief and
+# by "what does X owe me". Ships with the pack; add a view rather than edit.
+filters:
+  and:
+    - 'type == "commitment"'
+    - 'status == "open"'
+properties:
+  file.name:
+    displayName: "Commitment"
+  owner:
+    displayName: "Owner"
+  owed_to:
+    displayName: "Owed to"
+  due:
+    displayName: "Due"
+  from:
+    displayName: "From"
+views:
+  - type: table
+    name: "Open, oldest first"
+    order:
+      - file.name
+      - owner
+      - owed_to
+      - due
+      - from
+    sort:
+      - property: due
+        direction: ASC
+  - type: table
+    name: "By owner"
+    groupBy:
+      property: owner
+      direction: ASC
+    order:
+      - file.name
+      - due
+      - from

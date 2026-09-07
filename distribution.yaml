@@ -1,5 +1,5 @@
 name: hermes-standard
-version: 0.2.0
+version: 0.2.1
 description: "HQ Pulse standard employee assistant: persona and skills"
 hermes_requires: ">=0.21.0"
 author: "HQ Pulse"
@@ -40,3 +40,7 @@ distribution_owned:
   - skills/note-taking/obsidian-markdown/references/CALLOUTS.md
   - skills/note-taking/obsidian-markdown/references/EMBEDS.md
   - skills/note-taking/obsidian-markdown/references/PROPERTIES.md
+  - skills/assistant-standard/references/NOTE-TYPES.md
+  - skills/assistant-standard/vault/Open commitments.base
+  - skills/assistant-standard/vault/Meetings.base
+  - skills/assistant-standard/vault/People.base
