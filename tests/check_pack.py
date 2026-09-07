@@ -5,14 +5,12 @@ Uses the Hermes source at ~/.hermes/hermes-agent when present (frontmatter
 parser, cron schedule parser, cronjob tool schema); otherwise falls back to
 plain YAML/JSON checks so the script still runs anywhere.
 
-RUN IT WITH THE HERMES INTERPRETER
-(~/.hermes/hermes-agent/venv/bin/python). The fallback above only triggers when
-the IMPORT fails. An interpreter that can import the Hermes source but lacks
-its dependencies gets past the import and then fails at call time: with
-`croniter` missing, every preset reports its schedule "rejected" and the run
-exits 1 on three failures that are not real. Whoever wires this into CI must
-pin that interpreter, or teach the schedule check to treat a missing croniter
-as "unchecked" rather than "rejected".
+PREFER THE HERMES INTERPRETER (~/.hermes/hermes-agent/venv/bin/python). The
+fallback above triggers on IMPORT failure, but `parse_schedule` imports fine
+and then needs `croniter` at CALL time; without it the schedule check is
+skipped with a note rather than reporting three schedules "rejected". So a
+green run on a plain interpreter proves less than a green run on the Hermes
+one: it has not checked any schedule.
 
 KNOWN GAPS, so nobody reads a green run as more than it is:
   - The ask-once distinctness check compares exact strings. Two questions that
@@ -20,10 +18,9 @@ KNOWN GAPS, so nobody reads a green run as more than it is:
   - The dossier check greps for the literal "240". It does not do the
     arithmetic, so raising the entry count past what 2,000 characters can hold
     would sail through as long as that number is still on the page.
-  - Nothing guards the humanizer fence in SKILL.md ("changes how it reads,
-    never what it says", the leave-exactly list, the no-pass rule for anyone
-    outside the company). Delete the whole paragraph and these checks stay
-    green. It is the pack's most safety-carrying text and it is unprotected.
+  - The humanizer fence is checked by phrase, not by meaning. It catches a
+    deletion or a thinning, not a rewrite that keeps the words and loses the
+    rule.
 """
 import json, os, re, sys
 from pathlib import Path
@@ -44,6 +41,15 @@ if (HERMES / "agent" / "skill_utils.py").exists():
         from cron.jobs import parse_schedule
         from tools.cronjob_tools import CRONJOB_SCHEMA
         tool_props = set(CRONJOB_SCHEMA["parameters"]["properties"]) - {"action", "job_id"}
+        # parse_schedule imports fine but needs croniter at CALL time. Without
+        # it every cron schedule reports "rejected", which is three failures
+        # that are not real. Unchecked is the honest answer, so drop just this
+        # one helper and keep the rest.
+        try:
+            import croniter  # noqa: F401
+        except ImportError:
+            print("note: croniter missing; cron schedules left unchecked")
+            parse_schedule = None
     except Exception as e:  # pragma: no cover
         print(f"note: Hermes helpers unavailable ({e}); using plain checks")
         parse_frontmatter = parse_schedule = tool_props = None
@@ -96,6 +102,23 @@ for skill_md in sorted(ROOT.glob("skills/**/SKILL.md")):
         target = skill_md.parent / ref[0] / ref[1]
         if not target.exists():
             err(f"{rel}: points at missing {ref[0]}/{ref[1]}")
+
+# --- the humanizer fence --------------------------------------------------
+# This paragraph carries the pack's clinical exposure: it is what stops a note
+# to a resident's family being rewritten at all, and what stops an open bound
+# ("over 3,000") being flattened into a false exact figure. Every other check
+# here would stay green if it were deleted, so name the load-bearing phrases.
+fence = (ROOT / "skills/assistant-standard/SKILL.md").read_text()
+FENCE_PHRASES = [
+    "changes how it reads, never what it says",
+    "A word that bounds a figure is part of the figure",
+    "gets no humanizer pass at all",
+    "a clinician, or anyone outside the company",
+]
+for phrase in FENCE_PHRASES:
+    if phrase not in fence:
+        err(f"assistant-standard/SKILL.md: the humanizer fence has lost "
+            f"{phrase!r}; that paragraph is load-bearing, do not thin it")
 
 # --- presets --------------------------------------------------------------
 ASK_TAIL = "Say keep, change, or stop."

@@ -36,10 +36,11 @@ Earlier versions are in the git history (`git log --oneline v0.1.1..v0.2.2`).
 - **Reminders deliver to the phone**, never back to the chat door.
 - Every new file the pack ships is listed in `distribution_owned`: with an
   explicit list, only listed paths reach the pod at all.
-- `tests/check_pack.py`: frontmatter, preset payloads and manifest checks.
-  Run it with the Hermes interpreter; a plain `python3` that can see the Hermes
-  source but not its dependencies reports three schedule failures that are not
-  real.
+- `tests/check_pack.py`: frontmatter, preset payloads, manifest checks, the
+  three ask-once questions being distinct, and the humanizer fence still being
+  present. Prefer the Hermes interpreter: without `croniter` the schedule check
+  is skipped with a note rather than failing, so a plain `python3` run is green
+  without having checked a single schedule.
 
 ### Known gaps in 0.2.3
 
@@ -52,8 +53,8 @@ last one does: it gates rolling the presets beyond a single pod.
 - The dossier check greps for the literal "240" rather than doing the
   arithmetic, so widening the entry count would pass while breaking the
   2,000-character ceiling.
-- Nothing guards the humanizer fence itself. Delete the paragraph and every
-  check stays green, which makes the pack's most safety-carrying text its
-  least protected.
+- The humanizer fence is guarded by phrase, not by meaning: the checks catch
+  it being deleted or thinned, not a rewrite that keeps the phrases and loses
+  the rule.
 - No preset has been watched firing on a real phone. That smoke test gates
   rolling these beyond one pod.
