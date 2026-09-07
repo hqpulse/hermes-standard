@@ -10,6 +10,8 @@ metadata:
   version: "3.0.0"
 ---
 
+<!-- humanizer, MIT. Copyright (c) 2025 Siqi Chen. Upstream: github.com/blader/humanizer. Full text in LICENSE. -->
+
 # Humanizer: remove AI writing patterns
 
 Rewrite AI-sounding text so it reads like the writer, not a chatbot. Keep what it says. Do not make anything up.

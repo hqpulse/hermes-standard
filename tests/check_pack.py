@@ -79,6 +79,12 @@ for skill_md in sorted(ROOT.glob("skills/**/SKILL.md")):
 
 # --- presets --------------------------------------------------------------
 ASK = "Want this every day? Say keep, change, or stop."
+# The controller substitutes this before create_job. A preset that ships a real
+# platform name delivers to whichever channel happens to be connected, which on
+# a two-platform pod is the wrong phone and nothing alerts.
+HOME_CHANNEL = "__HOME_CHANNEL__"
+PLATFORM_NAMES = {"telegram", "whatsapp", "slack", "discord", "signal", "imessage",
+                  "sms", "email", "matrix", "all", "origin"}
 for pj in sorted(ROOT.glob("skills/assistant-standard/presets/*.json")):
     rel = pj.relative_to(ROOT)
     try:
@@ -96,6 +102,16 @@ for pj in sorted(ROOT.glob("skills/assistant-standard/presets/*.json")):
         err(f"{rel}: prompt lacks the ask-once question")
     if "Your previous run's output" not in job.get("prompt", ""):
         err(f"{rel}: prompt does not say how to recognise the first run")
+    if "does not begin with" in job.get("prompt", ""):
+        err(f"{rel}: first-run test says 'does not begin with'; the continuity "
+            f"block never starts the prompt, so that test is false on every run")
+    deliver = str(job.get("deliver", ""))
+    if deliver.split(":", 1)[0].strip().lower() in PLATFORM_NAMES:
+        err(f"{rel}: deliver {deliver!r} names a platform; presets must ship "
+            f"{HOME_CHANNEL} for the controller to substitute")
+    elif deliver != HOME_CHANNEL:
+        err(f"{rel}: deliver must be the literal {HOME_CHANNEL} placeholder, "
+            f"got {deliver!r}")
     if tool_props is not None:
         extra = set(job) - tool_props
         if extra:
@@ -108,7 +124,7 @@ for pj in sorted(ROOT.glob("skills/assistant-standard/presets/*.json")):
 
 # --- dossier --------------------------------------------------------------
 doss = (ROOT / "skills/assistant-standard/references/DOSSIER.md").read_text()
-for marker in ("=== CONTEXT SKILL ===", "=== USER.MD ===", "6,000", "300", "§"):
+for marker in ("=== CONTEXT SKILL ===", "=== USER.MD ===", "6,000", "240", "§"):
     if marker not in doss:
         err(f"DOSSIER.md lacks {marker!r}")
 

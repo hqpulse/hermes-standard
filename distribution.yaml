@@ -9,6 +9,7 @@ env_requires:
   - {name: API_SERVER_KEY, description: "Chat API bearer for this pod", required: true}
   - {name: TELEGRAM_BOT_TOKEN, description: "Optional Telegram bot", required: false}
   - {name: TELEGRAM_ALLOWED_USERS, description: "Telegram user id(s) allowed", required: false}
+  - {name: VOICE_TOOLS_OPENAI_KEY, description: "OpenAI speech key; the morning brief's voice note needs it", required: false}
 # WHAT AN UPGRADE IS ALLOWED TO REPLACE.
 #
 # These paths are wiped and rewritten on every pack install. Anything listed
