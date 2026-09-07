@@ -2,7 +2,7 @@
 
 Earlier versions are in the git history (`git log --oneline v0.1.1..v0.2.2`).
 
-## 0.2.4 (2026-09-07)
+## 0.2.6 (2026-09-08)
 
 The preset work of 0.2.3 finished against the engine rather than against its
 schema. Nothing here changes what the three presets say; it changes what the

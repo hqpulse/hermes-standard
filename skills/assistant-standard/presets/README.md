@@ -58,7 +58,13 @@ arguments of `cron.jobs.create_job`, with one exception noted.
   send()". The engine DOES have a home-channel fallback, but it fires only when
   a job has NO origin at all — a chat-door job has one, it is just
   undeliverable — so these fail on every run and keep failing. Measured on
-  `hermes-susan-0`: five of her nine jobs are in that state. There is no config
+  `hermes-susan-0`: five of her nine jobs are in that state. Both halves of the
+  rule matter to that count. EIGHT of the nine were made through the chat door
+  and so carry `origin: api_server`; only five of those also ask to deliver to
+  that origin, and those five are the broken ones. The other three say
+  `deliver: local`, which opts out of delivery on purpose and is not a fault.
+  Reading the origin alone gives eight and condemns three healthy jobs. There
+  is no config
   key for this; the default is written in `create_job`, not read from config.
   The fix is two halves: the skill tells the assistant to always name a
   delivery platform, and the controller has a repair pass for the ones already
