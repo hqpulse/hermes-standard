@@ -18,7 +18,10 @@ Earlier versions are in the git history (`git log --oneline v0.1.1..v0.2.2`).
   (weekdays 08:00, ends in a 60-second voice note), `meeting-prep.json`
   (weekdays 07:30, one pre-read per meeting), `open-commitments.json`
   (nightly, silent). Each asks once on its first run whether the person wants
-  it; the skill says how keep, change and stop are handled in chat. Each ships
+  it, in its own words rather than a shared line, so an answer names what it
+  belongs to; the skill says how keep, change and stop are handled in chat,
+  including matching an answer to the right job when two are outstanding. Each
+  ships
   `deliver: __HOME_CHANNEL__`, a placeholder the controller substitutes with
   the person's own home platform and chat id; left unsubstituted the job is
   blocked at preflight rather than delivered to whichever channel happens to be

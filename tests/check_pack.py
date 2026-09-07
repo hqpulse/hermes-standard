@@ -78,7 +78,8 @@ for skill_md in sorted(ROOT.glob("skills/**/SKILL.md")):
             err(f"{rel}: points at missing {ref[0]}/{ref[1]}")
 
 # --- presets --------------------------------------------------------------
-ASK = "Want this every day? Say keep, change, or stop."
+ASK_TAIL = "Say keep, change, or stop."
+ask_lines = {}
 # The controller substitutes this before create_job. A preset that ships a real
 # platform name delivers to whichever channel happens to be connected, which on
 # a two-platform pod is the wrong phone and nothing alerts.
@@ -98,8 +99,11 @@ for pj in sorted(ROOT.glob("skills/assistant-standard/presets/*.json")):
         err(f"{rel}: name must start with preset-")
     if job.get("continuity") is not True:
         err(f"{rel}: continuity must be true (first-run detection depends on it)")
-    if ASK not in job.get("prompt", ""):
-        err(f"{rel}: prompt lacks the ask-once question")
+    m = re.search(r'"([^"]*' + re.escape(ASK_TAIL) + r')"', job.get("prompt", ""))
+    if not m:
+        err(f"{rel}: prompt lacks the ask-once question ending {ASK_TAIL!r}")
+    else:
+        ask_lines[str(rel)] = m.group(1)
     if "Your previous run's output" not in job.get("prompt", ""):
         err(f"{rel}: prompt does not say how to recognise the first run")
     if "does not begin with" in job.get("prompt", ""):
@@ -121,6 +125,19 @@ for pj in sorted(ROOT.glob("skills/assistant-standard/presets/*.json")):
             parse_schedule(job["schedule"])
         except Exception as e:
             err(f"{rel}: schedule {job['schedule']!r} rejected: {e}")
+
+# Three presets can fire in the same minute: a gateway that was down across
+# all three windows collapses the backlog and fires each ONCE on the next tick
+# (cron/jobs.py, get_due_jobs), and one tick dispatches them together. An
+# identical question in each is then unanswerable -- neither the person nor the
+# assistant can tell which job a bare "stop" belongs to.
+by_line = {}
+for rel, line in sorted(ask_lines.items()):
+    if line in by_line:
+        err(f"{rel}: ask-once question is word-for-word {by_line[line]}'s; each "
+            f"preset must name its own thing so an answer is unambiguous")
+    else:
+        by_line[line] = rel
 
 # --- dossier --------------------------------------------------------------
 doss = (ROOT / "skills/assistant-standard/references/DOSSIER.md").read_text()
