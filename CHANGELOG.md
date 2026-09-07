@@ -2,6 +2,47 @@
 
 Earlier versions are in the git history (`git log --oneline v0.1.1..v0.2.2`).
 
+## 0.2.4 (2026-09-07)
+
+The preset work of 0.2.3 finished against the engine rather than against its
+schema. Nothing here changes what the three presets say; it changes what the
+assistant does with a scheduled job it makes itself, and it corrects two
+things the 0.2.3 notes had right in intent and wrong in detail.
+
+- **A reminder now names where it goes.** 0.2.3 said reminders deliver to the
+  phone and never to the chat door, which was the right rule and no
+  instruction: the assistant was told to set `deliver` "explicitly" without
+  being told what to write, and it does not know its person's chat id. It now
+  says to pass the platform name — `telegram` or `whatsapp` — which the engine
+  resolves against that person's own home channel, and to ask in one line when
+  it cannot tell which platform is the phone. Measured cause, on
+  `hermes-susan-0`: `create_job` defaults `deliver` to the creating session's
+  origin, the chat door's origin is `api_server:api-<id>`, and the engine's
+  home-channel fallback fires only for a job with NO origin — so five of her
+  nine jobs run on time, report success, and are never delivered.
+- **The timezone is the person's.** `08:00` in a preset now means 08:00 where
+  that person is: the controller keeps a per-person IANA timezone and falls
+  back to the org's. The presets README says which key the engine reads
+  (`timezone`, top level), which file it reaches, and that a pod picks it up on
+  its next restart.
+- **The controller notes corrected where they were wrong.** `create_job` takes
+  `schedule`, not `schedule_str`, and takes `attach_to_session` directly, so
+  the second `update_job` pass the notes described is not needed. And a script
+  that imports `cron.jobs` with the pod's own `HERMES_HOME=/opt/data` resolves
+  its cron store to `/opt/data/cron`, which the running gateway never reads —
+  a preset created that way returns an id and never fires. The profile's own
+  home is the one to use.
+- **`cron.allow_agent_scheduling` stays `false`, with the reason written
+  down.** Re-read in the engine: the key is consumed in exactly one place and
+  only decides whether an agent inside a cron RUN gets the `cronjob` toolset.
+  The chat agent — the one that acts on keep, change and stop — already has it
+  and is unaffected. Scoping the permission to `preset-` names is not
+  expressible: Hermes has no per-job ownership, so that restriction is the
+  skill's rule and not a mechanism.
+- `tests/check_pack.py` also checks the skill still tells the assistant to name
+  a delivery platform, since that sentence is the only thing standing between a
+  chat-made reminder and silence.
+
 ## 0.2.3 (2026-09-07)
 
 - **Humanizer skill.** `skills/humanizer/` is blader/humanizer (MIT, license

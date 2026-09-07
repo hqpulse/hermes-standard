@@ -23,9 +23,17 @@ arguments of `cron.jobs.create_job`, with one exception noted.
 - `name`: the job's friendly name. The presets use a `preset-` prefix; the skill
   lets the assistant edit, pause or remove only jobs with that prefix.
 - `schedule`: cron syntax. Resolved in the profile's configured timezone
-  (`cron/jobs.py`, "anchor to the configured Hermes timezone"), which the fleet
-  render writes into each person's config. Today that value is per org
-  (`FLEET_TIMEZONE`); decision 17 moves it to the person record.
+  (`cron/jobs.py`, "anchor to the CONFIGURED Hermes timezone, not the server's
+  local"), which the fleet render writes into each person's config as the
+  top-level `timezone:` key. `hermes_time.py` resolves that key, and
+  `gateway/run.py` bridges it to `HERMES_TIMEZONE` at start. It is now PER
+  PERSON: the value lives on the person's StatefulSet
+  (`pulse.hqpulse.ai/timezone`) and falls back to the org's `FLEET_TIMEZONE`
+  when they have none of their own, so 08:00 is 08:00 where the person is. A
+  timezone the machine's tzdata cannot load is refused when it is set, because
+  the engine's fallback for an unloadable name is the box's own clock — an 8am
+  brief would fire at 8am UTC and look like nothing was wrong. A pod reads its
+  clock at boot, so a change takes effect on the next restart.
 - `prompt`: self-contained. The job runs in a fresh session with no chat context.
 - `deliver`: where the final reply is posted. The presets carry
   `__HOME_CHANNEL__`, a PLACEHOLDER. The controller must substitute the
@@ -38,6 +46,32 @@ arguments of `cron.jobs.create_job`, with one exception noted.
   are never eligible"). Do not leave it unset: a job created through the API
   door defaults to `origin`, and the API server cannot receive a delivery (the
   7 Sep reminder on Susan's pod failed with exactly that).
+
+  The failure in full, because it is the reason this field is a placeholder
+  rather than a default. `create_job` defaults `deliver` to the creating
+  session's origin ("Default delivery to origin if available, otherwise
+  local"), and the chat door stamps its origin as
+  `{"platform": "api_server", "chat_id": "api-<id>"}`
+  (`gateway/platforms/api_server.py`, `_cron_origin_from_request`). At fire
+  time `_resolve_single_delivery_target` hands that straight back as the
+  target, and the send fails with "API server uses HTTP request/response, not
+  send()". The engine DOES have a home-channel fallback, but it fires only when
+  a job has NO origin at all — a chat-door job has one, it is just
+  undeliverable — so these fail on every run and keep failing. Measured on
+  `hermes-susan-0`: five of her nine jobs are in that state. There is no config
+  key for this; the default is written in `create_job`, not read from config.
+  The fix is two halves: the skill tells the assistant to always name a
+  delivery platform, and the controller has a repair pass for the ones already
+  made.
+
+  Note the two halves deliberately use DIFFERENT forms, and neither is a
+  mistake to be tidied into the other. A preset gets the explicit
+  `platform:chat_id` written by the controller, because only that form can
+  attach a session and the person must be able to reply to their brief. A
+  reminder the assistant creates in chat gets the bare platform name, because
+  the assistant does not know a chat id and the engine resolves a bare name
+  against the same `home_channel` block. A reminder that cannot be replied to
+  is fine; a reminder that never arrives is not.
 - `skills`: skills loaded before the prompt. All three load `assistant-standard`
   so the Brief, pre-read and commitment formats are in the job's context.
 - The nightly job runs seven days a week (`0 23 * * *`) while both briefs are
@@ -94,11 +128,27 @@ from its prompt. Both halves together mean the question is asked once.
    with more than one connected platform is the dangerous case: Telegram
    being connected does not make it the home channel, and preflight cannot
    tell the difference, so read the home channel from the person record and
-   never fall back to a default. Either
-   `hermes -p hermes-standard cron create "<schedule>" "<prompt>" --name <name> --deliver <platform>:<chat_id> --skill assistant-standard --continuity`
-   or `cron.jobs.create_job(..., context_from=["self"])` from Python, then
-   `update_job` for `attach_to_session` (the CLI create has no flag for it; the
-   tool does).
+   never fall back to a default. Susan has a home channel on BOTH Telegram and
+   WhatsApp, and the one job of hers that delivers correctly delivers to
+   WhatsApp — a controller that had quietly preferred Telegram would have put
+   her morning figures in the chat she does not read. The controller therefore
+   refuses rather than picking, until somebody says which is home
+   (`pulse.hqpulse.ai/home-platform` on the person's StatefulSet).
+
+   Two things about doing this from Python, both measured on the running image
+   rather than read off a signature:
+
+   - **Point `HERMES_HOME` at the PROFILE, not at the pod's own home.** The pod
+     sets `HERMES_HOME=/opt/data`, and a script that imports `cron.jobs` with
+     that value resolves its cron store to `/opt/data/cron` — while the running
+     gateway's jobs are in `/opt/data/profiles/hermes-standard/cron/jobs.json`.
+     A job created the obvious way is written where nothing reads it:
+     `create_job` returns an id, the apply reports success, and the brief never
+     fires. Use `HERMES_HOME=/opt/data/profiles/hermes-standard`.
+   - **`create_job` takes `schedule`, not `schedule_str`, and it takes
+     `attach_to_session` directly.** No second `update_job` pass is needed;
+     only the CLI lacks the flag. `continuity` is not an argument at all — it
+     is stored as `context_from=["self"]`.
 2. **Only when the home channel exists.** `cron.preflight` (on by default)
    records a job whose delivery platform is not configured as
    `blocked_config` and never runs it. A person with no Telegram or WhatsApp

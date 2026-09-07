@@ -182,6 +182,22 @@ for rel, line in sorted(ask_lines.items()):
     else:
         by_line[line] = rel
 
+# --- reminders reach a phone ----------------------------------------------
+#
+# The one sentence between a chat-made reminder and silence. `create_job`
+# defaults `deliver` to the creating session's origin, and the chat door's
+# origin is `api_server`, which has no sender: the job runs, reports success,
+# and nobody is told. Five of one person's nine jobs were in that state on
+# 7 Sep. The engine has no config key for this, so the skill saying it is the
+# whole prevention.
+skill_text = (ROOT / "skills/assistant-standard/SKILL.md").read_text()
+for phrase in ("must name a `deliver` target",
+               "`telegram`, or `whatsapp`",
+               "never pass `origin`"):
+    if phrase not in skill_text:
+        err(f"assistant-standard/SKILL.md: lost {phrase!r} — without it the "
+            f"assistant leaves `deliver` unset and its reminders go nowhere")
+
 # --- dossier --------------------------------------------------------------
 doss = (ROOT / "skills/assistant-standard/references/DOSSIER.md").read_text()
 for marker in ("=== CONTEXT SKILL ===", "=== USER.MD ===", "6,000", "240", "§"):
