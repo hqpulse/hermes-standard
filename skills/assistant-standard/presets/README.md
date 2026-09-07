@@ -108,14 +108,10 @@ from its prompt. Both halves together mean the question is asked once.
    already has the `cronjob` toolset: it is not in the rulebook's
    `disabled_toolsets`. Hermes has no per-job ownership, so the restriction to
    `preset-` names is the skill's rule, not a mechanism. If the rulebook ever
-   disables `cronjob`, the ask-once answer stops working. Check this against the LIVE
-   org rulebook ConfigMaps, which is the only place it is true of: as of
-   2026-09-07 `hermes-venza` (14 entries), `hermes-ista` (14) and `hermes-pvc`
-   (16) all leave `cronjob` and `file` enabled. `infra/k8s/org/base/policy.yaml`
-   in hermes-fleet does NOT match them: its `agent.disabled_toolsets` is seven
-   entries and includes `terminal`, `file` and `cronjob`. Applying that file to
-   a live org as it stands would stop the ask-once answers working and stop the
-   nightly job writing the commitments file.
+   disables `cronjob`, the ask-once answer stops working. Verified 2026-09-07
+   against the live org rulebook ConfigMaps: `hermes-venza` (14 disabled toolsets),
+   `hermes-ista` (14) and `hermes-pvc` (16) all leave `cronjob` and `file`
+   enabled.
 4. **`cron.allow_agent_scheduling` can stay `false`.** That key only decides
    whether the agent *inside a cron run* gets the `cronjob` toolset
    (`cron/scheduler.py`, `_resolve_cron_disabled_toolsets`). The presets never
