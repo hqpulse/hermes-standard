@@ -40,6 +40,9 @@ arguments of `cron.jobs.create_job`, with one exception noted.
   7 Sep reminder on Susan's pod failed with exactly that).
 - `skills`: skills loaded before the prompt. All three load `assistant-standard`
   so the Brief, pre-read and commitment formats are in the job's context.
+- The nightly job runs seven days a week (`0 23 * * *`) while both briefs are
+  weekdays only. That is deliberate, not an oversight: commitments are made and
+  met at weekends too, and the pass is silent, so it costs the person nothing.
 - `continuity`: `true` means each run gets its own previous output injected at
   the top of the prompt under the heading "Your previous run's output". On the
   tool and CLI this is a flag; `create_job` itself has no such argument, it is

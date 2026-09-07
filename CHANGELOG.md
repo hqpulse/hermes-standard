@@ -37,3 +37,23 @@ Earlier versions are in the git history (`git log --oneline v0.1.1..v0.2.2`).
 - Every new file the pack ships is listed in `distribution_owned`: with an
   explicit list, only listed paths reach the pod at all.
 - `tests/check_pack.py`: frontmatter, preset payloads and manifest checks.
+  Run it with the Hermes interpreter; a plain `python3` that can see the Hermes
+  source but not its dependencies reports three schedule failures that are not
+  real.
+
+### Known gaps in 0.2.3
+
+Recorded so a green check run is not read as more than it is. The first three
+are limits of the checks themselves and none of them blocks the release. The
+last one does: it gates rolling the presets beyond a single pod.
+
+- The ask-once distinctness check is an exact string comparison, so two
+  questions that differ by a word but read the same to a person still pass.
+- The dossier check greps for the literal "240" rather than doing the
+  arithmetic, so widening the entry count would pass while breaking the
+  2,000-character ceiling.
+- Nothing guards the humanizer fence itself. Delete the paragraph and every
+  check stays green, which makes the pack's most safety-carrying text its
+  least protected.
+- No preset has been watched firing on a real phone. That smoke test gates
+  rolling these beyond one pod.

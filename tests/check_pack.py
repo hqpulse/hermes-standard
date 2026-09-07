@@ -4,6 +4,26 @@
 Uses the Hermes source at ~/.hermes/hermes-agent when present (frontmatter
 parser, cron schedule parser, cronjob tool schema); otherwise falls back to
 plain YAML/JSON checks so the script still runs anywhere.
+
+RUN IT WITH THE HERMES INTERPRETER
+(~/.hermes/hermes-agent/venv/bin/python). The fallback above only triggers when
+the IMPORT fails. An interpreter that can import the Hermes source but lacks
+its dependencies gets past the import and then fails at call time: with
+`croniter` missing, every preset reports its schedule "rejected" and the run
+exits 1 on three failures that are not real. Whoever wires this into CI must
+pin that interpreter, or teach the schedule check to treat a missing croniter
+as "unchecked" rather than "rejected".
+
+KNOWN GAPS, so nobody reads a green run as more than it is:
+  - The ask-once distinctness check compares exact strings. Two questions that
+    differ by a word but read identically to a person still pass.
+  - The dossier check greps for the literal "240". It does not do the
+    arithmetic, so raising the entry count past what 2,000 characters can hold
+    would sail through as long as that number is still on the page.
+  - Nothing guards the humanizer fence in SKILL.md ("changes how it reads,
+    never what it says", the leave-exactly list, the no-pass rule for anyone
+    outside the company). Delete the whole paragraph and these checks stay
+    green. It is the pack's most safety-carrying text and it is unprotected.
 """
 import json, os, re, sys
 from pathlib import Path
