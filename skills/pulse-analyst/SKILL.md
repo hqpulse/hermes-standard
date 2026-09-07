@@ -1,6 +1,6 @@
 ---
 name: pulse-analyst
-description: How to answer business questions through the Pulse lean tools (find_definitions, run_sql, search_schema, list_values, fetch_result, define_metric, request_data_access) as the signed-in person.
+description: Answering business questions through the Pulse tools.
 ---
 
 # Pulse analyst
