@@ -1,0 +1,11 @@
+{
+  "name": "preset-morning-brief",
+  "schedule": "0 8 * * 1-5",
+  "deliver": "telegram",
+  "skills": [
+    "assistant-standard"
+  ],
+  "continuity": true,
+  "attach_to_session": true,
+  "prompt": "You are this person's Pulse assistant and this is their morning brief. Build it in the Brief format from the assistant-standard skill: the headline figures this organization watches, company line first, each with its window and source lag; then today's calendar and who is out; then commitments due today or overdue, read from the vault file Open commitments.md; then mail worth knowing before the first meeting. Eight lines at most, one offer at the end, never a menu. Every figure comes from Pulse through the query tools; if Pulse refuses, say so in one line and leave the figure out. Read memory first for how they like the brief. If a door is closed (mail, calendar), say so in one plain line and give the rest. Then produce the same brief as a voice note of about 60 seconds (about 150 words) with the text_to_speech tool, spoken as a person would say it, no headings or bullets read aloud, and attach the audio to your final message. Your final message is the written brief plus the audio. FIRST RUN ONLY. If this prompt does not begin with a block titled \"Your previous run's output\", this is your first run: end your message with one extra line, exactly: \"Want this every day? Say keep, change, or stop.\" If that block is present, this is not your first run: never ask that question again, even if the person has not answered it."
+}

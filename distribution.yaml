@@ -1,5 +1,5 @@
 name: hermes-standard
-version: 0.2.2
+version: 0.2.3
 description: "HQ Pulse standard employee assistant: persona and skills"
 hermes_requires: ">=0.21.0"
 author: "HQ Pulse"
@@ -25,6 +25,11 @@ env_requires:
 #
 # So own the FILE, not the folder. We ship exactly one SKILL.md in there; the
 # folder itself belongs to whoever else writes into it.
+#
+# The other half of the same rule: once this list is explicit, ONLY the paths
+# on it are copied at all (hermes_cli/profile_distribution.py, _copy_dist_payload).
+# A new file that is not listed here never reaches a pod. So every file the
+# pack ships is listed, one line each.
 distribution_owned:
   - SOUL.md
   - skills/pulse-analyst/SKILL.md
@@ -44,3 +49,10 @@ distribution_owned:
   - skills/assistant-standard/vault/Open commitments.base
   - skills/assistant-standard/vault/Meetings.base
   - skills/assistant-standard/vault/People.base
+  - skills/assistant-standard/references/DOSSIER.md
+  - skills/assistant-standard/presets/README.md
+  - skills/assistant-standard/presets/morning-brief.json
+  - skills/assistant-standard/presets/meeting-prep.json
+  - skills/assistant-standard/presets/open-commitments.json
+  - skills/humanizer/SKILL.md
+  - skills/humanizer/LICENSE
