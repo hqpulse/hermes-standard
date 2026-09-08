@@ -2,6 +2,50 @@
 
 Earlier versions are in the git history (`git log --oneline v0.1.1..v0.2.2`).
 
+## 0.3.0 (2026-09-08)
+
+- **Entity notes.** `skills/entity-notes/`: one markdown file per THING an
+  assistant meets more than once - a supplier, a customer, a site, a candidate,
+  a machine - so the second time starts with what happened the first time. The
+  skill teaches the shape (frontmatter as a contract, a regenerated block at the
+  top, dated sections appended for ever and never edited, a what-changed list
+  that has a line for every fact including the ones that did not move) and the
+  five rules behind it: the note is a memory and never a source, retrieval is an
+  exact lookup and never a search, one file per thing verified by key on every
+  write, the file goes where its class says, and nothing is invented.
+- **`entity_note.py`**, the helper that owns the parts nobody should write
+  twice: where the notes folder is (OBSIDIAN_VAULT_PATH, then the workspace,
+  then a development path, then a refusal in words), the filename rule
+  (`<Name> - <KEY>.md`, total and reversible with one rsplit), frontmatter that
+  re-emits keys it has never heard of byte for byte, an atomic 0600 write, the
+  section reader, an idempotent append, the generic diff, and the exact-lookup
+  index. Standard library only; the frontmatter parser is hand-rolled and dumb
+  on purpose, and says so.
+- **`class: phi`** added to the confidentiality table and to the note types: a
+  stricter `private` for a cell whose whole job is those people, bought back
+  with a local-only rule (never mirrored, never to a sink, a group note, a brain
+  or memory). It overrides the "never a patient or client by name" row on that
+  cell alone, and nowhere else. Without this written down, the next agent to
+  read the pack would have been right to refuse to write those files.
+- `Entities.base`, the board over every entity note, with days since the last
+  read next to every column and a view for the ones nobody has read in a month.
+- `tests/check_entity_notes.py`: 151 checks - every nasty filename, two things
+  with the same name, a frontmatter round trip carrying a key this parser cannot
+  read, a child process killed between the temp write and the rename, and no
+  notes folder at all. Run it with `python3 tests/check_entity_notes.py`.
+
+### Known gaps in 0.3.0
+
+- 0.2.4 and 0.2.5 bumped the version with no changelog entry, so `check_pack.py`
+  was already failing before this release; what those two versions changed is in
+  the git log, not here.
+- The frontmatter parser is checked against what we write plus a handful of
+  shapes somebody else might. It is not a YAML conformance suite and does not
+  claim to be: anything it does not understand is kept as the exact text it
+  arrived as, which is the property the checks actually cover.
+- Nothing has yet written an entity note on a real pod. The helper is exercised
+  only by the checks and by whatever the first specialised layer does with it.
+
 ## 0.2.6 (2026-09-08)
 
 The preset work of 0.2.3 finished against the engine rather than against its

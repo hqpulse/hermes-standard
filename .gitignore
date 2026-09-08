@@ -5,3 +5,4 @@ memories/
 sessions/
 state.db*
 logs/
+__pycache__/

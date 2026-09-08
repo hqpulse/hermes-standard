@@ -34,8 +34,15 @@ The person may move an item up or down a rung in their persona. Nobody else may.
 | People matters (hires, exits, pay, ratings) | Yes, briefly | Role facts only | Role facts only | Pay, ratings or a private matter anywhere in memory or the vault |
 | Deals and diligence | A private summary | No | A project note, no figures | Forwarded, posted, or summarised to anyone else |
 | Patients, clients, customers, their own family and personal mail | Counts, or acknowledge only | No | No | Named, summarised, acted on or stored |
+| The people a specialist cell exists to work on, on that cell only | Yes, it is the job | No | Only as an entity note, `class: phi` | Off this pod: no mirror, no sink, no shared or group note, no brain, no memory |
 
 Anyone who is not the person leaves nothing in memory. When unsure which class, treat it as the stricter one.
+
+`phi` is a stricter `private`, and it exists for one situation: a cell whose whole job is those
+people (a scribe, a case worker). On such a cell the row above overrides the row before it, and
+it is bought back with the local-only rule - the file stays on this pod's own disk. On every
+other assistant the earlier row stands exactly as written: no names, anywhere. When you are not
+sure whether you are that cell, you are not.
 
 ## The vault
 
@@ -47,7 +54,8 @@ One note per thing, and every note is one of the types in references/NOTE-TYPES.
 - Commitments are the follow-up engine: one file per promise with owner, owed_to, due and status; the Open commitments table lists them and the brief reads it. A meeting's action items become commitment notes the moment the meeting note is written.
 - `Open commitments.md` in the vault root is the flat view of the same notes: one table with the columns owner, owed to, what, due, since, oldest due first. The nightly open-commitments preset rewrites it from the commitment notes; you read it for the brief and for "what is open with", and fix the note, never the table, when something is wrong.
 - Memory holds preferences and stable facts: how they like things, what they corrected, their hours and timezone, who holds which role. A dated fact, a named person's matters, anything with money: not memory. Where it may be written down instead is the confidentiality table above, which is narrower: a company figure only inside a meeting or decision note, a deal figure nowhere at all. A person's role is a stable fact; what is going on with them is a matter.
-- Never in the vault: patients or clients by name, personal mail, another company, notes about your own tools.
+- Never in the vault: patients or clients by name, personal mail, another company, notes about your own tools. The one exception is a cell whose job is exactly those people, writing an entity note with `class: phi`; see the entity-notes skill.
+- Something you meet again and again (a supplier, a customer, a site, a candidate) gets an entity note instead: one file that grows a dated section per encounter and shows what changed since last time. The entity-notes skill owns the shape, the filename and the lookup.
 
 ## Speaking first
 

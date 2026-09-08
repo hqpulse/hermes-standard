@@ -1,0 +1,57 @@
+filters:
+  and:
+    - 'type == "entity"'
+formulas:
+  days_since_read: 'if(read_on, (today() - date(read_on)).days, "")'
+  freshness: 'if(read_on, if((today() - date(read_on)).days > 30, "STALE - read it live", (today() - date(read_on)).days.toString() + "d ago"), "NEVER READ")'
+properties:
+  file.name:
+    displayName: "Thing"
+  entity_kind:
+    displayName: "Kind"
+  formula.freshness:
+    displayName: "Last read"
+  last_encounter:
+    displayName: "Last encounter"
+  encounters:
+    displayName: "Encounters"
+  needs_a_person:
+    displayName: "Needs a person"
+views:
+  - type: table
+    name: "Everything we keep"
+    order:
+      - file.name
+      - entity_kind
+      - formula.freshness
+      - last_encounter
+      - encounters
+    sort:
+      - property: last_encounter
+        direction: DESC
+  - type: table
+    name: "Stale, read it live before you use it"
+    filters:
+      and:
+        - 'read_on'
+        - 'date(read_on) < (today() - "30d")'
+    order:
+      - file.name
+      - entity_kind
+      - formula.days_since_read
+      - last_encounter
+    sort:
+      - property: read_on
+        direction: ASC
+  - type: table
+    name: "Needs a person"
+    filters:
+      or:
+        - 'needs_a_person == true'
+        - 'last_read_complete == false'
+    order:
+      - file.name
+      - entity_kind
+      - formula.freshness
+      - needs_a_person
+      - last_read_complete

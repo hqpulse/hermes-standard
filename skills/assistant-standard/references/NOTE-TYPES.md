@@ -8,15 +8,18 @@ vault root. Dates are YYYY-MM-DD in the person's timezone.
 Common frontmatter on every note:
 
 ```yaml
-type: meeting | person | project | decision | commitment | daily | expense | shift
+type: meeting | person | project | decision | commitment | daily | expense | shift | entity
 created: 2026-09-07
 source: chat | voice | mail | calendar | file
 tags: [...]
-class: company | people | deal | private   # the confidentiality class (see the skill)
+class: company | people | deal | private | phi   # the confidentiality class (see the skill)
 ```
 
 `class: private` notes are never mirrored, never sent to anyone but the person,
 and never summarised into a group or a shared note. Default is `company`.
+`class: phi` is stricter still and only exists on a cell whose job is that work:
+the file never leaves the pod's own disk. See the confidentiality table in the
+skill.
 
 | type | path | extra keys | what goes in | what never goes in |
 |---|---|---|---|---|
@@ -28,6 +31,7 @@ and never summarised into a group or a shared note. Default is `company`.
 | daily | Daily/YYYY-MM-DD.md | (none) | the person's own scribbles for the day and what you read back at the close | numbers copied from Pulse |
 | expense | Expenses/YYYY-MM-DD <vendor>.md | amount, currency, category, receipt (file) | a receipt the person handed you, filed | card numbers |
 | shift (worker) | Shifts/YYYY-MM-DD.md | provider ([[link]]), counts | what was done per provider, as counts and chart links | any patient identifier |
+| entity | <Kind>/<Name> - <KEY>.md | entity_kind, entity_key, entity_keys, display, source_system, read_at, read_on, encounters | one thing you meet again and again: dated sections appended for ever, and what changed since last time | a fact belonging to any other entity |
 
 Rules:
 - A commitment is created the moment a meeting note records an action item; the meeting note links to it and it links back.
@@ -35,3 +39,6 @@ Rules:
 - A person note is role facts. The dated log lines point at meeting notes; they do not restate them.
 - Outbox/ holds files made for the person (spreadsheets, decks, PDFs); it is not a note type.
 - The vault root carries the tables the assistant reads: Open commitments.base, Meetings.base, People.base. They ship with the pack; do not rewrite them, add views if the person asks.
+- An entity note is the one type that grows for years. It has its own skill
+  (`entity-notes`), which owns the filename rule, the frontmatter contract and
+  the exact lookup; never hand-roll any of the three.
