@@ -649,18 +649,29 @@ def staleness_banner(read_on, source_label, today_=None, warn_days=30,
 
     It names a date, never "recently". Past warn_days it turns into a danger callout that opens with
     the number of days, because a reader who skims one line has to hit the age before the facts.
+
+    AND IT SAYS THAT ITS OWN NUMBER IS FROZEN. This is flat markdown: the block is written once and
+    regenerated only on the next write, so on a file written the day it was read the count is zero
+    and STAYS zero however long the file then sits. A reader opening it in November would otherwise
+    see a banner that looks exactly like one written this morning. So every age here names the day
+    it was worked out, and the reader is asked for the subtraction rather than told a number that
+    stopped counting.
     """
-    days = days_between(read_on, today_ or today())
+    as_of = today_ or today()
+    days = days_between(read_on, as_of)
     stale = days is not None and days > int(warn_days)
     head = "> [!danger] This file is a memory, not a %s." % kind_word if stale \
         else "> [!warning] This file is a memory, not a %s." % kind_word
     lines = [head]
     if stale and days is not None:
-        lines.append("> Last read %d days ago - treat every line below as history." % days)
-    lines.append("> Last read from %s on %s. Nothing on this page is today's %s. Read the %s live"
-                 % (source_label, read_on or "an unrecorded date", kind_word, kind_word))
-    lines.append("> before you act on it; where this file and the %s disagree the %s wins and a "
-                 "correction is appended below." % (kind_word, kind_word))
+        lines.append("> Last read %d days ago as at %s - treat every line below as history."
+                     % (days, as_of))
+    lines.append("> Last read from %s on %s. This banner was written on %s and does not count the "
+                 "days again when the file is opened, so work that age out before you use anything "
+                 "below it." % (source_label, read_on or "an unrecorded date", as_of))
+    lines.append("> Nothing on this page is today's %s. Read the %s live before you act on it; "
+                 "where this file and the %s disagree the %s wins and a correction is appended "
+                 "below." % (kind_word, kind_word, kind_word, kind_word))
     for line in extra_lines:
         lines.append("> " + str(line).strip())
     return "\n".join(lines)

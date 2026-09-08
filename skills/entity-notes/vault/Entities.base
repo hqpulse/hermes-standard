@@ -1,3 +1,14 @@
+# Everything the assistant keeps a running file on, whatever kind of thing it is: a customer, a
+# supplier, a site, a candidate, a machine, a case. One row per entity note.
+#
+# The freshness column is next to the content columns in every view, and never last, because the
+# whole contract of an entity note is that a fact here was true on a named day rather than today.
+# A view that shows what we know without showing how old it is undoes the file.
+#
+# `formula.freshness` is paired with the raw `read_on` column wherever a decision hangs on it, so
+# the view still reads correctly on an Obsidian that is too old to compute formulas.
+#
+# Ships with the pack; ADD A VIEW RATHER THAN EDIT ONE, because an upgrade rewrites this file.
 filters:
   and:
     - 'type == "entity"'
@@ -11,12 +22,18 @@ properties:
     displayName: "Kind"
   formula.freshness:
     displayName: "Last read"
+  formula.days_since_read:
+    displayName: "Days since read"
+  read_on:
+    displayName: "Read on"
   last_encounter:
     displayName: "Last encounter"
   encounters:
     displayName: "Encounters"
   needs_a_person:
     displayName: "Needs a person"
+  last_read_complete:
+    displayName: "Read complete"
 views:
   - type: table
     name: "Everything we keep"
@@ -29,6 +46,24 @@ views:
     sort:
       - property: last_encounter
         direction: DESC
+
+  # One table holding every kind of thing is the point of the layer; this is where you see that it
+  # is true. A domain that wants its own columns ships its own Base and filters on entity_kind.
+  - type: table
+    name: "By kind"
+    groupBy:
+      property: entity_kind
+      direction: ASC
+    order:
+      - file.name
+      - formula.freshness
+      - last_encounter
+      - encounters
+      - needs_a_person
+    sort:
+      - property: last_encounter
+        direction: DESC
+
   - type: table
     name: "Stale, read it live before you use it"
     filters:
@@ -38,11 +73,13 @@ views:
     order:
       - file.name
       - entity_kind
+      - read_on
       - formula.days_since_read
       - last_encounter
     sort:
       - property: read_on
         direction: ASC
+
   - type: table
     name: "Needs a person"
     filters:

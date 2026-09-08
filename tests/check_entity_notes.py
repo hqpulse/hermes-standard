@@ -26,6 +26,7 @@ Known gaps, so a green run is not read as more than it is:
 import json
 import os
 import shutil
+import pathlib
 import subprocess
 import sys
 import tempfile
@@ -415,6 +416,80 @@ check(out.returncode == 0 and json.loads(out.stdout)["ok"] is False,
       "a refusal on the command line still exits 0, like every other tool here")
 out = cli("where", "--json")
 check(json.loads(out.stdout)["path"] == str(work), "the command line resolves the notes folder")
+
+# --- the board ------------------------------------------------------------------------------
+# The renderer draws a page from a spec, and the spec is where every word from a subject lives. The
+# grep below is the check that keeps that true, and it is the one most likely to be deleted by
+# somebody in a hurry to ship a column: if it fails, the fix is to move the word into your own
+# spec, never to widen this list.
+board_dir = pathlib.Path(tempfile.mkdtemp(prefix="entity-board-"))
+# The checks themselves run in a temp folder, which is exactly the place the renderer refuses to
+# write to. The escape hatch is set for the runs that are only proving the drawing; the refusal
+# itself is checked below with the hatch deliberately removed from the environment.
+BOARD_ENV = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1", "ENTITY_BOARD_ALLOW_TMP": "1"}
+out_html = board_dir / "demo.html"
+run = subprocess.run([sys.executable, str(HELPER_DIR / "board.py"), "--demo",
+                      "--out", str(out_html), "--as-of", "2026-09-08"],
+                     capture_output=True, text=True,
+                     env=BOARD_ENV)
+check(run.returncode == 0 and out_html.exists(),
+      "board.py --demo writes a page and exits 0 (%s)" % run.stdout.strip())
+page = out_html.read_text(encoding="utf-8") if out_html.exists() else ""
+check("Content-Security-Policy" in page, "the page carries the CSP that keeps it offline")
+body = page.replace('<meta http-equiv="Content-Security-Policy"', "")
+body = body[:body.index("content=\"default-src")] + body[body.index("base-uri 'none'\">"):] if "default-src" in body else body
+check("http://" not in body and "https://" not in body,
+      "nothing in the page reaches a network origin")
+for word in ("localStorage", "sessionStorage", "indexedDB"):
+    check(word not in page, "the page keeps nothing in the browser (%s)" % word)
+check(oct(out_html.stat().st_mode)[-3:] == "600", "the page is written 0600")
+
+# A group head the filter hides must actually go. An author rule beats the browser's own
+# [hidden]{display:none} whatever the specificity, so .grp{display:flex} kept every emptied group
+# heading on the page with nothing under it, over a stale row count.
+check("[hidden]{display:none!important}" in page,
+      "an author [hidden] rule outranks the display rules the filter has to beat")
+check('class="gcount"' in page and 'c.dataset.total' in page,
+      "a group head's row count is rewritten by the filter rather than frozen at render time")
+
+refused = subprocess.run([sys.executable, str(HELPER_DIR / "board.py"), "--demo",
+                          "--out", "/tmp/entity-board-should-refuse.html"],
+                         capture_output=True, text=True,
+                         env={k: v for k, v in os.environ.items() if k != "ENTITY_BOARD_ALLOW_TMP"})
+check(refused.returncode == 0 and refused.stdout.startswith("ERROR:")
+      and not os.path.exists("/tmp/entity-board-should-refuse.html"),
+      "an --out under /tmp is refused in words, and nothing is written")
+
+bad_spec = board_dir / "spec2.json"
+bad_spec.write_text(json.dumps({"spec": 2, "title": "x"}))
+out = subprocess.run([sys.executable, str(HELPER_DIR / "board.py"), "--spec", str(bad_spec),
+                      "--vault", str(board_dir), "--out", str(board_dir / "x.html")],
+                     capture_output=True, text=True, env=BOARD_ENV)
+check(out.stdout.startswith("ERROR:") and "2" in out.stdout and "1" in out.stdout,
+      "a spec integer this renderer does not know is a refusal naming both numbers")
+out = subprocess.run([sys.executable, str(HELPER_DIR / "board.py"), "--spec-version"],
+                     capture_output=True, text=True)
+check(out.stdout.strip() == "1", "--spec-version prints what this copy draws")
+
+empty = board_dir / "empty"
+empty.mkdir()
+out = subprocess.run([sys.executable, str(HELPER_DIR / "board.py"), "--spec",
+                      str(HELPER_DIR / "boards" / "entities.board.json"), "--vault", str(empty),
+                      "--out", str(board_dir / "none.html")], capture_output=True, text=True,
+                     env=BOARD_ENV)
+check(out.returncode == 0 and (board_dir / "none.html").exists(),
+      "an empty folder still draws a page rather than failing")
+
+SUBJECT_WORDS = ("wound", "patient", "resident", "anticoagul", "medication", "diagnos",
+                 "clinical", "pcc", "pointclickcare", "icd", "provider", "chart")
+for rel in ["board.py", "references/BOARD-SPEC.md", "boards/entities.board.json"] + \
+           ["boards/demo/Suppliers/" + f for f in sorted(os.listdir(HELPER_DIR / "boards" / "demo" / "Suppliers"))]:
+    text = (HELPER_DIR / rel).read_text(encoding="utf-8").lower()
+    hit = [w for w in SUBJECT_WORDS if w in text]
+    check(not hit, "%s carries no word from any one subject (%s)" % (rel, ", ".join(hit)))
+
+shutil.rmtree(board_dir, ignore_errors=True)
+shutil.rmtree(HELPER_DIR / "__pycache__", ignore_errors=True)
 
 shutil.rmtree(work, ignore_errors=True)
 shutil.rmtree(HELPER_DIR / "__pycache__", ignore_errors=True)   # nothing under skills/ but shipped files

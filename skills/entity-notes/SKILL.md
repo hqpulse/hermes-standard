@@ -184,9 +184,11 @@ and an exact key, never a search over the folder.
 
     <!-- carry-forward:start — regenerated on every write; everything below carry-forward:end is append-only -->
     > [!warning] This file is a memory, not a record.
-    > Last read from the supplier ledger on 09/07/26. Nothing on this page is today's record. Read it
-    > live before you act on it; where this file and the ledger disagree the ledger wins and a
-    > correction is appended below.
+    > Last read from the supplier ledger on 09/07/26. This banner was written on 09/07/26 and does
+    > not count the days again when the file is opened, so work that age out before you use anything
+    > below it.
+    > Nothing on this page is today's record. Read the record live before you act on it; where this
+    > file and the record disagree the record wins and a correction is appended below.
 
     ## Carry forward
 
@@ -230,3 +232,33 @@ and an exact key, never a search over the folder.
 `vault/Entities.base` is the board over all of these: one row per entity, with days since the last
 read next to every fact, and a view for the ones nobody has read in a month. Copy it into the notes
 folder root and filter it by `entity_kind` for a board of one kind.
+
+## The board
+
+Obsidian gives you a table over these notes (`vault/Entities.base`). `board.py` gives you the same
+thing as one self-contained HTML page, for the times there is no Obsidian: a pod with no browser, a
+page mailed to a laptop, a sheet somebody prints and carries.
+
+    python3 board.py --spec boards/entities.board.json --vault "$OBSIDIAN_VAULT_PATH" \
+                     --out "$HOME/board/entities.html"
+
+    python3 board.py --demo --out /some/where/demo.html     # five made-up suppliers
+
+It reads the notes, groups them, draws the state words as pills, sparklines any series you point it
+at, and - the reason it exists - fades every row as its read date recedes, so a file last read in
+May cannot look like a file read this morning. Columns, groups, tiles, sections, colours and the
+staleness ladder all come out of the spec, which is yours to write: `references/BOARD-SPEC.md` has
+every key.
+
+Three things worth knowing before you use it:
+
+- **It draws nothing it was not given.** A key that is absent draws an em dash meaning "nobody
+  looked"; a key holding the spec's `absent_word` draws those words. Rule 5, on a screen.
+- **The page cannot reach the network.** A Content-Security-Policy meta forbids every origin, and
+  nothing is kept in the browser - no `localStorage`, no cookie. A board can carry confidential rows.
+- **It writes and stops.** It refuses an `--out` under `/tmp`, writes the file 0600, and has no way
+  to send it anywhere. Delivering a board is the caller's decision and the caller's tool.
+
+A plugin with its own vocabulary ships its own spec and, when it has to work a value out, its own
+row builder; the renderer stays generic. That is the seam. If you find yourself wanting to teach
+`board.py` a word from your subject, the word belongs in your spec.

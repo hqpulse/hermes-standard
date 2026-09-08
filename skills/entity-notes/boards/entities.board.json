@@ -1,0 +1,229 @@
+{
+  "spec": 1,
+  "title": "Entities",
+  "entity_kind": "supplier",
+  "folder": "Suppliers",
+  "group_by": "region",
+  "sort_name": "display",
+  "date_format": "mm/dd/yy",
+  "absent_word": "not recorded",
+  "search_fields": [
+    "display",
+    "region",
+    "entity_key",
+    "owner"
+  ],
+  "staleness": {
+    "key": "read_on",
+    "label": "checked",
+    "ladder": [
+      {
+        "upto_days": 7,
+        "level": "fresh"
+      },
+      {
+        "upto_days": 30,
+        "level": "ageing"
+      },
+      {
+        "upto_days": 90,
+        "level": "old"
+      },
+      {
+        "upto_days": null,
+        "level": "history"
+      }
+    ]
+  },
+  "counts": {
+    "ready_label": "tracked",
+    "person_label": "need a person",
+    "person_field": "needs_a_person"
+  },
+  "columns": [
+    {
+      "key": "context_slot",
+      "label": "Slot",
+      "type": "text",
+      "width": 62
+    },
+    {
+      "key": "display",
+      "label": "Entity",
+      "type": "identity",
+      "sub": [
+        "owner"
+      ],
+      "width": "1.3fr"
+    },
+    {
+      "key": "status",
+      "label": "Status",
+      "type": "pill",
+      "palette": "status",
+      "width": 140,
+      "ages": true
+    },
+    {
+      "key": "lead_time_values",
+      "label": "Lead time",
+      "type": "series",
+      "text": "lead_time_text",
+      "measured_on": "lead_time_on",
+      "good_direction": "down",
+      "expect_from": "status",
+      "expect": {
+        "improving": "down",
+        "steady": "flat"
+      },
+      "caution_hint": "Read the last check.",
+      "width": 130,
+      "ages": true,
+      "dates": "lead_time_dates",
+      "unit": "days"
+    },
+    {
+      "key": "escalations",
+      "label": "Open with",
+      "type": "pills",
+      "style": "solid",
+      "also": [
+        {
+          "key": "watch_items",
+          "style": "outline"
+        }
+      ],
+      "none_word": "nothing open",
+      "width": "1fr",
+      "ages": true
+    },
+    {
+      "key": "review_interval",
+      "label": "Review",
+      "type": "interval_watch",
+      "since": "last_encounter",
+      "interval": "review_interval",
+      "none_word": "none agreed",
+      "width": 120
+    },
+    {
+      "key": "last_encounter",
+      "label": "Last dealt with",
+      "type": "date_age",
+      "width": 100
+    },
+    {
+      "key": "read_on",
+      "label": "Checked",
+      "type": "staleness",
+      "width": 112
+    }
+  ],
+  "secondary_line": {
+    "key": "changed_since",
+    "label": "since last time"
+  },
+  "palettes": {
+    "status": {
+      "at goal": "good",
+      "improving": "progress",
+      "steady": "closed",
+      "slipping": "attention",
+      "closed": "closed",
+      "not recorded": "unknown"
+    }
+  },
+  "tiles": [
+    {
+      "id": "today",
+      "label": "On today",
+      "when": {
+        "field": "context_slot",
+        "op": "not_empty"
+      }
+    },
+    {
+      "id": "open",
+      "label": "Something open",
+      "when": {
+        "field": "escalations",
+        "op": "not_empty"
+      }
+    },
+    {
+      "id": "slipping",
+      "label": "Slipping",
+      "when": {
+        "field": "status",
+        "op": "eq",
+        "value": "slipping"
+      }
+    },
+    {
+      "id": "overdue",
+      "label": "Past the interval",
+      "when": {
+        "op": "flag",
+        "value": "past_interval"
+      }
+    },
+    {
+      "id": "stale",
+      "label": "Not checked in 90 days",
+      "when": {
+        "op": "staleness_in",
+        "value": [
+          "history"
+        ]
+      }
+    }
+  ],
+  "sections": [
+    {
+      "id": "today",
+      "title": "Today",
+      "grouped": true,
+      "when": {
+        "field": "context_slot",
+        "op": "not_empty"
+      },
+      "empty_words": "Nobody on today's list. The whole set is below."
+    },
+    {
+      "id": "watch",
+      "title": "Worth a look first",
+      "grouped": false,
+      "hide_when_empty": true,
+      "when": {
+        "any": [
+          {
+            "op": "flag",
+            "value": "past_interval"
+          },
+          {
+            "op": "staleness_in",
+            "value": [
+              "history"
+            ]
+          },
+          {
+            "op": "flag",
+            "value": "disagreement"
+          }
+        ]
+      }
+    },
+    {
+      "id": "all",
+      "title": "Everything tracked",
+      "grouped": true,
+      "collapsed": true
+    }
+  ],
+  "banner": "A memory, not a live system. Every fact here carries the date it was true. Check the source before you rely on any of it.",
+  "no_note_words": "no file yet - the first check writes one",
+  "legend": [
+    "A faded row has not been checked recently; the older it is, the fainter it gets."
+  ],
+  "footer": "Built from the entity notes on this machine. Private to this machine."
+}

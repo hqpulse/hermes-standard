@@ -2,6 +2,32 @@
 
 Earlier versions are in the git history (`git log --oneline v0.1.1..v0.2.2`).
 
+## 0.3.2
+
+- The board's caution is on the page, not in a tooltip. It carried its sentence only in `title=` and
+  `aria-label=`, so the one judgement the renderer makes needed a hover to read and did not print at
+  all; it now sits on the row's own line at full contrast, and stays there on a faded row.
+- A group heading the filter empties actually disappears. `.grp{display:flex}` is an author rule and
+  outranks the browser's own `[hidden]{display:none}`, so filtered-out headings stayed on the page
+  over nothing, above a row count frozen at render time. Both fixed, and both checked.
+- The staleness banner says that its own number is frozen. This is flat markdown: the age is worked
+  out once, when the file is written, and a note written the day it was read shows "0 days" for ever
+  after. The banner now names the day it was written and asks the reader for the subtraction rather
+  than handing them a count that stopped.
+
+## 0.3.1
+
+- entity-notes gains `board.py`: one self-contained HTML page from a folder of entity notes plus a
+  board spec. Columns, groups, tiles, sections, colours and the staleness ladder are all spec-driven,
+  so the renderer carries no vocabulary from any subject; `--demo` draws five made-up suppliers to
+  prove it. The page reaches no network (a CSP meta forbids every origin), keeps nothing in the
+  browser, refuses an `--out` under /tmp, writes 0600, and prints one line saying what it wrote.
+- The board's one judgement, and the only one: when a spec declares which direction a series should
+  move for a given status word and the last two numbers go the other way, the cell gains a caution
+  carrying both. It never overrides the record's own word.
+- `references/BOARD-SPEC.md` documents the spec format. `spec: 1` is frozen: an unknown spec integer
+  is a refusal naming both numbers, never a best-effort render with a column quietly missing.
+
 ## 0.3.0 (2026-09-08)
 
 - **Entity notes.** `skills/entity-notes/`: one markdown file per THING an
@@ -29,6 +55,11 @@ Earlier versions are in the git history (`git log --oneline v0.1.1..v0.2.2`).
   read the pack would have been right to refuse to write those files.
 - `Entities.base`, the board over every entity note, with days since the last
   read next to every column and a view for the ones nobody has read in a month.
+  Four views: everything we keep, one grouped by kind (which is where you see
+  that one table really does hold every kind of thing), the stale ones, and the
+  ones that need a person. The freshness column is never the last column and is
+  always paired with the raw `read_on` beside it, so the view still reads
+  correctly on an Obsidian too old to compute a formula.
 - `tests/check_entity_notes.py`: 151 checks - every nasty filename, two things
   with the same name, a frontmatter round trip carrying a key this parser cannot
   read, a child process killed between the temp write and the rename, and no
