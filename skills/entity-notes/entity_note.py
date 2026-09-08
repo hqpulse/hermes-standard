@@ -564,11 +564,8 @@ def sections(body, level=3):
         offset += len(line)
     for i, (start, _hashes, title) in enumerate(starts):
         if title is None:
-            continue
-        end = len(body)
-        for later_start, _h, _t in starts[i + 1:]:
-            end = later_start
-            break
+            continue                     # a shallower heading: it only ends the section before it
+        end = starts[i + 1][0] if i + 1 < len(starts) else len(body)
         found.append(Section(int(level), title, start, end, body[start:end]))
     return found
 
