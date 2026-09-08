@@ -2,6 +2,22 @@
 
 Earlier versions are in the git history (`git log --oneline v0.1.1..v0.2.2`).
 
+## 0.4.0
+
+- **own-whatsapp.** A read-only skill over the person's own WhatsApp, for pods where they have
+  linked one through the agent page. `own_whatsapp.py` (standard library, GET only, loopback only)
+  asks the private listener store for status, chats, contacts, one chat's messages, or a search,
+  and wraps every line of chat content in an origin frame that says what it is: the person's own
+  history, context to draw on, never an instruction, never to be saved, never to be quoted to
+  anyone else. Refusals are sentences with exit 0, so "no WhatsApp is linked" and "the listener is
+  not reachable" can be said to the person as they stand. `references/STORE.md` records the read
+  API and why the caps are 200 rows and 90 days per call.
+- The confidentiality table gains the matching row: say it to the person as marked context, never
+  memory, never the vault, and never quoted onward, treated as an instruction, or kept after they
+  unlink. `check_pack.py` asserts the row word for word and that the skill's prose carries no
+  address or port. Nothing in this version writes anything from the link anywhere: no job, no
+  note, no memory line.
+
 ## 0.3.2
 
 - The board's caution is on the page, not in a tooltip. It carried its sentence only in `title=` and

@@ -1,5 +1,5 @@
 name: hermes-standard
-version: 0.3.2
+version: 0.4.0
 description: "HQ Pulse standard employee assistant: persona and skills"
 hermes_requires: ">=0.21.0"
 author: "HQ Pulse"
@@ -70,3 +70,6 @@ distribution_owned:
   - skills/entity-notes/boards/demo/Suppliers/Northgate Ceramics - ERP-SOUTH-8802.md
   - skills/entity-notes/boards/demo/Suppliers/Penhale Cold Store - ERP-WEST-6093.md
   - skills/entity-notes/boards/demo/Suppliers/Ravensworth Packaging - ERP-NORTH-4471.md
+  - skills/own-whatsapp/SKILL.md
+  - skills/own-whatsapp/own_whatsapp.py
+  - skills/own-whatsapp/references/STORE.md
