@@ -2,6 +2,10 @@
 
 Earlier versions are in the git history (`git log --oneline v0.1.1..v0.2.2`).
 
+## 0.5.1
+
+- policy-keeper: the phrasing advice now names the engine's real scanner shapes (role takeover, "you must report", "check in with", hidden text, invisible characters) instead of the persona lint's. SOUL and the template say that Policy.md is the one rule file the assistant keeps, so the "never change your own rules" line no longer contradicts it.
+
 ## 0.5.0
 
 - **policy-keeper.** Every assistant keeps a `Policy.md` in its workspace, loaded into every

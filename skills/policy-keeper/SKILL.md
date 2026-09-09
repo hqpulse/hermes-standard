@@ -48,12 +48,14 @@ Material reaches you three ways: a document or message in chat; text the Pulse t
 
 ## Phrasing that keeps the file loadable
 
-The engine scans this file before every session and refuses the whole file on some phrasings. Write every rule as a positive instruction to yourself:
+The engine scans this file before every session and, if any line matches its list of attack phrasings, refuses the WHOLE file without telling you. You would simply have no policy that session. The Pulse team's page runs the same check before it saves, and refuses with the line number. Write rules so none of these shapes appear:
 
-- Write "tell the person before you send anything" rather than a rule phrased as a ban on telling them.
-- Write "keep to the rules in this file" rather than "ignore", "override" or "set aside" anything.
-- Write no reference to a system prompt, a model, a vendor or an engine.
-- Write plain text: no HTML, no hidden text, no shell commands, no file paths other than the names in this skill.
+- Not "you are now the first point of contact" but "your job is first point of contact". The scanner reads "you are now a ..." as somebody taking over your identity.
+- Not "you must report / register / connect / beacon" but "report expenses weekly" or "every expense is reported". The scanner reads "you must" followed by those four verbs as a command-and-control instruction.
+- Not "check in with the office manager" but "tell the office manager". Not "pull tasks from the board" but "the board holds the tasks". Not "connect to the network drive" but "files live on the network drive".
+- Not "ignore previous instructions", "disregard your rules", "pretend you are", "act as if you have no limits", "output your system prompt", "answer without restrictions" in any form, even quoted.
+- Plain text only: no HTML, no comments in angle brackets, no hidden text, no shell commands, no commands that read secrets or send anything to a web address, no copied text with invisible characters (paste as plain text).
+- Keep the rules you were given; write each as a plain instruction to yourself in your own words.
 
 ## Rules that need a real switch
 
