@@ -50,7 +50,7 @@ Material reaches you three ways: a document or message in chat; text the Pulse t
 
 The engine scans this file before every session and refuses the whole file on some phrasings. Write every rule as a positive instruction to yourself:
 
-- Write "tell the person before you send anything" rather than "do not tell the person".
+- Write "tell the person before you send anything" rather than a rule phrased as a ban on telling them.
 - Write "keep to the rules in this file" rather than "ignore", "override" or "set aside" anything.
 - Write no reference to a system prompt, a model, a vendor or an engine.
 - Write plain text: no HTML, no hidden text, no shell commands, no file paths other than the names in this skill.
