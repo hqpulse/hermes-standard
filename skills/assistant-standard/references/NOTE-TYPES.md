@@ -10,10 +10,14 @@ Common frontmatter on every note:
 ```yaml
 type: meeting | person | project | decision | commitment | daily | expense | shift | entity
 created: 2026-09-07
-source: chat | voice | mail | calendar | file
+source: chat | voice | mail | calendar | file | own-whatsapp/<number>
 tags: [...]
 class: company | people | deal | private | phi   # the confidentiality class (see the skill)
 ```
+
+Three further types exist and the assistant never writes one: `wa-person`,
+`wa-reply-owed` and `wa-index`, written by the fleet from the person's own
+linked WhatsApp. They have their own section at the end of this file.
 
 `class: private` notes are never mirrored, never sent to anyone but the person,
 and never summarised into a group or a shared note. Default is `company`.
@@ -42,3 +46,49 @@ Rules:
 - An entity note is the one type that grows for years. It has its own skill
   (`entity-notes`), which owns the filename rule, the frontmatter contract and
   the exact lookup; never hand-roll any of the three.
+
+## The three types the fleet writes and the assistant does not
+
+When the person has linked their own WhatsApp, the fleet writes a small set of
+notes from it on a schedule, outside the assistant, with no model in the loop.
+They live under `Own WhatsApp/` and nowhere else, they are always
+`class: private`, and each one has exactly ONE source.
+
+| type | path | extra keys | what goes in | what never goes in |
+|---|---|---|---|---|
+| wa-person | Own WhatsApp/People/<Safe Name>.md | contact_key, display, name_withheld, is_group, as_of, window_days, provenance, evidence_hash | who this is and how the two of them talk, as counts and dates only | any message text, any URL, any figure, any third party's business |
+| wa-reply-owed | Own WhatsApp/Commitments/Reply owed - <Safe Name>.md | state (open), owed_to, from, contact_key, as_of, window_days, provenance, evidence_hash | one line: the last message in this chat came in and has not been answered since a named date | a due date, a promise, anything anybody said |
+| wa-index | Own WhatsApp/Index.md | as_of, window_days | one table, one row per wa-person note, so a lookup is an exact key and never a search | anything not already in a note it lists |
+
+Read them. Never write, edit, rename, restyle, merge, move or delete one, and
+never copy a fact out of one into a note or a file outside `Own WhatsApp/`.
+
+**Why these type names, and why renaming them would be the accident.** They are
+deliberately OUTSIDE the vocabulary the shipped tables and presets select on.
+`Open commitments.base` filters `type == "commitment"` with `status == "open"`,
+`People.base` filters `type == "person"`, `Meetings.base` `type == "meeting"`,
+`Entities.base` `type == "entity"`, and the nightly `preset-open-commitments`
+reads every note of type `commitment` and rewrites the vault root file
+`Open commitments.md` from them. That root file carries no `class`, so it is a
+company file, so it is mirrored to the person's OneDrive and read out in the
+brief. Rename `wa-person` to `person` or `wa-reply-owed` to `commitment` and
+private WhatsApp content is copied into a public file every night, by shipped
+infrastructure, with nobody having done anything wrong. `state` rather than
+`status` on the reply-owed note is the same guard held one step further. None
+of these three appear in any `.base` or any preset, and a pack check asserts it
+stays that way.
+
+**The source line is load-bearing text, not a label.** It is written
+`source: own-whatsapp/<number>`, as a top-level scalar inside the first 4096
+bytes of the file. The fleet's purge sweep deletes by matching the prefix
+`own-whatsapp/`, slash and all, and the vault's mirror treats that same prefix
+as a closed class, so a note whose source line is reflowed, indented, quoted or
+merged with a second source is a note that unlinking cannot take away again.
+One source per note, always.
+
+**Per-fact provenance.** Every fact bullet in these notes ends with `[stated]`
+or `[deduced]`. `[stated]` was read straight out of the archive; `[deduced]`
+follows from stated values by one stated rule with no judgement. There is no
+third tag: nothing in these notes is a generalisation. Quote the tag when you
+quote the fact, and quote the note's own `## As of` and `## Invalidate if`
+lines rather than deciding for yourself whether it is still true.
