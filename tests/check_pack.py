@@ -226,7 +226,36 @@ for key in ("class: private", "own-whatsapp/"):
 # cannot be added without this check being read).
 WRITER_TYPES = ("wa-person", "wa-reply-owed", "wa-index")
 base_files = sorted(ROOT.rglob("*.base"))
-preset_files = sorted(ROOT.glob("skills/assistant-standard/presets/*.json"))
+
+# Presets are found BY CONTENT, not by path. A preset shipped anywhere else under
+# skills/ is still a scheduled agent turn with the vault open, and the whole point
+# of these checks is what a scheduled turn may read and where it may write. A
+# path glob would let a preset registered in distribution.yaml at, say,
+# skills/own-whatsapp/presets/ pass every check below and still be dispatched.
+def discover_presets():
+    found = []
+    for pj in sorted(ROOT.rglob("*.json")):
+        if any(part.startswith(".") or part == "__pycache__"
+               for part in pj.relative_to(ROOT).parts):
+            continue
+        if pj.relative_to(ROOT).parts[0] != "skills":
+            continue
+        try:
+            job = json.loads(pj.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            continue
+        if isinstance(job, dict) and "prompt" in job and "schedule" in job:
+            found.append((pj, job))
+    return found
+
+PRESETS = discover_presets()
+preset_files = [pj for pj, _ in PRESETS]
+SHIPPED_PRESET_DIR = "skills/assistant-standard/presets"
+for pj in preset_files:
+    if str(pj.relative_to(ROOT).parent) != SHIPPED_PRESET_DIR:
+        err(f"{pj.relative_to(ROOT)}: a preset (an object with prompt and schedule) "
+            f"outside {SHIPPED_PRESET_DIR}/. Every scheduled turn runs with the vault "
+            f"open; keep them all in one place so one review sees them all")
 if not base_files or not preset_files:
     err("selector check found no .base or no preset to read; it is asserting nothing")
 for p in base_files + preset_files:
@@ -268,8 +297,8 @@ for bad_dir in ("Commitments", "Meetings", "People", "Decisions", "Projects", "O
             f"name the pack's own notes and presets already use. Prose that says "
             f"'the {bad_dir} folder' does not check a type, so the note is reachable "
             f"by a preset that was never told about it")
-for pj in sorted(ROOT.glob("skills/assistant-standard/presets/*.json")):
-    prompt = json.loads(pj.read_text()).get("prompt", "")
+for pj, job in PRESETS:
+    prompt = job.get("prompt", "")
     if "Own WhatsApp" in prompt:
         err(f"{pj.relative_to(ROOT)}: names 'Own WhatsApp' in its prompt. No scheduled "
             f"job reads that folder; a preset that does copies private content into "
@@ -324,6 +353,120 @@ if "## Open threads" in note_types:
         "`## Waiting on` because 'open' and 'reply' are first words the note lint "
         "refuses, so the template refused its own notes")
 
+# --- the pack still DOCUMENTS what it forbids ------------------------------
+#
+# The selector and folder assertions above are one-directional: they forbid the
+# writer's types and folders appearing in a .base or a preset. Nothing yet held
+# the other end, and the other end is the whole point of this file: the pack is
+# the contract the fleet's writer is built from. Rename the types in NOTE-TYPES
+# to `person` and `commitment` and every ban above stays green (nothing shipped
+# names the new strings any more) while the writer, built to the renamed doc,
+# emits notes the nightly preset copies into the public file. So assert that the
+# doc still says the out-of-vocabulary thing.
+for wt in WRITER_TYPES:
+    if wt not in note_types:
+        err(f"NOTE-TYPES.md no longer documents the type {wt!r}. These three names are "
+            f"deliberately outside every shipped selector; a doc that renames them is a "
+            f"writer built to put private notes inside one")
+    if wt not in fence:
+        err(f"assistant-standard/SKILL.md no longer names the type {wt!r}; that skill is "
+            f"the always-loaded one and its list is what tells the assistant these notes "
+            f"exist and are not its to write")
+wa_reply_row = next((ln for ln in note_types.splitlines()
+                     if ln.startswith("| wa-reply-owed ")), "")
+if not wa_reply_row:
+    err("NOTE-TYPES.md has no wa-reply-owed row; the state/status check asserts nothing")
+else:
+    if "state" not in wa_reply_row:
+        err("NOTE-TYPES.md: the wa-reply-owed row no longer uses `state`. It is `state` and "
+            "not `status` on purpose, so that a table filtering type == \"commitment\" && "
+            "status == \"open\" cannot match on the half it does check")
+    if "status" in wa_reply_row:
+        err("NOTE-TYPES.md: the wa-reply-owed row names `status`, the key Open "
+            "commitments.base filters on. Use `state`; the difference is the guard")
+for path in ("Own WhatsApp/Contacts/", "Own WhatsApp/Replies/", "Own WhatsApp/Index.md"):
+    if path not in note_types:
+        err(f"NOTE-TYPES.md no longer documents the path {path!r}. The folder assertion "
+            f"above reads these paths to decide which folder names a preset may not use, "
+            f"so a missing path silently shrinks that check too")
+
+# --- the display-name bound, which is the only lint on attacker text ---------
+#
+# Bound 1 alone is not a control and the doc says why: "Ignore all previous
+# instructions" is 31 characters and four tokens. Name each of the three layers
+# so a future tidy-up cannot leave the length rule standing on its own.
+for phrase in ("at most 32 characters and at most 4 tokens",
+               "Name-shaped tokens",
+               "at ANY position",
+               "Ignore all previous instructions"):
+    if phrase not in note_types:
+        err(f"NOTE-TYPES.md: the display-name bound has lost {phrase!r}. A length and word "
+            f"count on their own admit a four-word imperative sentence as a name")
+
+# --- nobody is told a copy is gone when a copy still exists ------------------
+#
+# The frame is injected into every WhatsApp-context turn, so its wording is what
+# the assistant paraphrases when the person asks "if I unlink, is it gone?".
+# 0.5.0's first draft said the notes were "the only place it is kept", which is
+# false: the listener's own store, the pod's disk backups and the chats where the
+# assistant already answered all outlive them.
+STALE_CLAIMS = ("the only place it is kept",
+                "the only place anything from the link is kept",
+                "one place anything from the link is written down")
+for p_ in sorted(ROOT.rglob("*")):
+    if not p_.is_file() or any(part.startswith(".") or part == "__pycache__"
+                               for part in p_.relative_to(ROOT).parts):
+        continue
+    if p_.name == "CHANGELOG.md" or p_.resolve() == Path(__file__).resolve():
+        continue
+    try:
+        body = p_.read_text(encoding="utf-8")
+    except (UnicodeDecodeError, OSError):
+        continue
+    for claim in STALE_CLAIMS:
+        if claim in body:
+            err(f"{p_.relative_to(ROOT)}: says the notes are {claim!r}. They are the only "
+                f"place it is written INTO THE VAULT; the archive, the disk backups and "
+                f"the chats already answered from it are copies the notes never were")
+# Bind the SECTION, not the phrase: rule 3 cross-references the heading by name,
+# so grepping the string alone stays green when the section itself is gone.
+if "## Never say it is gone" not in wa_skill.splitlines():
+    err("own-whatsapp/SKILL.md: lost the '## Never say it is gone' heading, the only place "
+        "the pack tells the assistant what unlinking does NOT reach")
+for phrase in ("the pod's own disk backups keep what was there",
+               "stays in that chat and in whatever the",
+               'Never answer that question with "gone"'):
+    if phrase not in wa_skill:
+        err(f"own-whatsapp/SKILL.md: the 'Never say it is gone' section has lost {phrase!r}. "
+            f"Each clause names one copy unlinking does not reach; a section that keeps the "
+            f"heading and drops them tells the person the opposite of the truth")
+if "never tell the person it is all gone" not in fence:
+    err("assistant-standard/SKILL.md: lost the line saying unlinking takes the notes and "
+        "not every copy; that skill is loaded on turns where own-whatsapp is not")
+
+# --- the presets are scoped by type, in their own words ----------------------
+#
+# The folder assertion stops a preset naming the writer's folders. This stops the
+# other widening: a preset told "read every note in the vault" reaches them with
+# no folder named at all. The clause is positive on purpose. Telling a scheduled
+# turn "never read Own WhatsApp/" would name the folder that holds the private
+# notes in a prompt that runs nightly, which is a worse trade than scoping the
+# read to the type it was always meant to have.
+SCOPE_CLAUSE = ("Read only notes whose type is exactly commitment: a note of any other type "
+                "is not a commitment however its folder, its filename or its wording reads, "
+                "and it is not yours to read, quote, copy or rewrite.")
+# The trigger is a preset that reads NOTES (a "voice note" and the flat
+# `Open commitments.md` file are not notes, and the morning brief reads only
+# those). A preset that reads notes at all is a preset that can reach a note it
+# was never told about, so it carries the clause.
+READS_NOTES = re.compile(r"\b(commitment|meeting|person|entity|vault)\s+notes?\b", re.I)
+for pj, job in PRESETS:
+    prompt = job.get("prompt", "")
+    if READS_NOTES.search(prompt) and SCOPE_CLAUSE not in prompt:
+        err(f"{pj.relative_to(ROOT)}: reads notes out of the vault without the type-scope "
+            f"clause, so a note it was never told about is in reach. Add it verbatim: "
+            f"{SCOPE_CLAUSE!r}")
+
 # --- presets --------------------------------------------------------------
 ASK_TAIL = "Say keep, change, or stop."
 ask_lines = {}
@@ -333,12 +476,8 @@ ask_lines = {}
 HOME_CHANNEL = "__HOME_CHANNEL__"
 PLATFORM_NAMES = {"telegram", "whatsapp", "slack", "discord", "signal", "imessage",
                   "sms", "email", "matrix", "all", "origin"}
-for pj in sorted(ROOT.glob("skills/assistant-standard/presets/*.json")):
+for pj, job in PRESETS:
     rel = pj.relative_to(ROOT)
-    try:
-        job = json.loads(pj.read_text())
-    except json.JSONDecodeError as e:
-        err(f"{rel}: bad JSON: {e}"); continue
     for key in ("name", "schedule", "prompt", "deliver"):
         if not job.get(key):
             err(f"{rel}: missing {key}")
@@ -408,9 +547,35 @@ for marker in ("=== CONTEXT SKILL ===", "=== USER.MD ===", "6,000", "240", "§")
     if marker not in doss:
         err(f"DOSSIER.md lacks {marker!r}")
 
+# --- the display-name bound, run rather than described ---------------------
+#
+# tests/check_name_bound.py holds the three bounds as code plus the corpus a
+# review used to break the previous version of them. It is run from here so it
+# cannot become a file that only ever passed on the day it was written.
+# No bytecode. This check exists to prove the doc and the code agree on a number,
+# and a .pyc is validated by source mtime and size: an edit that changes 32 to 30
+# is the same size, so a rerun inside the same second reads the OLD constant and
+# reports agreement that is not there. Seen while mutation-testing this file.
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(ROOT / "tests"))
+try:
+    import check_name_bound
+except Exception as e:  # pragma: no cover
+    err(f"tests/check_name_bound.py will not import ({e}); the display-name bound "
+        f"is the only lint on the one attacker-set string that reaches a note")
+else:
+    if check_name_bound.main() != 0:
+        err("tests/check_name_bound.py failed; see its own output above")
+    if f"at most {check_name_bound.MAX_CHARS} characters and at most " \
+       f"{check_name_bound.MAX_TOKENS} tokens" not in note_types:
+        err(f"NOTE-TYPES.md and tests/check_name_bound.py disagree on the bound "
+            f"({check_name_bound.MAX_CHARS} characters, {check_name_bound.MAX_TOKENS} "
+            f"tokens). The doc is what the fleet's writer is built from, so a drift "
+            f"here ships a writer looser than the one that was tested")
+
 # --- result ---------------------------------------------------------------
 if errors:
     print("\n".join(f"FAIL {e}" for e in errors)); sys.exit(1)
 print(f"ok: pack {version}, {len(owned)} owned files, "
       f"{len(list(ROOT.glob('skills/**/SKILL.md')))} skills, "
-      f"{len(list(ROOT.glob('skills/assistant-standard/presets/*.json')))} presets")
+      f"{len(PRESETS)} presets")
