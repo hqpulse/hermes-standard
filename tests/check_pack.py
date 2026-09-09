@@ -249,6 +249,81 @@ if 'status == "open"' not in oc:
         "status == \"open\"; the writer's notes use `state`, not `status`, to sit "
         "outside exactly this filter")
 
+# --- THE FOLDER ASSERTION, the other half of the same guard -----------------
+#
+# A type is a filter a program evaluates; a FOLDER NAME is an instruction a
+# model follows. preset-open-commitments says, in prose, "read every commitment
+# note in the vault's Commitments folder", and then rewrites the public
+# `Open commitments.md`. A writer note filed under a folder called Commitments
+# would be swept up by a model reading that sentence with every type check above
+# still green. So: no preset may mention the writer's folder at all, and no
+# preset may name any folder the writer uses.
+writer_dirs = set(re.findall(r"Own WhatsApp/([A-Za-z][A-Za-z ]*?)/", note_types))
+if not writer_dirs:
+    err("NOTE-TYPES.md no longer documents any Own WhatsApp/<folder>/ path, so the "
+        "folder assertion below is asserting nothing; fix the paths or this check")
+for bad_dir in ("Commitments", "Meetings", "People", "Decisions", "Projects", "Outbox"):
+    if bad_dir in writer_dirs:
+        err(f"NOTE-TYPES.md files a writer note under Own WhatsApp/{bad_dir}/, a folder "
+            f"name the pack's own notes and presets already use. Prose that says "
+            f"'the {bad_dir} folder' does not check a type, so the note is reachable "
+            f"by a preset that was never told about it")
+for pj in sorted(ROOT.glob("skills/assistant-standard/presets/*.json")):
+    prompt = json.loads(pj.read_text()).get("prompt", "")
+    if "Own WhatsApp" in prompt:
+        err(f"{pj.relative_to(ROOT)}: names 'Own WhatsApp' in its prompt. No scheduled "
+            f"job reads that folder; a preset that does copies private content into "
+            f"whatever public file it writes")
+    for d in sorted(writer_dirs):
+        if re.search(rf"\b{re.escape(d)}\s+folder", prompt, re.I):
+            err(f"{pj.relative_to(ROOT)}: its prompt names the {d!r} folder, which is "
+                f"also a folder the WhatsApp writer files notes in. Rename one of them: "
+                f"a folder-worded instruction reaches the writer's notes with every "
+                f"type selector still correct")
+
+# --- the writer's notes are keyed by number, not by a name a stranger chose --
+#
+# A filename built from the display name lets a contact who sets their WhatsApp
+# name to somebody else's take that person's note path: the second write wins,
+# and the surviving file carries ONE source line standing for two numbers, so
+# unlinking one number deletes the other's note. The key is the number.
+wa_person_row = next((ln for ln in note_types.splitlines()
+                      if ln.startswith("| wa-person ")), "")
+if not wa_person_row:
+    err("NOTE-TYPES.md has no wa-person row; the path checks below assert nothing")
+else:
+    if "<contact_key>.md" not in wa_person_row:
+        err("NOTE-TYPES.md: the wa-person path is not keyed on <contact_key>. A note "
+            "filed under a display name is a note a stranger can choose the path of")
+    if "Safe Name" in note_types:
+        err("NOTE-TYPES.md still files a writer note under a name slot ('Safe Name'); "
+            "names are frontmatter values, never paths")
+
+# --- the display name is somebody else's text, and the pack says so ---------
+#
+# The only attacker-controlled string that reaches one of these notes is the
+# contact's own WhatsApp name. assistant-standard is the skill that is always
+# loaded, so if the warning lives only in the demand-loaded own-whatsapp skill
+# it is absent on exactly the turns that read the vault.
+for rel, text in (("skills/assistant-standard/SKILL.md", fence),
+                  ("skills/assistant-standard/references/NOTE-TYPES.md", note_types),
+                  ("skills/own-whatsapp/SKILL.md", wa_skill)):
+    if not re.search(r"typed as their own WhatsApp name", text):
+        err(f"{rel}: no longer says the display name in a wa note is what the CONTACT "
+            f"typed for themselves. That sentence is the only thing standing between a "
+            f"name that reads like an instruction and an assistant that follows it")
+if "name_withheld: true" not in note_types:
+    err("NOTE-TYPES.md: lost `name_withheld: true`, the flag that says a name was "
+        "refused rather than that a contact has none")
+for phrase in ("`## Waiting on`", "at most 32 characters"):
+    if phrase not in note_types:
+        err(f"NOTE-TYPES.md: lost {phrase}; the note body's headings and the bound on "
+            f"the name slot are both part of the writer contract this file documents")
+if "## Open threads" in note_types:
+    err("NOTE-TYPES.md: names a `## Open threads` heading. The heading was renamed to "
+        "`## Waiting on` because 'open' and 'reply' are first words the note lint "
+        "refuses, so the template refused its own notes")
+
 # --- presets --------------------------------------------------------------
 ASK_TAIL = "Say keep, change, or stop."
 ask_lines = {}
