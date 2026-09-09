@@ -1,5 +1,5 @@
 name: hermes-standard
-version: 0.4.0
+version: 0.5.0
 description: "HQ Pulse standard employee assistant: persona and skills"
 hermes_requires: ">=0.21.0"
 author: "HQ Pulse"
@@ -51,6 +51,9 @@ distribution_owned:
   - skills/assistant-standard/vault/Meetings.base
   - skills/assistant-standard/vault/People.base
   - skills/assistant-standard/references/DOSSIER.md
+  - skills/assistant-standard/references/TRAINING.md
+  - skills/policy-keeper/SKILL.md
+  - skills/policy-keeper/references/POLICY-TEMPLATE.md
   - skills/assistant-standard/presets/README.md
   - skills/assistant-standard/presets/morning-brief.json
   - skills/assistant-standard/presets/meeting-prep.json

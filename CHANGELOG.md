@@ -2,6 +2,18 @@
 
 Earlier versions are in the git history (`git log --oneline v0.1.1..v0.2.2`).
 
+## 0.5.0
+
+- **policy-keeper.** Every assistant keeps a `Policy.md` in its workspace, loaded into every
+  session by the engine (the controller symlinks `.hermes.md` to it). The skill says what goes in
+  it, the seven sections, the 12,000-character cap, the one intake procedure for a document or
+  message from any door, the fixed reply shape (wrote / left out / needs a real switch), the
+  leftovers note (`class: private`), and the phrasings the engine's scanner refuses.
+  `references/POLICY-TEMPLATE.md` is the seed the controller copies once.
+- **TRAINING.md.** The block the controller appends to a persona while the assistant is in
+  training, kept here so the pack states it; the controller holds the pinned text.
+- SOUL gains one line: Policy.md is the standing orders.
+
 ## 0.4.0
 
 - **own-whatsapp.** A read-only skill over the person's own WhatsApp, for pods where they have
