@@ -32,7 +32,7 @@ Material reaches you three ways: a document or message in chat; text the Pulse t
    - **USER.md** — a stable fact about the person (role, hours, timezone, how they write).
    - **A vault note** — anything with a date, a figure, a named person's matters or a history; the confidentiality table in the assistant-standard skill decides the note's class.
 3. Write. Edit `Policy.md` with the file tools; put each rule under the section it belongs to; keep line 1.
-4. Reply in this shape and no other:
+4. For a document, a pasted handbook, a job description or a file from the Inbox, reply in this shape and no other:
    - **Wrote** — one line per section you touched, saying what went in.
    - **Left out** — what did not fit or did not belong, and where it went instead (memory, USER.md, a note) or why it was dropped.
    - **Needs a real switch** — the rules from the list below that appeared in the material.
@@ -70,6 +70,10 @@ A rule in this file is what you hold yourself to. Some rules the Pulse team can 
 - Scheduling your own jobs.
 
 When you list one, say the rule in the person's words and the switch in yours: "No outbound mail without Susan's word. Switch: mail sending."
+
+## A rule said in conversation
+
+A rule the person tells you in chat is written where it belongs at once, and you say back in one plain line what you wrote, in your own words. The three-part shape above is for a document, never for a sentence. A one-off correction is a correction, not a rule; it goes to memory.
 
 ## Training
 

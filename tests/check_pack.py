@@ -145,6 +145,55 @@ for rel in ("skills/own-whatsapp/SKILL.md", "skills/own-whatsapp/references/STOR
         if bad in text:
             err(f"{rel}: carries {bad!r}; the listener's address lives only in own_whatsapp.py")
 
+# --- the training block, pinned to the controller's copy ---------------------
+# The controller appends `TRAINING_BLOCK` (hermes-fleet, hermes_fleet/persona.py) to
+# a persona while an assistant is in training; references/TRAINING.md is the
+# pack's copy so the pack states what an assistant in training is told. Nothing
+# used to hold the two equal. Both repos now pin the SAME sha256 of the block's
+# text (this constant, and hermes-fleet's test_persona.py); changing the wording
+# means changing the constant in both, which is the point.
+TRAINING_BLOCK_SHA256 = "4a29020f5cca774bde93e18e9bdf0ffbad6c083c76449a40ac157eaeed92e144"
+import hashlib
+training_md = (ROOT / "skills/assistant-standard/references/TRAINING.md").read_text()
+block = training_md.split("\n---\n", 1)[1].strip() if "\n---\n" in training_md else ""
+if not block.startswith("TRAINING. "):
+    err("TRAINING.md: the block after the --- line must start with 'TRAINING. ' (the controller's delimiter)")
+got = hashlib.sha256(block.encode()).hexdigest()
+if got != TRAINING_BLOCK_SHA256:
+    err(f"TRAINING.md block sha256 {got[:12]} != pinned {TRAINING_BLOCK_SHA256[:12]}; "
+        f"update hermes-fleet persona.TRAINING_BLOCK and BOTH pins together")
+if re.search(r"\d", block):
+    err("TRAINING.md block carries a digit; the controller's persona lint refuses it")
+
+# --- first contact ------------------------------------------------------------
+# The first conversation with a person. Reactive, request-first, few quoted
+# lines (a quoted greeting was parroted word for word once; that is why the
+# persona template bans examples), and never a privacy promise the pod cannot
+# keep (the staff door and health turns read every chat).
+fc_path = ROOT / "skills/first-contact/SKILL.md"
+if not fc_path.exists():
+    err("skills/first-contact/SKILL.md is missing")
+else:
+    fc = fc_path.read_text()
+    if "request comes first" not in fc.lower():
+        err("first-contact: lost 'their request comes first'; without it the welcome becomes a gate")
+    for bad in ("nobody else reads", "no one else reads", "only you can see"):
+        if bad in fc.lower():
+            err(f"first-contact: carries a privacy promise the pod cannot keep: {bad!r}")
+    if fc.count("<example>") > 4:
+        err(f"first-contact: {fc.count('<example>')} quoted examples; cap 4 (parroting risk)")
+    if "no first-contact ritual" not in fc:
+        err("first-contact: lost the persona off switch ('no first-contact ritual on this cell')")
+soul = (ROOT / "SOUL.md").read_text()
+if "first-contact" not in soul:
+    err("SOUL.md does not point at the first-contact skill")
+if len(soul.split()) > 500:
+    err(f"SOUL.md is {len(soul.split())} words; slot one is loaded every turn, keep it under 500")
+for phrase in ("comes from Pulse", "waits for their word", "a tool did it and you saw the result",
+               "Never name, compare with or acknowledge any other company", "Policy.md"):
+    if phrase not in soul:
+        err(f"SOUL.md lost a safety line: {phrase!r}")
+
 # --- presets --------------------------------------------------------------
 ASK_TAIL = "Say keep, change, or stop."
 ask_lines = {}

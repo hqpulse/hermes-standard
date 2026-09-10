@@ -2,6 +2,29 @@
 
 Earlier versions are in the git history (`git log --oneline v0.1.1..v0.2.2`).
 
+## 0.6.0
+
+- **First contact.** A new `first-contact` skill carries the first conversation with a person:
+  reactive, their request first, four beats with one question per message, a dossier branch (say
+  how you read them, ask where it is wrong) and a nothing-known branch (say so, ask one thing), a
+  plain answer to "what can you do for me" that is never a capability list, and an off switch a
+  persona can set for a specialist cell. `SOUL.md` points at it, keyed on a memory line that says
+  first contact is done, and says how the assistant sounds as rules (contractions, a take,
+  matching the register, a light joke never on a figure or a refusal). The numbers rule now says
+  what to do where nothing is wired into Pulse. Every safety line kept.
+- **assistant-standard.** The Brief is built for a phone (what needs them first, blank lines
+  between blocks, one item per line, figures only where a source is wired in); greetings split
+  first contact from a running thread; a "Who is who" rule (their own WhatsApp if linked, then the
+  directory, then ask); the three worked examples are domain-neutral. The humanizer fence, the
+  confidentiality table and the deliver paragraph are unchanged.
+- **TRAINING.md** carries the new training block: both first days (a person we hold a read of, and
+  one we know nothing about), one question per conversation once first contact is done, a rule
+  said in chat gets one line back. `check_pack.py` pins its sha256 to the controller's
+  `TRAINING_BLOCK`; the two repos change together or the test fails.
+- **policy-keeper.** The three-part reply shape is for a document; a rule said in conversation gets
+  one plain line back. **own-whatsapp.** A name the person uses that the assistant does not know
+  is a question its contacts answer first.
+
 ## 0.5.1
 
 - policy-keeper: the phrasing advice now names the engine's real scanner shapes (role takeover, "you must report", "check in with", hidden text, invisible characters) instead of the persona lint's. SOUL and the template say that Policy.md is the one rule file the assistant keeps, so the "never change your own rules" line no longer contradicts it.
