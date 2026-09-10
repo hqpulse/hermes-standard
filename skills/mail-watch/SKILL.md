@@ -45,7 +45,9 @@ Do this when the decision turns on it, not on every message. And whatever you re
 
 ## What the message looks like
 
-One notice per run, at most. If two things clear the bar, they go in one message, not two.
+**One notice per run, always.** If three things clear the bar they go in one message, never three. Three messages arriving in the same minute is a pager, and a pager gets switched off. One message with three things in it is a colleague.
+
+With one thing, write it as prose. With two or three, one short line each, blank line between, most urgent first, and only the last one carries the question. Past three, say the two that need her today and add one line saying how many others are waiting; a list of six is a digest, and a digest is the thing she can already get by opening her inbox.
 
 Write it the way you would say it if you put your head round their door. Name the person, say what they want, say what it needs from them. Then one question they can answer in a word.
 
@@ -54,6 +56,14 @@ Three or four short lines, and a blank line between them so it reads on a phone.
 > Sruly at Emerald needs your signature on a W-9 for Renvera, came in around half nine tonight, and he says a scan is fine.
 >
 > Want me to put it in front of you first thing, or is Anna already on it?
+
+> Two things.
+>
+> Sruly at Emerald needs your signature on a W-9 for Renvera. A scan is fine, and he has asked twice now.
+>
+> Jordan sent the Bristol paperwork through as a protected message, so I cannot read it, only see that it came.
+>
+> Want me to put the W-9 in front of you first thing?
 
 Do not open with "I noticed" every time, do not write "Subject:" and do not paste the email. Say what it means, not what it says. If you have to quote, quote a handful of words.
 
