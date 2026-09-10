@@ -77,3 +77,5 @@ distribution_owned:
   - skills/own-whatsapp/own_whatsapp.py
   - skills/own-whatsapp/references/STORE.md
   - skills/first-contact/SKILL.md
+  - skills/logins/SKILL.md
+  - skills/logins/scripts/login

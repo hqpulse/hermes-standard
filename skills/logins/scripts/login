@@ -1,0 +1,139 @@
+#!/usr/bin/env python3
+"""Fetch this assistant's own logins from the door on the controller.
+
+    login list                 title, username and site, one login per line
+    login show <title>         the site, then the username
+    login password <title>     the password, and nothing else
+    login otp <title>          the current six-digit code, and nothing else
+
+What this file is, and what it is not:
+
+  ONE VAULT, THIS ASSISTANT'S. The pod holds no 1Password token. It holds
+  HERMES_LOGINS_TOKEN, which the controller resolves to one person and one
+  vault, so there is no argument to this script that reaches anybody else's
+  logins.
+
+  A VALUE, NOT A SENTENCE. `password` and `otp` print the value alone with no
+  label, so the caller can pipe it straight into a field. Everything the script
+  wants to SAY goes to stderr, so a captured stdout is never a message.
+
+  THE TOKEN IS NEVER PRINTED. It goes into one Authorization header and appears
+  in no output, no error and no traceback.
+
+  REFUSALS ARE PLAIN LINES. No logins here at all is exit 2 with a sentence the
+  assistant can say to the person as it stands. Anything else the door refuses
+  is exit 1 carrying the door's own plain reason.
+
+Standard library only: the pack ships no dependencies to a pod.
+"""
+from __future__ import annotations
+
+import json
+import os
+import sys
+import urllib.error
+import urllib.request
+
+DEFAULT_BASE = "http://hermes-fleet:8787"
+TIMEOUT_S = 10
+FIELDS = ("username", "password", "otp", "url")
+
+NO_LOGINS = "this assistant has no logins yet; ask the Pulse team to add one"
+BAD_TOKEN = "this assistant's login key is not accepted; tell the Pulse team"
+NO_DOOR = "the logins service is not reachable right now"
+
+USAGE = "usage: login list | login show <title> | login password <title> | login otp <title>"
+
+
+def die(message: str, code: int) -> None:
+    print(message, file=sys.stderr)
+    raise SystemExit(code)
+
+
+def call(path: str, body: dict | None = None) -> dict:
+    """One request to the door. Returns the decoded object, or exits with a reason."""
+    token = os.environ.get("HERMES_LOGINS_TOKEN", "").strip()
+    if not token:
+        die(NO_LOGINS, 2)
+    base = os.environ.get("HERMES_FLEET_URL", "").strip().rstrip("/") or DEFAULT_BASE
+    data = json.dumps(body).encode() if body is not None else None
+    request = urllib.request.Request(base + path, data=data, method="POST" if data else "GET")
+    request.add_header("Authorization", "Bearer " + token)
+    if data is not None:
+        request.add_header("Content-Type", "application/json")
+    try:
+        with urllib.request.urlopen(request, timeout=TIMEOUT_S) as response:
+            return json.loads(response.read().decode() or "{}")
+    except urllib.error.HTTPError as error:
+        raise SystemExit(refuse(error))
+    except urllib.error.URLError:
+        die(NO_DOOR, 1)
+    except (OSError, ValueError):
+        die(NO_DOOR, 1)
+
+
+def refuse(error: urllib.error.HTTPError) -> int:
+    """Turn the door's refusal into a plain line and an exit code."""
+    detail = ""
+    try:
+        payload = json.loads(error.read().decode() or "{}")
+        if isinstance(payload, dict):
+            detail = str(payload.get("detail") or "").strip()
+    except (OSError, ValueError):
+        detail = ""
+    if error.code == 401:
+        print(BAD_TOKEN, file=sys.stderr)
+        return 1
+    # The door answers 404 both for an assistant with no vault at all and for a
+    # title that is not in the vault it does have. The first is the "nothing set
+    # up here" case the person needs to hear about; the second is a wrong title,
+    # which is the caller's own mistake and keeps the door's wording.
+    if error.code == 404 and (not detail or "vault" in detail.lower()):
+        print(NO_LOGINS, file=sys.stderr)
+        return 2
+    print(detail or f"the logins service refused this ({error.code})", file=sys.stderr)
+    return 1
+
+
+def items() -> list:
+    payload = call("/v1/logins")
+    rows = payload.get("items") if isinstance(payload, dict) else payload
+    return rows if isinstance(rows, list) else []
+
+
+def read(title: str, field: str) -> str:
+    payload = call("/v1/logins/read", {"title": title, "field": field})
+    value = payload.get("value") if isinstance(payload, dict) else None
+    if value is None:
+        die(f"the logins service returned no {field} for {title}", 1)
+    return str(value)
+
+
+def main(argv: list) -> int:
+    if not argv or argv[0] in ("-h", "--help"):
+        die(USAGE, 1 if argv else 1)
+    command, rest = argv[0], argv[1:]
+    if command == "list":
+        if rest:
+            die(USAGE, 1)
+        rows = items()
+        if not rows:
+            die(NO_LOGINS, 2)
+        for row in rows:
+            print("\t".join(str(row.get(key) or "") for key in ("title", "username", "url")))
+        return 0
+    if command in ("show", "password", "otp"):
+        if len(rest) != 1 or not rest[0].strip():
+            die(USAGE, 1)
+        title = rest[0]
+        if command == "show":
+            print(read(title, "url"))
+            print(read(title, "username"))
+        else:
+            print(read(title, command))
+        return 0
+    die(USAGE, 1)
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
