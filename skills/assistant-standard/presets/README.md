@@ -11,7 +11,7 @@ own jobs on update (the 3 Sep lesson).
 | `morning-brief.json` | `preset-morning-brief` | weekdays 08:00 | `__HOME_CHANNEL__` | the Brief plus a 60-second voice note (`text_to_speech`) |
 | `meeting-prep.json` | `preset-meeting-prep` | weekdays 07:30 | `__HOME_CHANNEL__` | one pre-read per meeting; `[SILENT]` on a day with none |
 | `open-commitments.json` | `preset-open-commitments` | nightly 23:00 | `__HOME_CHANNEL__` | `[SILENT]`; rewrites `Open commitments.md` in the vault |
-| `mail-watch.json` | `preset-mail-watch` | every 30 min, weekdays 07:00-19:00 | `__HOME_CHANNEL__` | `[SILENT]` unless something in their mailbox needs them |
+| `mail-watch.json` | `preset-mail-watch` | every 30 min, 07:00-21:00, every day | `__HOME_CHANNEL__` | `[SILENT]` unless something in their mailbox needs them |
 
 Everything below was read from Hermes v0.21.0 (2026.8.31), the engine the fleet runs.
 

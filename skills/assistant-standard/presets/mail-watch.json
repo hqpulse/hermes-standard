@@ -1,6 +1,6 @@
 {
   "name": "preset-mail-watch",
-  "schedule": "*/30 7-19 * * 1-5",
+  "schedule": "*/30 7-21 * * *",
   "deliver": "__HOME_CHANNEL__",
   "script": "mail-watch.py",
   "skills": [
