@@ -276,7 +276,12 @@ for pj in sorted(ROOT.glob("skills/assistant-standard/presets/*.json")):
         err(f"{rel}: deliver must be the literal {HOME_CHANNEL} placeholder, "
             f"got {deliver!r}")
     if tool_props is not None:
-        extra = set(job) - tool_props
+        # `opt_in` is read by the controller and never sent to create_job: a
+        # preset carrying it is OFFERED at provision rather than created, which
+        # is how the mail watch reaches a person only when somebody decided it
+        # should. `continuity` is the same shape (the controller turns it into
+        # context_from), and both are stripped before the create.
+        extra = set(job) - tool_props - {"opt_in"}
         if extra:
             err(f"{rel}: fields the cronjob tool does not accept: {sorted(extra)}")
     if parse_schedule is not None:
@@ -323,6 +328,12 @@ for marker in ("=== CONTEXT SKILL ===", "=== USER.MD ===", "6,000", "240", "§")
 # --- the mail watch -------------------------------------------------------
 #
 # Three invariants, each of which has a specific way of going wrong quietly.
+optional = [p.name for p in sorted(ROOT.glob("skills/assistant-standard/presets/*.json"))
+            if json.loads(p.read_text()).get("opt_in")]
+if optional != ["mail-watch.json"]:
+    err(f"opt_in presets are {optional}; a preset that reads a person's mail "
+        f"waits to be asked for, and everything else is what the assistant IS")
+
 watch = ROOT / "scripts/mail-watch.py"
 if watch.is_file():
     code = watch.read_text()

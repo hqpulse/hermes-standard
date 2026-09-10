@@ -4,7 +4,8 @@ Earlier versions are in the git history (`git log --oneline v0.1.1..v0.2.2`).
 
 ## 0.7.0
 
-- **The mail watch.** A fourth preset, and the first one that runs a script before the model. Every
+- **The mail watch.** A fourth preset, the first that is opt in (`"opt_in": true`, offered at
+  provision and created only when somebody names it) and the first that runs a script before the model. Every
   half hour from seven to nine, seven days a week (the case worth the most is bad
   news on a Saturday evening, and a person who wants weekdays only can say so), `scripts/mail-watch.py` asks the person's own Pulse door what has arrived in
   their mailbox since it last looked, remembers every message id it has already shown, and closes the

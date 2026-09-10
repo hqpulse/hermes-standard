@@ -6,16 +6,26 @@ for assistants that already exist. The pack does not ship a `cron/jobs.json`:
 that file is per person and a pack-owned copy would overwrite every person's
 own jobs on update (the 3 Sep lesson).
 
-| File | Name | Schedule (person's timezone) | Delivers | Ends with |
-|---|---|---|---|---|
-| `morning-brief.json` | `preset-morning-brief` | weekdays 08:00 | `__HOME_CHANNEL__` | the Brief plus a 60-second voice note (`text_to_speech`) |
-| `meeting-prep.json` | `preset-meeting-prep` | weekdays 07:30 | `__HOME_CHANNEL__` | one pre-read per meeting; `[SILENT]` on a day with none |
-| `open-commitments.json` | `preset-open-commitments` | nightly 23:00 | `__HOME_CHANNEL__` | `[SILENT]`; rewrites `Open commitments.md` in the vault |
-| `mail-watch.json` | `preset-mail-watch` | every 30 min, 07:00-21:00, every day | `__HOME_CHANNEL__` | `[SILENT]` unless something in their mailbox needs them |
+| File | Name | Schedule (person's timezone) | Delivers | Ends with | On at provision |
+|---|---|---|---|---|---|
+| `morning-brief.json` | `preset-morning-brief` | weekdays 08:00 | `__HOME_CHANNEL__` | the Brief plus a 60-second voice note (`text_to_speech`) | yes |
+| `meeting-prep.json` | `preset-meeting-prep` | weekdays 07:30 | `__HOME_CHANNEL__` | one pre-read per meeting; `[SILENT]` on a day with none | yes |
+| `open-commitments.json` | `preset-open-commitments` | nightly 23:00 | `__HOME_CHANNEL__` | `[SILENT]`; rewrites `Open commitments.md` in the vault | yes |
+| `mail-watch.json` | `preset-mail-watch` | every 30 min, 07:00-21:00, every day | `__HOME_CHANNEL__` | `[SILENT]` unless something in their mailbox needs them | opt in |
 
 Everything below was read from Hermes v0.21.0 (2026.8.31), the engine the fleet runs.
 
-## The fourth one is different: it runs a script first
+## The fourth one is different: it is opt in, and it runs a script first
+
+`mail-watch.json` carries `"opt_in": true`, which no other preset does. A
+provision run OFFERS it instead of creating it, and it is created only when
+somebody names it (`POST /v1/assistants/<person>/presets` with
+`{"only": ["preset-mail-watch"]}`). The other three are what the assistant IS,
+and a person who gets an assistant gets them. A job that reads somebody's
+mailbox every half hour is a decision about that person, and a provision run
+must not make it on their behalf. The field is read by the controller and
+stripped before `create_job`, which has no such argument.
+
 
 `mail-watch.json` is the only preset that carries a `script`, and the field
 changes the shape of the job. `cron/scheduler.py` runs `scripts/mail-watch.py`
