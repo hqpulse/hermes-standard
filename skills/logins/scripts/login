@@ -4,7 +4,7 @@
     login list                 title, username and site, one login per line
     login show <title>         the site, then the username
     login password <title>     the password, and nothing else
-    login otp <title>          the current six-digit code, and nothing else
+    login otp <title>          the current authenticator code, and nothing else
 
 What this file is, and what it is not:
 
@@ -13,16 +13,24 @@ What this file is, and what it is not:
   vault, so there is no argument to this script that reaches anybody else's
   logins.
 
+  THE TOKEN GOES TO THE DOOR AND NOWHERE ELSE. It rides one unredirected
+  Authorization header; environment proxies are ignored and a redirect is
+  refused outright, so no answer from the door can bounce it to another host.
+  It appears in no output, no error and no traceback.
+
   A VALUE, NOT A SENTENCE. `password` and `otp` print the value alone with no
   label, so the caller can pipe it straight into a field. Everything the script
   wants to SAY goes to stderr, so a captured stdout is never a message.
 
-  THE TOKEN IS NEVER PRINTED. It goes into one Authorization header and appears
-  in no output, no error and no traceback.
-
   REFUSALS ARE PLAIN LINES. No logins here at all is exit 2 with a sentence the
   assistant can say to the person as it stands. Anything else the door refuses
   is exit 1 carrying the door's own plain reason.
+
+The door's contract (hermes-fleet, the pod door):
+  GET  /v1/logins        200 {"items": [...]}; no vault is 200 {"items": []}
+  POST /v1/logins/read   200 {"value": "..."}; no vault is 404 with the detail
+                         NO_VAULT_DETAIL below, exactly; an unknown title is
+                         404 "no login with that title"
 
 Standard library only: the pack ships no dependencies to a pod.
 """
@@ -36,13 +44,28 @@ import urllib.request
 
 DEFAULT_BASE = "http://hermes-fleet:8787"
 TIMEOUT_S = 10
-FIELDS = ("username", "password", "otp", "url")
+
+NO_VAULT_DETAIL = "no vault for this assistant"
 
 NO_LOGINS = "this assistant has no logins yet; ask the Pulse team to add one"
 BAD_TOKEN = "this assistant's login key is not accepted; tell the Pulse team"
 NO_DOOR = "the logins service is not reachable right now"
+BAD_BODY = "the logins service sent back an answer this script cannot read"
+REDIRECTED = "the logins service tried to send this request elsewhere; refused"
+BUSY = "the logins service is busy; wait a minute before asking again"
+NO_TITLE = "no login with that title"
 
 USAGE = "usage: login list | login show <title> | login password <title> | login otp <title>"
+
+
+class RefuseRedirects(urllib.request.HTTPRedirectHandler):
+    """A redirect from the door is never followed: the token would go with it."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise urllib.error.HTTPError(req.full_url, code, msg, headers, fp)
+
+
+OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}), RefuseRedirects())
 
 
 def die(message: str, code: int) -> None:
@@ -50,26 +73,28 @@ def die(message: str, code: int) -> None:
     raise SystemExit(code)
 
 
-def call(path: str, body: dict | None = None) -> dict:
-    """One request to the door. Returns the decoded object, or exits with a reason."""
+def call(path: str, body: dict | None = None) -> object:
+    """One request to the door. Returns the decoded JSON, or exits with a reason."""
     token = os.environ.get("HERMES_LOGINS_TOKEN", "").strip()
     if not token:
         die(NO_LOGINS, 2)
     base = os.environ.get("HERMES_FLEET_URL", "").strip().rstrip("/") or DEFAULT_BASE
     data = json.dumps(body).encode() if body is not None else None
     request = urllib.request.Request(base + path, data=data, method="POST" if data else "GET")
-    request.add_header("Authorization", "Bearer " + token)
+    request.add_unredirected_header("Authorization", "Bearer " + token)
     if data is not None:
         request.add_header("Content-Type", "application/json")
     try:
-        with urllib.request.urlopen(request, timeout=TIMEOUT_S) as response:
-            return json.loads(response.read().decode() or "{}")
+        with OPENER.open(request, timeout=TIMEOUT_S) as response:
+            raw = response.read()
     except urllib.error.HTTPError as error:
         raise SystemExit(refuse(error))
-    except urllib.error.URLError:
+    except (urllib.error.URLError, OSError, ValueError):
         die(NO_DOOR, 1)
-    except (OSError, ValueError):
-        die(NO_DOOR, 1)
+    try:
+        return json.loads(raw.decode())
+    except (UnicodeDecodeError, ValueError):
+        die(BAD_BODY, 1)
 
 
 def refuse(error: urllib.error.HTTPError) -> int:
@@ -77,41 +102,43 @@ def refuse(error: urllib.error.HTTPError) -> int:
     detail = ""
     try:
         payload = json.loads(error.read().decode() or "{}")
-        if isinstance(payload, dict):
-            detail = str(payload.get("detail") or "").strip()
-    except (OSError, ValueError):
+        if isinstance(payload, dict) and isinstance(payload.get("detail"), str):
+            detail = payload["detail"].strip()
+    except (OSError, ValueError, AttributeError):
         detail = ""
-    if error.code == 401:
-        print(BAD_TOKEN, file=sys.stderr)
-        return 1
-    # The door answers 404 both for an assistant with no vault at all and for a
-    # title that is not in the vault it does have. The first is the "nothing set
-    # up here" case the person needs to hear about; the second is a wrong title,
-    # which is the caller's own mistake and keeps the door's wording.
-    if error.code == 404 and (not detail or "vault" in detail.lower()):
-        print(NO_LOGINS, file=sys.stderr)
-        return 2
-    print(detail or f"the logins service refused this ({error.code})", file=sys.stderr)
-    return 1
+    if 300 <= error.code < 400:
+        message, code = REDIRECTED, 1
+    elif error.code == 401:
+        message, code = BAD_TOKEN, 1
+    elif error.code == 404 and detail == NO_VAULT_DETAIL:
+        message, code = NO_LOGINS, 2
+    elif error.code == 429:
+        message, code = detail or BUSY, 1
+    else:
+        message, code = detail or f"the logins service refused this ({error.code})", 1
+    print(message, file=sys.stderr)
+    return code
 
 
 def items() -> list:
     payload = call("/v1/logins")
     rows = payload.get("items") if isinstance(payload, dict) else payload
-    return rows if isinstance(rows, list) else []
+    if not isinstance(rows, list):
+        die(BAD_BODY, 1)
+    return [row for row in rows if isinstance(row, dict)]
 
 
 def read(title: str, field: str) -> str:
     payload = call("/v1/logins/read", {"title": title, "field": field})
     value = payload.get("value") if isinstance(payload, dict) else None
-    if value is None:
-        die(f"the logins service returned no {field} for {title}", 1)
-    return str(value)
+    if not isinstance(value, str) or not value:
+        die(f"the logins service returned no {field} for that login", 1)
+    return value
 
 
 def main(argv: list) -> int:
     if not argv or argv[0] in ("-h", "--help"):
-        die(USAGE, 1 if argv else 1)
+        die(USAGE, 1)
     command, rest = argv[0], argv[1:]
     if command == "list":
         if rest:
@@ -127,8 +154,14 @@ def main(argv: list) -> int:
             die(USAGE, 1)
         title = rest[0]
         if command == "show":
-            print(read(title, "url"))
-            print(read(title, "username"))
+            rows = items()
+            if not rows:
+                die(NO_LOGINS, 2)
+            row = next((r for r in rows if r.get("title") == title), None)
+            if row is None:
+                die(NO_TITLE, 1)
+            print(str(row.get("url") or ""))
+            print(str(row.get("username") or ""))
         else:
             print(read(title, command))
         return 0

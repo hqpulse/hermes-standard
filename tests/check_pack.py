@@ -83,6 +83,11 @@ shipped = {str(p.relative_to(ROOT)) for p in ROOT.rglob("*")
            and p.relative_to(ROOT).parts[0] in ("skills", "SOUL.md", "distribution.yaml")}
 for rel in sorted(shipped - set(owned)):
     err(f"shipped file not in distribution_owned (never reaches a pod): {rel}")
+# A script the skill tells the assistant to run by path must be executable, or
+# the first call is "permission denied" on a pod and the skill looks broken.
+for script in sorted(ROOT.glob("skills/*/scripts/*")):
+    if script.is_file() and not os.access(script, os.X_OK):
+        err(f"{script.relative_to(ROOT)}: not executable (chmod +x, and commit the mode)")
 changelog = (ROOT / "CHANGELOG.md").read_text() if (ROOT / "CHANGELOG.md").exists() else ""
 if f"## {version}" not in changelog:
     err(f"CHANGELOG.md has no entry for {version}")
