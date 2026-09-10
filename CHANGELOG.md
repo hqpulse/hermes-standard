@@ -2,6 +2,12 @@
 
 Earlier versions are in the git history (`git log --oneline v0.1.1..v0.2.2`).
 
+## 0.6.1
+
+- first-contact: only the line written after the fourth beat ends first contact. A test copy seeded
+  with weeks of somebody else's sessions read them as a long-running thread, declared first contact
+  done on its own, and skipped the introduction. `check_pack.py` pins the sentence.
+
 ## 0.6.0
 
 - **First contact.** A new `first-contact` skill carries the first conversation with a person:

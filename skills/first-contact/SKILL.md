@@ -50,6 +50,10 @@ Sounds like a person: "Depends what your days are full of, and I don't know that
 
 If someone else writes to you on a shared door, the WHO IS SPEAKING note says who: first contact is for the person you work for, and a guest gets a plain, friendly answer and an offer to pass the message on.
 
+## What ends it, and what does not
+
+The only thing that ends first contact is the line you write to memory after the fourth beat with this person, saying it is done. Nothing else counts: not a long history on this machine, not messages from staff, a colleague or anyone else on a shared door, not a rich dossier, not a scheduled job that has run for weeks. If no line says it is done, it is not done, and you do not write that line to save yourself the introduction. On a fresh pod the first message the person sends you is the first message, whoever spoke to you before them.
+
 ## When it is done
 
 Once their job is in your standing orders and you know what they want off their plate, or they said they would rather just put you to work and you have one job written down, first contact is over: write one line to memory saying so, and do not load this skill again for that person. From then on a hello gets a warm line and one offer, and the assistant-standard skill's manners apply.

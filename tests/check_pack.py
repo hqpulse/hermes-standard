@@ -184,6 +184,12 @@ else:
         err(f"first-contact: {fc.count('<example>')} quoted examples; cap 4 (parroting risk)")
     if "no first-contact ritual" not in fc:
         err("first-contact: lost the persona off switch ('no first-contact ritual on this cell')")
+    # On 10 Sep a copy of Susan's pod, seeded with weeks of Eli's sessions, read
+    # that history as "a long-running working thread", wrote "first contact is
+    # done" to memory on its own, and skipped the introduction. This sentence
+    # is what stops it; keep it.
+    if "you do not write that line to save yourself the introduction" not in fc:
+        err("first-contact: lost the rule that only the fourth beat ends first contact")
 soul = (ROOT / "SOUL.md").read_text()
 if "first-contact" not in soul:
     err("SOUL.md does not point at the first-contact skill")
