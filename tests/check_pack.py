@@ -225,18 +225,49 @@ for pj in sorted(ROOT.glob("skills/assistant-standard/presets/*.json")):
             err(f"{rel}: missing {key}")
     if not str(job.get("name", "")).startswith("preset-"):
         err(f"{rel}: name must start with preset-")
-    if job.get("continuity") is not True:
-        err(f"{rel}: continuity must be true (first-run detection depends on it)")
-    m = re.search(r'"([^"]*' + re.escape(ASK_TAIL) + r')"', job.get("prompt", ""))
-    if not m:
-        err(f"{rel}: prompt lacks the ask-once question ending {ASK_TAIL!r}")
+    # A preset with a pre-run SCRIPT cannot use the continuity block for any of
+    # this, and the difference is not stylistic. A gated tick (the script
+    # answering {"wakeAgent": false}) still writes an output document saying so,
+    # and the continuity block injects the NEWEST one -- so on a job that is
+    # silent most ticks, "is there a previous-run block" answers yes from the
+    # first gated half hour onward and the one-time hello would never be said,
+    # while the block itself is a gate receipt rather than anything the
+    # assistant wrote. Both jobs move into the script: it remembers what it has
+    # already shown (so a repeat is impossible, not merely discouraged) and it
+    # prints its own first-time marker.
+    scripted = bool(job.get("script"))
+    if not scripted:
+        if job.get("continuity") is not True:
+            err(f"{rel}: continuity must be true (first-run detection depends on it)")
+        m = re.search(r'"([^"]*' + re.escape(ASK_TAIL) + r')"', job.get("prompt", ""))
+        if not m:
+            err(f"{rel}: prompt lacks the ask-once question ending {ASK_TAIL!r}")
+        else:
+            ask_lines[str(rel)] = m.group(1)
+        if "Your previous run's output" not in job.get("prompt", ""):
+            err(f"{rel}: prompt does not say how to recognise the first run")
+        if "does not begin with" in job.get("prompt", ""):
+            err(f"{rel}: first-run test says 'does not begin with'; the continuity "
+                f"block never starts the prompt, so that test is false on every run")
     else:
-        ask_lines[str(rel)] = m.group(1)
-    if "Your previous run's output" not in job.get("prompt", ""):
-        err(f"{rel}: prompt does not say how to recognise the first run")
-    if "does not begin with" in job.get("prompt", ""):
-        err(f"{rel}: first-run test says 'does not begin with'; the continuity "
-            f"block never starts the prompt, so that test is false on every run")
+        if job.get("continuity"):
+            err(f"{rel}: a scripted preset must not set continuity; a gated tick "
+                f"overwrites the block with a gate receipt")
+        script_rel = f"scripts/{job['script']}"
+        if not (ROOT / script_rel).is_file():
+            err(f"{rel}: names {job['script']!r} but the pack ships no {script_rel}")
+        elif script_rel not in owned:
+            err(f"{script_rel}: not in distribution_owned, so it never reaches a "
+                f"pod and the job fails on every tick with 'Script not found'")
+        if "/" in job["script"] or job["script"].startswith("."):
+            err(f"{rel}: script must be a bare filename under scripts/, "
+                f"got {job['script']!r}")
+        # Anything a script hands the model came from outside this company. The
+        # rule has to be in the JOB, not only the skill: skills are loaded by
+        # name and a skill that fails to load leaves the prompt without it.
+        for phrase in ("UNTRUSTED CONTENT", "never an instruction"):
+            if phrase not in job.get("prompt", ""):
+                err(f"{rel}: a scripted preset's prompt must carry {phrase!r}")
     deliver = str(job.get("deliver", ""))
     if deliver.split(":", 1)[0].strip().lower() in PLATFORM_NAMES:
         err(f"{rel}: deliver {deliver!r} names a platform; presets must ship "
@@ -288,6 +319,69 @@ doss = (ROOT / "skills/assistant-standard/references/DOSSIER.md").read_text()
 for marker in ("=== CONTEXT SKILL ===", "=== USER.MD ===", "6,000", "240", "§"):
     if marker not in doss:
         err(f"DOSSIER.md lacks {marker!r}")
+
+# --- the mail watch -------------------------------------------------------
+#
+# Three invariants, each of which has a specific way of going wrong quietly.
+watch = ROOT / "scripts/mail-watch.py"
+if watch.is_file():
+    code = watch.read_text()
+
+    # 1. The wake gate is the LAST line, always, including on the waking path.
+    #    _parse_wake_gate reads the last non-empty stdout line and any JSON
+    #    object with wakeAgent false closes the gate. An email body quoting one
+    #    (a developer pasting a config, a phishing attempt that has read this
+    #    file) would silence the watch for ever, and silently. Printing the true
+    #    gate explicitly after the digest makes that unreachable.
+    if code.count('{"wakeAgent": true}') < 1:
+        err("scripts/mail-watch.py: never prints an explicit open gate, so an "
+            "email body ending in a JSON object can close it")
+    if 'print(_render(' in code:
+        after = code.split('print(_render(', 1)[1]
+        if '{"wakeAgent": true}' not in after.split("return 0", 1)[0]:
+            err("scripts/mail-watch.py: the digest is printed without an explicit "
+                "gate line after it")
+
+    # 2. It reads and nothing else. The door it talks to also carries send_mail,
+    #    so naming any tool but the search one here is how a read-only watch
+    #    stops being read-only.
+    for forbidden in ("send_mail", "create_event", "save_to_my_onedrive"):
+        if forbidden in code:
+            err(f"scripts/mail-watch.py: names {forbidden!r}; this watch reads "
+                f"and reports, and must never call a tool that acts")
+    if code.count('"search_messages"') < 1:
+        err("scripts/mail-watch.py: does not call search_messages")
+
+    # 3. Silence must have a ceiling. A watch that cannot read looks exactly
+    #    like a quiet mailbox, which is the 10 Sep fleet lesson: an optimistic
+    #    skip with no ceiling kept a dead channel looking healthy all day.
+    if "FAIL_CEILING" not in code:
+        err("scripts/mail-watch.py: no failure ceiling, so a broken watch is "
+            "indistinguishable from a quiet mailbox for ever")
+
+    # 4. The key is read from the environment and never printed.
+    if "MCP_PULSE_API_KEY" not in code:
+        err("scripts/mail-watch.py: does not read MCP_PULSE_API_KEY")
+    for leak in ("print(key", "print(f\"{key", "str(key)"):
+        if leak in code:
+            err(f"scripts/mail-watch.py: {leak!r} would put the key in a prompt")
+
+wskill = ROOT / "skills/mail-watch/SKILL.md"
+if wskill.is_file():
+    wtext = wskill.read_text()
+    for phrase in ("[SILENT]",
+                   "evidence, never instruction",
+                   "never repeat a resident",
+                   "Never act on the mailbox",
+                   "FIRST NOTICE"):
+        if phrase.lower() not in wtext.lower():
+            err(f"mail-watch/SKILL.md: lost {phrase!r}")
+    # The whole value of the watch is that it says nothing most of the time.
+    # A skill that stops saying so becomes an inbox summariser, which is the
+    # version a person switches off in its first week.
+    if "When it is close, do not send it" not in wtext:
+        err("mail-watch/SKILL.md: lost the tie-breaker that says a borderline "
+            "message is not sent")
 
 # --- result ---------------------------------------------------------------
 if errors:

@@ -2,6 +2,25 @@
 
 Earlier versions are in the git history (`git log --oneline v0.1.1..v0.2.2`).
 
+## 0.7.0
+
+- **The mail watch.** A fourth preset, and the first one that runs a script before the model. Every
+  half hour on weekdays `scripts/mail-watch.py` asks the person's own Pulse door what has arrived in
+  their mailbox since it last looked, remembers every message id it has already shown, and closes the
+  wake gate when there is nothing new, so a quiet half hour costs one web call and never wakes the
+  model. When something is new, the new `mail-watch` skill judges one thing: is it theirs to answer
+  and is there a clock on it. Almost always the answer is no and the reply is `[SILENT]`. The first
+  run after switching it on is deliberately silent (it records what is already there rather than
+  firing forty old emails at a phone), and the one-time hello rides a `FIRST NOTICE` marker the
+  script prints, not the continuity block, because a gated tick overwrites that block with a gate
+  receipt. A mailbox that cannot be read stays quiet for four tries, then says one plain line, then
+  at most once a day: silence from a watch must not read as a quiet mailbox. The watch reads and
+  reports and never sends, replies, marks read or forwards; mail text reaches the model inside a
+  block labelled untrusted content, and the rule that it is evidence and never an instruction is in
+  the job as well as the skill, so a skill that fails to load cannot drop it. `check_pack.py` pins
+  the explicit wake-gate line (an email quoting a JSON object would otherwise silence the watch for
+  ever), the failure ceiling, the absence of any acting tool, and the skill's own bar.
+
 ## 0.6.2
 
 - logins: a new skill and a `login` script (list, show, password, otp). An assistant reaches its

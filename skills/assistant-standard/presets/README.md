@@ -1,6 +1,6 @@
 # Presets: the jobs every new assistant starts with
 
-Three cron job specs, one JSON file each, in the shape of a Hermes `create_job`
+Four cron job specs, one JSON file each, in the shape of a Hermes `create_job`
 payload. The controller applies them at provision, and again from a Presets tab
 for assistants that already exist. The pack does not ship a `cron/jobs.json`:
 that file is per person and a pack-owned copy would overwrite every person's
@@ -11,8 +11,35 @@ own jobs on update (the 3 Sep lesson).
 | `morning-brief.json` | `preset-morning-brief` | weekdays 08:00 | `__HOME_CHANNEL__` | the Brief plus a 60-second voice note (`text_to_speech`) |
 | `meeting-prep.json` | `preset-meeting-prep` | weekdays 07:30 | `__HOME_CHANNEL__` | one pre-read per meeting; `[SILENT]` on a day with none |
 | `open-commitments.json` | `preset-open-commitments` | nightly 23:00 | `__HOME_CHANNEL__` | `[SILENT]`; rewrites `Open commitments.md` in the vault |
+| `mail-watch.json` | `preset-mail-watch` | every 30 min, weekdays 07:00-19:00 | `__HOME_CHANNEL__` | `[SILENT]` unless something in their mailbox needs them |
 
 Everything below was read from Hermes v0.21.0 (2026.8.31), the engine the fleet runs.
+
+## The fourth one is different: it runs a script first
+
+`mail-watch.json` is the only preset that carries a `script`, and the field
+changes the shape of the job. `cron/scheduler.py` runs `scripts/mail-watch.py`
+BEFORE building the prompt; a last stdout line of `{"wakeAgent": false}` skips
+the model entirely (no run, no delivery, no cost), and any other output is
+injected as a `## Script Output` block. So the deterministic half of the watch
+(what is new, what has already been shown, is the door even answering) is code,
+and only the judgement reaches a model.
+
+Two consequences worth knowing before copying the pattern:
+
+- **A scripted preset must not set `continuity`.** A gated tick still writes an
+  output document ("Script gate returned `wakeAgent=false`"), and the continuity
+  block injects the NEWEST one. On a job that is silent most ticks, "is there a
+  previous-run block" says yes from the first gated half hour, so the one-time
+  hello would never be said and the block itself would be a gate receipt rather
+  than anything the assistant wrote. The script owns both jobs instead: it
+  remembers every message id it has shown, and prints its own `FIRST NOTICE`
+  marker until it has woken the model once.
+- **The controller checks the script exists before it creates the job.** A
+  missing script is not a loud failure: `_run_job_script` returns "Script not
+  found", the engine treats it as a data-collection failure, and the assistant
+  reports a broken script to the person every half hour. `presets.CREATE_SCRIPT`
+  stats `scripts/<name>` on the pod and refuses the create instead.
 
 ## What the payload fields are
 
