@@ -38,6 +38,7 @@ class _Door(BaseHTTPRequestHandler):
 
     results: list = []
     refused: str = ""
+    refused_as_text: str = ""
     calls: list = []
 
     def log_message(self, *args):  # silence
@@ -49,11 +50,18 @@ class _Door(BaseHTTPRequestHandler):
             _Door.calls.append(json.loads(body))
         except ValueError:
             _Door.calls.append({})
-        if _Door.refused:
-            payload = {"text": _Door.refused, "refused": True}
+        if _Door.refused_as_text:
+            # The shape the real door actually uses for a refusal: plain
+            # prose, no JSON at all, measured on a pod whose person has no
+            # mailbox of their own.
+            text = ("scope=mine tool=search_my_messages\nrefused: "
+                    + _Door.refused_as_text)
         else:
-            payload = {"mode": "recent", "results": _Door.results}
-        text = "scope=mine tool=search_my_messages\n" + json.dumps(payload)
+            if _Door.refused:
+                payload = {"text": _Door.refused, "refused": True}
+            else:
+                payload = {"mode": "recent", "results": _Door.results}
+            text = "scope=mine tool=search_my_messages\n" + json.dumps(payload)
         envelope = {"jsonrpc": "2.0", "id": 1,
                     "result": {"content": [{"type": "text", "text": text}]}}
         out = f"event: message\ndata: {json.dumps(envelope)}\n\n".encode()
@@ -170,8 +178,32 @@ def main() -> int:
         check("it names the door's own reason", "corpus is off" in outs[3])
         check("it does not repeat immediately", gate_closed(run(home, url)))
 
-        print("recovery clears the count and does not replay the backlog")
+        print("a refusal written as prose is read as a refusal, not as a crash")
         _Door.refused = ""
+        _Door.refused_as_text = (
+            "No Microsoft 365 mailbox is linked to this Pulse account, so the "
+            "own-mail tools have nothing to read. That is expected for a staff "
+            "account and is not a fault.\nYou are an administrator: use "
+            "search_org_messages instead.\n(code m365.no_mailbox)")
+        # A fresh home: the previous scenario has already used this watch's
+        # one-a-day complaint, and suppressing the second one is the script
+        # working, not the parse being wrong.
+        fresh = home / "prose"
+        fresh.mkdir()
+        (fresh / "config.yaml").write_text(
+            f"mcp_servers:\n  pulse:\n    url: {url}\n", encoding="utf-8")
+        outs = [run(fresh, url) for _ in range(4)]
+        check("prose refusals are silent below the ceiling",
+              all(gate_closed(o) for o in outs[:3]))
+        check("a watch that never read says so, rather than naming a time",
+              "at any point since this watch was set up" in outs[3])
+        check("the fourth names the real cause, not a parse failure",
+              "No Microsoft 365 mailbox is linked" in outs[3], outs[3][:200])
+        check("the administrator advice is not read out to the person",
+              "search_org_messages" not in outs[3])
+        _Door.refused_as_text = ""
+
+        print("recovery clears the count and does not replay the backlog")
         out = run(home, url)
         check("recovery is silent", gate_closed(out))
         state = json.loads((home / "mail-watch" / "state.json").read_text())

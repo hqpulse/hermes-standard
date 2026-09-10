@@ -222,9 +222,21 @@ def _call_door(url: str, key: str, arguments: dict) -> dict:
         if isinstance(block, dict) and block.get("type") == "text":
             text = str(block.get("text") or "")
             break
+    # The door answers a refusal as PLAIN TEXT, not as JSON with a refused
+    # flag: "scope=mine tool=search_my_messages\nrefused: No Microsoft 365
+    # mailbox is linked to this Pulse account...". Measured on a second pod,
+    # where the person is staff with no mailbox of their own. Parsing only the
+    # JSON shape turned that permanent, nameable state into "the door answered
+    # with something this watch could not read", which tells nobody anything.
+    # The door writes those sentences for a person, so they pass straight
+    # through as the reason.
+    body = text.split("\n", 1)[1] if "\n" in text else text
+    stripped = body.strip()
+    if stripped.lower().startswith("refused"):
+        return {"refused": True, "reason": stripped.split(":", 1)[-1].strip()}
     start = text.find("{")
     if start < 0:
-        raise ValueError(text.strip()[:200] or "the door returned no message list")
+        raise ValueError(stripped[:200] or "the door returned no message list")
     payload = json.loads(text[start:])
     if not isinstance(payload, dict):
         raise ValueError("the door returned an unexpected shape")
@@ -346,10 +358,13 @@ def main() -> int:
         else:
             if payload.get("refused"):
                 # The door writes its own refusals for a person to read ("the
-                # corpus is off here", "this person has no linked mailbox"), so
-                # that text is already plain and passes straight through.
-                problem = _clean(payload.get("reason") or payload.get("text"), 200)
-                detail = problem
+                # corpus is off here", "no Microsoft 365 mailbox is linked"), so
+                # that text is already plain and passes straight through. Only
+                # the first sentence: the rest is advice aimed at an
+                # administrator, which is not this person's problem to read.
+                full = _clean(payload.get("reason") or payload.get("text"), 400)
+                problem = full.split(". ")[0].rstrip(".") if full else "the mailbox could not be read"
+                detail = full
 
     if problem:
         state["fails"] = int(state.get("fails", 0)) + 1
