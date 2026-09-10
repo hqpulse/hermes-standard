@@ -2,6 +2,13 @@
 
 Earlier versions are in the git history (`git log --oneline v0.1.1..v0.2.2`).
 
+## 0.6.2
+
+- logins: a new skill and a `login` script (list, show, password, otp). An assistant reaches its
+  own 1Password logins through the fleet controller's door with a per-assistant key, so it never
+  holds a 1Password token; it signs in only on the login's own domain and stops on SMS, push or
+  hardware keys. `check_pack.py` now fails a script under `skills/*/scripts/` that is not executable.
+
 ## 0.6.1
 
 - first-contact: only the line written after the fourth beat ends first contact. A test copy seeded
