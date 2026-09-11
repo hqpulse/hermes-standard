@@ -65,6 +65,9 @@ and ask the person.
 - **The site wants a text message, a phone approval, a hardware key, a code or
   link sent by email, or the answer to a security question.** Stop and ask the
   person. There is nothing here that answers those, and guessing locks the account.
+- **`login` says this pod has no login key.** That is a Pulse fault, not an empty
+  list: tell the person the logins service is not wired up on your side and that
+  the Pulse team has been told. Do not say you have no logins.
 - **`login` says there are no logins yet.** Tell the person plainly that this
   assistant has no logins yet and that one can be set up. Do not try
   the password of another login, and do not go looking for credentials anywhere

@@ -187,6 +187,14 @@ class LoginScript(unittest.TestCase):
         self.assertNotIn("battery", r.stdout)
         self.assertNotIn("418902", r.stdout)
 
+    def test_a_missing_key_is_a_fault_not_an_empty_list(self):
+        # 11 Sep 2026: the engine scrubbed the key from the terminal and every
+        # assistant told its person it had no logins while its vault held one.
+        r = self.run_login("list", token="")
+        self.assertEqual(r.returncode, 3, r.stderr)
+        self.assertIn("no login key", r.stderr)
+        self.assertNotIn("no logins yet", r.stderr)
+
     def test_list_skips_rows_that_are_not_objects(self):
         Door.mode = "junk-rows"
         r = self.run_login("list")
