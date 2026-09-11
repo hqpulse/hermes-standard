@@ -229,9 +229,10 @@ class LoginScript(unittest.TestCase):
         self.assertNotIn(TOKEN, r.stdout + r.stderr)
 
     # --- no logins: exit 2 ------------------------------------------------
-    def test_missing_token_exits_2_without_touching_the_door(self):
+    def test_missing_token_exits_3_without_touching_the_door(self):
         r = self.run_login("list", token=None)
-        self.assertEqual((r.returncode, r.stderr.strip(), r.stdout), (2, NO_LOGINS, ""))
+        self.assertEqual((r.returncode, r.stdout), (3, ""))
+        self.assertIn("no login key", r.stderr)
         self.assertEqual(Door.seen, [])
 
     def test_no_vault_list_is_an_empty_list_and_exit_2(self):

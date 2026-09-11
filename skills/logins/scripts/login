@@ -48,6 +48,8 @@ TIMEOUT_S = 10
 NO_VAULT_DETAIL = "no vault for this assistant"
 
 NO_LOGINS = "this assistant has no logins yet; ask the Pulse team to add one"
+NO_KEY = ("this pod has no login key, so the logins store cannot be asked; "
+          "tell the Pulse team (it is not an empty list)")
 BAD_TOKEN = "this assistant's login key is not accepted; tell the Pulse team"
 NO_DOOR = "the logins service is not reachable right now"
 BAD_BODY = "the logins service sent back an answer this script cannot read"
