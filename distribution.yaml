@@ -81,4 +81,5 @@ distribution_owned:
   - skills/logins/SKILL.md
   - skills/logins/scripts/login
   - skills/mail-watch/SKILL.md
+  - skills/pointclickcare/SKILL.md
   - scripts/mail-watch.py
