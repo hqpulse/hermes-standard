@@ -2,6 +2,16 @@
 
 Earlier versions are in the git history (`git log --oneline v0.1.1..v0.2.2`).
 
+## 0.7.1
+
+- **On a phone.** A new section in assistant-standard, and one line in SOUL: everything the assistant
+  sends lands in a chat, so one idea per line, a blank line between ideas, three or more things as a
+  list whatever the question was, a colleague's day as one line per meeting, and no em or en dash in
+  anything sent. The pack had only forbidden dashes in documents and had said "bullets only when the
+  content is a list", so on Susan's first morning a six-meeting day came back as one paragraph and the
+  mail watch's hello carried a dash. `check_pack.py` pins the phrases and refuses a dash in the files
+  that forbid them.
+
 ## 0.7.0
 
 - **The mail watch.** A fourth preset, the first that is opt in (`"opt_in": true`, offered at

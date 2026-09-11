@@ -319,6 +319,27 @@ for phrase in ("must name a `deliver` target",
         err(f"assistant-standard/SKILL.md: lost {phrase!r} — without it the "
             f"assistant leaves `deliver` unset and its reminders go nowhere")
 
+# --- on a phone -----------------------------------------------------------
+#
+# 11 Sep: Susan's first real morning. A six-meeting day came back as one
+# paragraph, the brief's calendar ran its lines together, and the mail watch's
+# first hello carried an em dash. The pack had only forbidden dashes in things
+# written for someone else, and had said "bullets only when the content is a
+# list", so a phone reply about a day became prose. These phrases are the fix.
+std = (ROOT / "skills/assistant-standard/SKILL.md").read_text()
+for phrase in ("## On a phone",
+               "Three or more things is a list, whatever the question was",
+               "No em dashes and no en dashes in anything you send",
+               "A blank line between meetings once there are more than three"):
+    if phrase not in std:
+        err(f"assistant-standard/SKILL.md: lost {phrase!r}; a day comes back as a wall of prose")
+if "never a dash" not in soul:
+    err("SOUL.md: lost the one-line phone rule; the skill carries the detail but the soul names it")
+for rel in ("SOUL.md", "skills/assistant-standard/SKILL.md", "skills/mail-watch/SKILL.md",
+            "skills/first-contact/SKILL.md"):
+    if "\u2014" in (ROOT / rel).read_text() or "\u2013" in (ROOT / rel).read_text():
+        err(f"{rel}: carries an em or en dash; the file that forbids them cannot contain one")
+
 # --- dossier --------------------------------------------------------------
 doss = (ROOT / "skills/assistant-standard/references/DOSSIER.md").read_text()
 for marker in ("=== CONTEXT SKILL ===", "=== USER.MD ===", "6,000", "240", "§"):
