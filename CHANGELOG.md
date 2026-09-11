@@ -2,6 +2,13 @@
 
 Earlier versions are in the git history (`git log --oneline v0.1.1..v0.2.2`).
 
+## 0.7.5
+
+- **One emoji is a reply.** On a phone, a thanks or an OK from the person gets a reaction on
+  their message, never a message back. The turn carries the message's id and the `react` command
+  (agent image apply.py XII), and the assistant answers NO_REPLY so nothing else goes out. One
+  line under "On a phone".
+
 ## 0.7.2
 
 - **Nobody behind the assistant is ever named.** Not a team, not a person, not a ticket, and never
