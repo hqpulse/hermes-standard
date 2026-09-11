@@ -98,7 +98,7 @@ state word, no error text. The script prints a sentence you can say almost as it
 - Stalled: "The WhatsApp link stopped receiving a while ago. I can see what came in up to <date>;
   linking again from your agent page should start it moving."
 - Not reachable: "I cannot reach the WhatsApp link just now. Ask me again in a little while, and
-  if it stays that way the Pulse team will see it."
+  if it stays that way it will be looked at."
 
 Never offer to re-link, retry, or fix it yourself: there is nothing you can do from here, and
 saying so once is better than promising.

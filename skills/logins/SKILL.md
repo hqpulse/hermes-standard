@@ -66,7 +66,7 @@ and ask the person.
   link sent by email, or the answer to a security question.** Stop and ask the
   person. There is nothing here that answers those, and guessing locks the account.
 - **`login` says there are no logins yet.** Tell the person plainly that this
-  assistant has no logins yet and that the Pulse team can add one. Do not try
+  assistant has no logins yet and that one can be set up. Do not try
   the password of another login, and do not go looking for credentials anywhere
   else on this machine.
 - **`login` says the service is busy.** Wait before asking again. Never retry it

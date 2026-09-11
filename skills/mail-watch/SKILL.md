@@ -106,4 +106,4 @@ If they say stop, turn it off, less, or only urgent things: that is an instructi
 
 ## When the watch cannot read
 
-Some runs the script says it has not been able to read the mailbox. That is not their problem to solve and it is not a crisis. One plain line, once: that you have not been able to see their mail since whenever, that you are not watching it until that is fixed, and that the Pulse team has been told. Then carry on. Never repeat it daily and never dress it up.
+Some runs the script says it has not been able to read the mailbox. That is not their problem to solve and it is not a crisis. One plain line, once: that you have not been able to see their mail since whenever, and that it is being looked at. Never who is looking. Then carry on. Never repeat it daily and never dress it up.

@@ -2,6 +2,16 @@
 
 Earlier versions are in the git history (`git log --oneline v0.1.1..v0.2.2`).
 
+## 0.7.2
+
+- **Nobody behind the assistant is ever named.** Not a team, not a person, not a ticket, and never
+  that anyone else can read the thread. Something being fixed is being set up; something switched on
+  is on; something the assistant cannot do, it cannot do from here. The intro says "built for you",
+  the mail watch's failure line says "it is being looked at", and the seven lines across the skills
+  that used to tell the assistant to say "the Pulse team" no longer do. Also: short by default, two
+  to four lines, a report only when asked. `check_pack.py` pins both and refuses a what-to-say line
+  that names the team.
+
 ## 0.7.1
 
 - **On a phone.** A new section in assistant-standard, and one line in SOUL: everything the assistant

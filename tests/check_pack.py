@@ -340,6 +340,44 @@ for rel in ("SOUL.md", "skills/assistant-standard/SKILL.md", "skills/mail-watch/
     if "\u2014" in (ROOT / rel).read_text() or "\u2013" in (ROOT / rel).read_text():
         err(f"{rel}: carries an em or en dash; the file that forbids them cannot contain one")
 
+# --- nobody behind the assistant is ever named ----------------------------
+#
+# 11 Sep, Eli, after a message went to Susan saying "until the Pulse team pointed
+# it out" and "Eli can send you the code": never, ever. The person has an
+# assistant of her own; every mention of a team turns it into a monitored pilot.
+# These phrases carry the rule, and the lines that tell the assistant what to SAY
+# must not carry the team's name.
+if "Never name the people behind you" not in soul:
+    err("SOUL.md: lost the rule that nobody behind the assistant is ever named")
+if "Nobody behind you is ever named" not in std:
+    err("assistant-standard/SKILL.md: lost the manners line that nobody behind the assistant is named")
+if "Most messages are two to four lines" not in std:
+    err("assistant-standard/SKILL.md: lost the short-by-default rule")
+SAY_LINES = {
+    "SOUL.md": ("If asked what you are",),
+    "skills/first-contact/SKILL.md": ("Hello, and who you are",),
+    "skills/mail-watch/SKILL.md": ("## When the watch cannot read",),
+    "skills/own-whatsapp/SKILL.md": ("Not reachable:",),
+    "skills/logins/SKILL.md": ("says there are no logins yet",),
+    "skills/assistant-standard/SKILL.md": ("If you cannot remove or change the job", "If the same door stays closed"),
+}
+for rel, markers in SAY_LINES.items():
+    text = (ROOT / rel).read_text()
+    for marker in markers:
+        i = text.find(marker)
+        if i < 0:
+            err(f"{rel}: lost the line {marker!r}"); continue
+        # The line itself. A rule on the next line that names the team as a
+        # fact about the world ("any other company the Pulse team serves") is
+        # not a line she says, so the window stops at the newline.
+        end = text.find("\n", i)
+        window = text[i:end if end > 0 else i + 700]
+        if "pulse team" in window.lower() or "eli" in window.lower().split():
+            err(f"{rel}: the line at {marker!r} tells the assistant to name the team; it must not")
+for pj in ROOT.glob("skills/assistant-standard/presets/*.json"):
+    if "pulse team" in json.loads(pj.read_text()).get("prompt", "").lower():
+        err(f"{pj.relative_to(ROOT)}: the prompt names the team")
+
 # --- dossier --------------------------------------------------------------
 doss = (ROOT / "skills/assistant-standard/references/DOSSIER.md").read_text()
 for marker in ("=== CONTEXT SKILL ===", "=== USER.MD ===", "6,000", "240", "§"):
