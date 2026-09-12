@@ -163,8 +163,15 @@ vocabulary of clicking is not satisfied by finding a way to do it without clicki
              document.querySelector(sel).checked
              document.querySelector(sel).href
              document.querySelectorAll(sel).length
+             window.innerWidth
+             window.innerHeight
              JSON.stringify(  an array or object built only of the above  )
    ```
+
+   The two `window` entries are the only reads here that are not about an element. They
+   are on the list because a wrong viewport silently re-lays out the page (login.md
+   failure 11) and the diagnosis needs a number. They return a number and can reach
+   nothing else. Nothing else on `window` is permitted.
 
    An expression that only reads, and returns only a string, a number, a boolean or a
    list of those, is a read. **That list is exhaustive.** If the expression you want is

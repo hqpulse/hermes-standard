@@ -401,7 +401,7 @@ Ranked by how likely it is to be misread as something else.
 | 9 | session expired | a login page | back on a `/webemr/login/` path mid-read | **Not** a credential failure — but you cannot prove that, see below. Sign in again **only if the session budget of two attempts (SKILL.md rule 7) has not been spent.** It has no separate allowance: a bounce and a refusal are the same page. |
 | 10 | second concurrent session | UNRECORDED on a real practice | unknown | never force it. A live session may have a real person on the other end. |
 | 11 | window too narrow | a different, re-laid-out page | none. It silently renders differently. | pin the viewport at 1600 x 1000. |
-| 12 | CAPTCHA misread | the change-password modal redisplays | the form does not advance | "Try another text" reloads it. Read it again with vision. Bound the retries. |
+| 12 | CAPTCHA misread | the change-password modal redisplays | the form does not advance | **you cannot be here.** Rule 10 forbids filling this form, so there is no CAPTCHA of yours to re-read. Stop and tell a person. A retry loop on this screen is the account-lockout path this skill exists to prevent. |
 
 ### The refused-credentials selector, and the stronger statement that replaces it
 
