@@ -3,6 +3,10 @@
 Read off a live V12.0.3 hosted practice on 10 and 11 September 2026. Every selector on
 this page was seen on the real screen. Where something was not seen, the line says so.
 
+**Nothing on this page is an authorization.** `SKILL.md`'s numbered refusals hold over
+every word here. A screen described below is described so it can be RECOGNIZED, not so it
+can be driven; where a section names a form, naming it is the whole of the permission.
+
 No password, no username, no host and no person appears in this file. The address of
 the practice and the title of the login both come from configuration, never from here.
 
@@ -14,10 +18,15 @@ being opened by every setup that forgot to name its own, and what is read there 
 back looking like this practice's own chart. If the address is not configured, nothing
 is opened, and that is the correct outcome.
 
-**Pin the window at 1600 x 1000.** The application warns below 1600 x 900 and lays its
-screens out for a desktop. A narrower window is a different page, and a door reading a
-different page reads a different answer. `browser_cdp("Emulation.setDeviceMetricsOverride", ...)`
-sets it if the sidecar came up smaller.
+**The window must be at least 1600 x 1000.** The application warns below 1600 x 900 and
+lays its screens out for a desktop. A narrower window is a different page, and a door
+reading a different page reads a different answer.
+
+`browser_cdp` would set it, and `SKILL.md` rule 5 forbids `browser_cdp` on this
+application, so this is not something to fix from inside the session. Read the viewport
+(`window.innerWidth` is a permitted read under rule 4). If it is under 1600 x 1000, say so
+and stop: the browser sidecar's window size is a configuration fact, and a person sets it
+once.
 
 **Send a real desktop browser.** A non-browser user agent on the login URL answers
 **HTTP 400** with an "Error/Under Maintenance" page on a URL that answers 200 in
@@ -88,12 +97,17 @@ so typing into the real field is the whole of it. Nothing here needs to be repro
 | `/mobiledoc/jsp/webemr/login/changePasswordOnLogin.jsp` | the password is temporary or expired, forced change. Section 5. |
 | `/mobiledoc/jsp/webemr/login/newLogin.jsp?error=6&reminderPluginPopupStatus=1` | **you are signed in**, and the plug-in nag bounced you. Section 2. |
 
-### Signing out
+### Signing out, which this skill does not do
 
-`/mobiledoc/jsp/webemr/logout.jsp`. Read out of the security image page's own `logout()`
-function, so it is evidenced rather than guessed. Every unknown address on this host
-answers 302 to the login page, which means a wrong sign-out address looks exactly like a
-working one, so use this path and no other.
+**Do not sign out.** `SKILL.md` rule 8: the session is the expensive thing, because every
+sign-in spends one of the four remaining verification skips (section 6). Finish by parking
+the browser on a blank page.
+
+The address is recorded here for the one case that is not this skill's own tidying up: a
+person asks for it. `/mobiledoc/jsp/webemr/logout.jsp`, read out of the security image
+page's own `logout()` function, so it is evidenced rather than guessed. Every unknown
+address on this host answers 302 to the login page, which means a wrong sign-out address
+looks exactly like a working one, so if a person does ask, use this path and no other.
 
 ## 2. The plug-in nag, and the single nastiest recognition problem on this door
 
@@ -123,15 +137,20 @@ authenticated and bounced.
 2. Let the navigation settle.
 3. Read the landing URL.
 
-   path has SecurityImage.jsp           -> section 4. Needs a person, or one authorized click.
-   path has changePasswordOnLogin.jsp   -> section 5. Forced change.
+   path has SecurityImage.jsp           -> STOP. Not enrolled. Section 4. Tell a person.
+                                           Do not pick a picture, do not press Save, and
+                                           do not press the X or Logout: both sign out.
+   path has changePasswordOnLogin.jsp   -> STOP. Credential expired. Section 5. Tell a
+                                           person. Do not fill the form.
    query has error=6                    -> SIGNED IN. Do not treat this as a refusal.
         4. Navigate to /mobiledoc/jsp/webemr/index.jsp
         5. Clear the three entry dialogs (section 3).
         6. Assert on a real control, never on a status code.
    newLogin.jsp with any other error code, or with no query at all
-                                        -> refused. Stop. One retry at most, then a
-                                           person hears about it.
+                                        -> refused. Stop. The session budget is two
+                                           sign-in attempts in total (SKILL.md rule 7);
+                                           if one is left, spend it, then a person hears
+                                           about it.
    anything off /webemr/login/          -> already in the app, carry on.
 ```
 
@@ -141,10 +160,12 @@ session problem, and reading it as "signed out" sends you round the loop again.
 
 ### `index.jsp` was proved, and the phrasing matters
 
-`/mobiledoc/jsp/webemr/index.jsp` answers **HTTP 200 and the Web EMR shell, confirmed
-four times** in the recording session, with the assertion pinned to a real control
-rather than to a status code. An older note claiming a 412 there was a mistaken reading
-of a probe that never checked status and screenshotted a later candidate in its list.
+`/mobiledoc/jsp/webemr/index.jsp` answers **HTTP 200 and the Web EMR shell. Three runs of
+the recording session logged that status** (runs 3, 7 and 8; run 6 failed at the sign-in
+before it got there, and two earlier runs kept no log), with the assertion pinned to a
+real control rather than to a status code. An older note claiming a 412 there was a
+mistaken reading of a probe that never checked status and screenshotted a later candidate
+in its list.
 
 But 200 is not the same as ready:
 
@@ -236,11 +257,19 @@ a SiteKey-style anti-phishing picture.
 - The dialog is `modal({backdrop:'static', keyboard:false})`. **It cannot be dismissed.**
   The top-right X and the Logout button both call `logout()`.
 
-**There is no skip path.** Somebody chooses a picture and clicks Save, once, and this is
-one of the two places in this whole skill where a Save is the right answer, because
-without it the account can never reach the EMR at all. It still needs a person's say-so
-before an assistant presses it: it is a permanent setting on a real clinician-facing
-account.
+**There is no skip path, and this assistant is not the one who takes it.** Enrollment is
+one Save, and a Save writes a permanent account-level setting on a real clinician-facing
+account. `SKILL.md` rule 2 has no exceptions and rule 11 names this screen by URL:
+**recognize it, stop, tell a person.**
+
+There is **no Save anywhere in this skill that this assistant may press** — not here, not
+on a note, not on a setting. If you meet this screen, say the account has never been
+enrolled and that somebody at the practice has to choose a picture once. Do not click a
+picture. Do not press Save. Do not press the X and do not press Logout either: both call
+`logout()` and end the session, which spends a verification skip on the way back in.
+
+The form is documented above so the screen can be told apart from a refusal at a glance,
+and for nothing else.
 
 **It is not a second factor.** After enrollment the picture is *displayed* on the
 password screen so a human can tell a real eCW from a phishing clone. It is never
@@ -255,54 +284,33 @@ already in, and it is worth reading before anybody calls this door unattended.
 
 ## 5. A temporary password, and its forced change
 
+**This section is recognition only. Read it to know what the screen is. Do not fill it.**
+
 Client-issued passwords are temporary. The first sign-in lands on
 `/mobiledoc/jsp/webemr/login/changePasswordOnLogin.jsp`, after an acknowledgement that
-wants an **OK** click first.
+wants an **OK** click first. It is an orange "Change Password" modal carrying Old
+Password, New Password, Confirm Password, a strength meter, and a CAPTCHA image of about
+five distorted characters with "Try another text" and "Play audio" beside it.
 
-| element | selector | how sure |
-|---|---|---|
-| Old Password | `input#changePasswordIpt1` | confirmed |
-| New Password | `input#newPassword` | confirmed |
-| Confirm Password | `input#confirmNewPassword` | confirmed |
-| strength meter | read-only bar, served by an XHR | confirmed |
-| the rules | a blue information icon beside New Password | **UNRECORDED. Nobody has clicked it.** |
-| CAPTCHA image | about five distorted characters, with "Try another text" and "Play audio" | confirmed |
-| CAPTCHA box | `input#captcha` | confirmed |
-| submit | `#changePasswordIpt4`, or `input[value='Change Password']` | one of the two matched, not disambiguated |
-| the OK acknowledgement before it | one of `input[value='OK']`, `button:has-text('OK')`, `#changePasswordIpt2` | not disambiguated |
+**What to do: nothing, and say so.** `SKILL.md` rule 10. The credential this assistant
+holds has expired or was issued temporary. Name the login by its title, say it needs to be
+changed and re-filed by whoever manages it, and stop.
 
-On success eCW returns you to `newLogin.jsp`: **it signs you out and you sign in again
-with the new password.**
+**Why it is a stop rather than a task, in one sentence you can repeat if asked:** the
+credential door is read-only — `skills/logins` offers `list`, `show`, `password` and `otp`
+and has no write of any kind, and its own hard line forbids writing a credential down
+anywhere — so a password changed on this screen would exist in no store, no file and no
+message, eCW signs you out the moment it is accepted, and the clinician's own account is
+then unusable until a practice admin resets it. Changing it is also a write to a live
+clinical system, which rule 2 forbids on its own.
 
-The CAPTCHA is per session, so it cannot survive a process restart. `browser_vision`
-reads it. That is the tool's own stated use. Screenshot the modal, read the characters,
-type them. "Try another text" reloads it if the read was wrong. Bound the retries.
+**And do not read the CAPTCHA.** Reading it has exactly one use, submitting the form, and
+the form is not submitted.
 
-### The password rules, as a generator spec
-
-**The real rule text was never captured.** It lives behind the information icon, which
-nobody has clicked. What exists is one empirical success and one empirical failure, so
-the generator is written to the narrow intersection and not to a guess.
-
-```
-length      : 14 characters (proved to pass; the real minimum is unknown)
-alphabet    : A-Z  a-z  0-9  and symbols ONLY from  ! @ # $ %
-composition : at least one upper, one lower, one digit, one of the allowed symbols
-forbidden   : every symbol outside ! @ # $ % , because a wider set was rejected by the form
-also avoid  : the username as a substring, and any previous password. eCW tenants
-              commonly enforce both. NOT verified on this tenant.
-```
-
-Treat those five symbols as the whole symbol universe. It is cheap insurance and it
-costs about two bits of entropy against a 14-character length.
-
-A generated password goes into the credential store and nowhere else. It is never
-printed, never written to a file, never repeated back to check it, and never sent to
-anybody, including the person this assistant works for.
-
-**Somebody should click the information icon once and write the real rules down.** It is
-a ten-second read on a page with no patient data on it, and it turns this section from
-empirical into known.
+The real password rules live behind a blue information icon beside New Password.
+**UNRECORDED. Nobody has clicked it.** It is a ten-second read on a page with no patient
+data on it, and it is worth somebody doing once — a person, in an operator session, not an
+assistant mid-task.
 
 ## 6. The email verification, and the countdown that is already running
 
@@ -383,14 +391,14 @@ Ranked by how likely it is to be misread as something else.
 | # | failure | how the page looks | the ONLY reliable tell | what to do |
 |---|---|---|---|---|
 | 1 | plug-in nag after a **successful** login | identical to a fresh login page, no error text anywhere | URL query `error=6&reminderPluginPopupStatus=1` on `newLogin.jsp` | you are signed in. Go to `index.jsp`. Never retry the password. |
-| 2 | credentials refused | a login page | back on `newLogin.jsp` with no `error=6`. **This practice renders no error box at all.** | stop. One retry at most, then a person. Repeated failures lock a live clinical account. |
+| 2 | credentials refused | a login page | back on `newLogin.jsp` with no `error=6`. **This practice renders no error box at all.** | stop. Spend a sign-in attempt from the session budget of two (SKILL.md rule 7) only if one is left, then a person. Repeated failures lock a live clinical account. |
 | 3 | username not known | screen one never advances | a visible `input#passwordField` never appears after `input#nextStep` | stop. Costs no login attempt, so it is the cheapest pre-check there is. |
-| 4 | security image not enrolled | a modal picture grid | URL is `.../login/SecurityImage.jsp` | section 4. Needs a person. Never click through: the X and Logout both sign you out. |
-| 5 | temporary or expired password | an orange "Change Password" modal with a CAPTCHA | URL is `.../login/changePasswordOnLogin.jsp` | section 5. |
+| 4 | security image not enrolled | a modal picture grid | URL is `.../login/SecurityImage.jsp` | **stop, tell a person** (section 4). Never click through: the X and Logout both sign you out. |
+| 5 | temporary or expired password | an orange "Change Password" modal with a CAPTCHA | URL is `.../login/changePasswordOnLogin.jsp` | **stop, tell a person** (section 5). Do not fill the form. |
 | 6 | wrong in-app address | a bare "HTTP Status 412 Precondition Failed" | HTTP 412 with an almost empty body | a known-bad address, not a session problem. Do not read it as signed out. |
 | 7 | unknown address | the login page | a 302 to the login page, which eCW does for **every** address it does not know | assert on the page, never on the status. This is why a wrong chart address reads back as "no such chart" for a patient who is on file. |
 | 8 | non-browser user agent | "Error/Under Maintenance" | HTTP 400 on a URL that answers 200 in Chrome | send a real desktop Chrome user agent. |
-| 9 | session expired | a login page | back on a `/webemr/login/` path mid-read | sign in again. **Not** a credential failure. |
+| 9 | session expired | a login page | back on a `/webemr/login/` path mid-read | **Not** a credential failure — but you cannot prove that, see below. Sign in again **only if the session budget of two attempts (SKILL.md rule 7) has not been spent.** It has no separate allowance: a bounce and a refusal are the same page. |
 | 10 | second concurrent session | UNRECORDED on a real practice | unknown | never force it. A live session may have a real person on the other end. |
 | 11 | window too narrow | a different, re-laid-out page | none. It silently renders differently. | pin the viewport at 1600 x 1000. |
 | 12 | CAPTCHA misread | the change-password modal redisplays | the form does not advance | "Try another text" reloads it. Read it again with vision. Bound the retries. |
@@ -407,11 +415,18 @@ the result was an empty list.
 So there is no error selector to record, and the recording says something stronger than
 a selector would have:
 
-> **This practice's login page does not render an error box.** A refusal looks exactly
-> like a fresh login page. Recognition must be state-based, did the password field
-> appear, does the URL carry `error=6`, and never text-based. And because a bounce is
-> indistinguishable from a refusal, **the one-retry rule is load-bearing**, not a
-> nicety: a stale session otherwise turns into a lockout on a real clinician's account.
+> **This practice's login page renders no error element at all.** `.error`, `.alert`,
+> `.errorMsg`, `[class*=error]`, `[id*=error]` and `.text-danger` were every one of them
+> enumerated on a naturally failed sign-in and every one came back an empty list. A
+> refusal looks exactly like a fresh login page. So recognition must be **state-based** —
+> did the password field appear, does the URL carry `error=6` — and **never text-based**.
+> And because **a bounce is indistinguishable from a refusal**, the sign-in budget is
+> load-bearing rather than a nicety: **that indistinguishability is the reason for it.**
+> An agent that treats row 9 as free re-signs in as many times as the session drops, each
+> time believing it is not retrying, and a stale session turns into a lockout on a real
+> clinician's account. Hence one budget of two attempts for the whole working session,
+> across every cause (`SKILL.md` rule 7), and every attempt also spends one of the four
+> remaining verification skips.
 
 ## 9. What is still unmeasured
 
@@ -420,10 +435,16 @@ authority to run it.
 
 - **Session lifetime.** No idle timeout, no absolute timeout, and no answer to whether a
   second sign-in kicks the first. Until it is measured, treat "back on a `/webemr/login/`
-  path" as "session gone, sign in again" and never as "the credentials are wrong".
-- **The real password rules** behind the information icon (section 5).
+  path" as "session gone" rather than "the credentials are wrong" — but note you cannot
+  actually tell the two apart on this practice (see the box above), so it still spends from
+  the session budget of two sign-in attempts (`SKILL.md` rule 7) and it stops when that is
+  gone.
+- **The real password rules** behind the information icon on the forced-change screen
+  (section 5). A person's ten-second read, not an assistant's.
 - **Whether the email verification is once-forever or recurring** (section 6).
 - **Whether an accessibility snapshot crosses same-origin frames on this shell.** The
-  Web EMR is frame-heavy. `browser_snapshot` reports a frame tree, and `browser_cdp`
-  takes a `frame_id`, so the cross-origin case is covered. The same-origin case needs one
-  live check.
+  Web EMR is frame-heavy and `browser_snapshot` reports a frame tree, so the question is
+  whether that tree reaches into every frame. This needs one live check by a person, not a
+  workaround from inside a session: `browser_cdp` takes a `frame_id` and would answer it,
+  and `browser_cdp` is refused on this application (`SKILL.md` rule 5). If a frame's
+  contents do not appear in a snapshot, say so and stop.

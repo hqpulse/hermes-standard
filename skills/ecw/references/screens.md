@@ -10,6 +10,15 @@ what a row looks like, and it does not pretend to.
 
 A screen marked **UNRECORDED** has never been seen. Do not drive one from a guess.
 
+**Two kinds of id on this page, and they behave differently.** A plain id
+(`table#officeVisitsTbl1`, `button#btnViewPN`, `input#okBtn`) is eCW's own and is the same
+at any practice. An id carrying a **numeric suffix** — `input#provider-lookupIpt1_9715`,
+`input#single-facility-lookupIpt1_8504`, `input#provider-lookupIpt1_0783`,
+`input#staff-lookup_staff4480_Ipt1` — is generated per lookup instance: note that the two
+Provider fields on two different screens carry different suffixes. **Do not carry a
+suffixed id to another install, and do not assume it survives a page rebuild.** Match
+those controls by their visible label and use the id as a hint.
+
 ## The rule that catches everybody once
 
 **After sign-in the address bar stops moving.** Every module loads into `index.jsp`
@@ -200,7 +209,10 @@ Filters: `Provider` (All), `Assign To` (defaults to the signed-in user), `Action
 (`select#actionListSel1`), `Created By`, `Facility` (All), `Patient` (All), `Subject`
 free text, and a Filter button.
 
-The eight `Action Type` values, which are eCW's own list:
+The eight `Action Type` values **as this practice has them configured**. Action types are
+practice configuration, not eCW's own fixed list: `Ultrasound` in particular is one
+vascular practice's type and will not exist elsewhere. Read the picker on the install in
+front of you rather than assuming this set.
 
 ```
 All | Ultrasound | Procedure | Follow up | Patient Inquiry | CPT Inquiry |
@@ -213,9 +225,11 @@ CREATED BY | START DATE | FACILITY`.
 Buttons: **`New`** (`button#actionListBtn4`, forbidden), **`Reassign To`**
 (`button#actionListBtn3`, forbidden), Prev, Next.
 
-**What matters here.** Those eight action types are the vocabulary any practice's own
-actions procedure is built on. A practice's action *templates* are a local fact and
-belong wherever this install keeps its own settings, never in this skill.
+**What matters here.** The action-type picker is the vocabulary a practice's own actions
+procedure is built on — read it off the screen, because the list above is one practice's
+configuration and is recorded here as an example of the shape, not as eCW's own set. A
+practice's action *templates* are a local fact too, and belong wherever this install keeps
+its own settings, never in this skill.
 
 ## The other three queues
 
@@ -249,9 +263,12 @@ Grid: `PATIENT NAME | DOB | SEX | AGE | TELEPHONE | WORK TELEPHONE | ACCOUNT NO.
 
 ## UNRECORDED: the Patient Hub
 
-**Not recorded, deliberately.** Reaching it means opening a real patient chart, which the
-recording session was told not to do, and the Hub is per-patient so there is no empty
-version of it to capture.
+**UNRECORDED. Nobody who wrote this file has seen the Patient Hub.** Reaching it means
+opening a real patient chart, which the recording session was told not to do, and the Hub
+is per-patient so there is no empty version of it to capture. Everything said about its
+contents anywhere in this skill is **from the SOP, not observed** — see `tasks.md`, which
+labels it as such. **No instruction in this skill tells an assistant to press a control
+inside the Hub.**
 
 What **is** recorded is every door into it:
 

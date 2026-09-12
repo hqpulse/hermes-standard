@@ -8,11 +8,26 @@ Earlier versions are in the git history (`git log --oneline v0.1.1..v0.2.2`).
   sign-in and its client-side encryption, the plug-in nag that bounces an already successful
   login onto a page with no error on it, the app shell behind three stacked dialogs, and the
   work queues, patient lookup and actions list with an anchor selector each. It is read only:
-  no form but the sign-in and a search box, nothing saved, signed, locked, booked or printed,
-  and one retry on a sign-in because a second failure locks a real clinician out of their own
-  day. Hidden from any assistant without a browser (`requires_tools: [browser_navigate]`), and
-  the first words of its description name the system so nobody else's model matches on it.
-  Screens nobody has recorded are marked UNRECORDED and say so rather than being guessed at.
+  no form but the sign-in and a search box, and nothing saved, signed, locked, booked or
+  printed **by clicking or by evaluating** — the refusals are written about the effect, so
+  `browser_console` is pinned to reading a value off a rendered element and `browser_cdp`,
+  `browser_exec` and a Playwright script are refused outright on this application, because
+  `browser_navigate` cannot be granted without them. Two sign-in attempts per working
+  session across every cause, because this practice's login page renders no error element
+  at all, so a refusal and a session bounce are indistinguishable and a third attempt locks
+  a real clinician out of their own day. The Patient Hub, the progress-note form and My
+  Favorite Templates are marked UNRECORDED; what is said about them is labeled "from the
+  SOP, not observed"; and `references/doctrine.md` is labeled as ported from a stand-in
+  replica, with its two claims that the live recording refuted corrected in place.
+- **On the gate.** `requires_tools: [browser_navigate, browser_console]` is a **discovery**
+  gate, not an access gate: it keeps the skill out of the system-prompt index on an
+  assistant without those tools (`_skill_should_show`, reached only from the index builder),
+  and the skill stays loadable by name through `skills_list` and `skill_view` everywhere. It
+  also excludes almost nobody in practice — nine of the ten live hermes cells have a browser
+  image set. Real exclusion needs a per-cell skills block, which does not exist yet.
+- **`browser`: one carve-out.** Its "write your own automation" section now says the
+  Playwright route, `browser_cdp` and `browser_exec` are off for eClinicalWorks, and
+  points at the `ecw` refusals instead. One paragraph, nothing else in that skill moved.
 
 ## 0.7.5
 
