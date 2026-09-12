@@ -60,6 +60,9 @@ NOT_AN_OWNER = "Making someone a full owner isn't something I can do from here."
 UNKNOWN = "I don't know who that is. Run reach list."
 AMBIGUOUS = "Two groups are called that. Use the ref from reach list."
 NOT_NOW = "I can't change that just now. Try again in a minute."
+COULD_NOT_LEAVE = "I couldn't leave that group just now. Try again in a little while."
+NOT_WAITING = "Nobody by that name is waiting on her; a grant answers something she was asked."
+ALREADY_ANSWERED = "That one was already answered in this turn."
 NOBODY = "Nobody is waiting and nobody has been added from chat."
 
 # The words that never reach a person, as whole words, any case. An env
@@ -183,6 +186,14 @@ class Bridge(http.server.BaseHTTPRequestHandler):
             self._send(403, {"error": "no live key"}); return
         if m == "403-late":
             self._send(403, {"error": "that one arrived after her message; ask again"}); return
+        if m == "403-not-waiting":
+            self._send(403, {"error": "nobody by that name is waiting on her; a grant answers an ask"}); return
+        if m == "403-spent":
+            self._send(403, {"error": "that one was already answered with this key"}); return
+        if m == "leave-failed" and self.path == "/reach/leave":
+            self._send(502, {"error": "could not leave that group just now; try again in a little while"}); return
+        if m == "leave-not-left" and self.path == "/reach/leave":
+            self._send(200, {"ok": True, "ref": "g3", "name": "Simcha Invites", "left": False}); return
         if m == "422":
             self._send(422, {"error": "making someone a full owner is not done from here"}); return
         if m == "500":
@@ -384,6 +395,27 @@ class ReachScript(unittest.TestCase):
             r = self.run_reach("deny", "group", "g3", "--key", KEY)
             self.assertEqual((r.returncode, r.stderr.strip(), r.stdout), (1, NOT_NOW, ""), mode)
             self.assertEqual(Door.seen, [], mode)
+
+    def test_a_leave_the_bridge_could_not_make_is_a_failure_not_a_left_group(self):
+        # The bridge says so outright (a 502), or, from an older bridge, an
+        # ok with left false. Either way: the line says you are still in the
+        # room, the exit code is not 0, and nothing is recorded as done.
+        for mode in ("leave-failed", "leave-not-left"):
+            Bridge.seen = []; Door.seen = []
+            Bridge.mode = mode
+            r = self.run_reach("leave", "group", "g3", "--key", KEY)
+            self.assertEqual((r.returncode, r.stderr.strip(), r.stdout), (1, COULD_NOT_LEAVE, ""), mode)
+            self.assertEqual(self.bridge_calls(), [("POST", "/reach/leave")], mode)
+            self.assertEqual(Door.seen, [], mode)
+
+    def test_a_grant_outside_the_waiting_list_and_a_spent_key_have_their_own_lines(self):
+        Bridge.mode = "403-not-waiting"
+        r = self.run_reach("allow", "person", "15550001111", "--key", KEY)
+        self.assertEqual((r.returncode, r.stderr.strip(), r.stdout), (2, NOT_WAITING, ""))
+        Bridge.mode = "403-spent"
+        r = self.run_reach("allow", "group", "g3", "--key", KEY)
+        self.assertEqual((r.returncode, r.stderr.strip(), r.stdout), (2, ALREADY_ANSWERED, ""))
+        self.assertEqual(Door.seen, [])
 
     # --- each command: the route, the body, then the record --------------------
     def assert_recorded(self):
@@ -688,7 +720,7 @@ class ReachScript(unittest.TestCase):
             "Want me to say hello in there so they know who I am?",
         ):
             self.assertIn(line, text, line)
-        for refusal in (NEEDS_HER_WORD, UNKNOWN, AMBIGUOUS, NOT_NOW):
+        for refusal in (NEEDS_HER_WORD, UNKNOWN, AMBIGUOUS, NOT_NOW, COULD_NOT_LEAVE, NOT_WAITING, ALREADY_ANSWERED):
             self.assertIn(refusal, text, refusal)
         self.assertIn("Do without asking", text)
 

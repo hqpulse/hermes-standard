@@ -75,6 +75,9 @@ NOT_AN_OWNER = "Making someone a full owner isn't something I can do from here."
 UNKNOWN = "I don't know who that is. Run reach list."
 AMBIGUOUS = "Two groups are called that. Use the ref from reach list."
 NOT_NOW = "I can't change that just now. Try again in a minute."
+COULD_NOT_LEAVE = "I couldn't leave that group just now. Try again in a little while."
+NOT_WAITING = "Nobody by that name is waiting on her; a grant answers something she was asked."
+ALREADY_ANSWERED = "That one was already answered in this turn."
 NOBODY = "Nobody is waiting and nobody has been added from chat."
 
 USAGE = """usage: reach list
@@ -366,9 +369,15 @@ def map_bridge_answer(answer: BridgeAnswer) -> Refused:
     if answer.status == 403:
         if "arrived after" in error:
             return Refused(ASK_AGAIN, 2)
+        if "waiting on her" in error:
+            return Refused(NOT_WAITING, 2)
+        if "already answered" in error:
+            return Refused(ALREADY_ANSWERED, 2)
         return Refused(NEEDS_HER_WORD, 2)
     if answer.status == 422:
         return Refused(NOT_AN_OWNER, 2)
+    if answer.status == 502 and "leave" in error:
+        return Refused(COULD_NOT_LEAVE, 1)
     if answer.status == 404:
         return Refused(UNKNOWN, 1)
     if answer.status == 409:
@@ -385,6 +394,9 @@ def enact(base: str, path: str, body: dict) -> dict:
         raise map_bridge_answer(bridge_answer)
     if not isinstance(answer, dict) or answer.get("ok") is not True:
         raise Refused(NOT_NOW, 1)
+    # A leave the bridge could not make is a failure, whatever else it says.
+    if path == "/reach/leave" and answer.get("left") is not True:
+        raise Refused(COULD_NOT_LEAVE, 1)
     return answer
 
 

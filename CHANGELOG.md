@@ -21,6 +21,11 @@ Earlier versions are in the git history (`git log --oneline v0.1.1..v0.2.2`).
   switch gains "Who may reach you (groups, replies)." `tests/test_reach.py` proves the script
   against a fake bridge and a fake door, and greps the skill and every string the script can print
   for the words that never reach a person.
+- **A leave that did not happen is never reported as done.** The bridge now answers a refused
+  group leave as a failure; the script says "I couldn't leave that group just now" and exits
+  non-zero instead of printing "left group". The key from the note is bound to what was waiting
+  when it was armed: a grant answers one of those, once, and the script has plain lines for a grant
+  outside the list and for one already answered.
 
 ## 0.8.0
 
