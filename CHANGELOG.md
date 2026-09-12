@@ -2,6 +2,18 @@
 
 Earlier versions are in the git history (`git log --oneline v0.1.1..v0.2.2`).
 
+## 0.8.0
+
+- **eClinicalWorks.** A new skill, `ecw`, for the hosted V12.0.3 Web EMR: the two-screen
+  sign-in and its client-side encryption, the plug-in nag that bounces an already successful
+  login onto a page with no error on it, the app shell behind three stacked dialogs, and the
+  work queues, patient lookup and actions list with an anchor selector each. It is read only:
+  no form but the sign-in and a search box, nothing saved, signed, locked, booked or printed,
+  and one retry on a sign-in because a second failure locks a real clinician out of their own
+  day. Hidden from any assistant without a browser (`requires_tools: [browser_navigate]`), and
+  the first words of its description name the system so nobody else's model matches on it.
+  Screens nobody has recorded are marked UNRECORDED and say so rather than being guessed at.
+
 ## 0.7.5
 
 - **One emoji is a reply.** On a phone, a thanks or an OK from the person gets a reaction on
