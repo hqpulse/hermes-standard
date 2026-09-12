@@ -403,7 +403,7 @@ Ranked by how likely it is to be misread as something else.
 |---|---|---|---|---|
 | 1 | plug-in nag after a **successful** login | identical to a fresh login page, no error text anywhere | URL query `error=6&reminderPluginPopupStatus=1` on `newLogin.jsp` | you are signed in. Go to `index.jsp`. Never retry the password. |
 | 2 | credentials refused | a login page | back on `newLogin.jsp` with no `error=6`. **This practice renders no error box at all.** | stop. Spend a sign-in attempt from the session budget of two (SKILL.md rule 7) only if one is left, then a person. Repeated failures lock a live clinical account. |
-| 3 | username not known | screen one never advances | a visible `input#passwordField` never appears after `input#nextStep` | stop. Costs no login attempt, so it is the cheapest pre-check there is. |
+| 3 | username not known | screen one never advances | a visible `input#passwordField` never appears after `input#nextStep` | stop. No password was submitted, so no password attempt was spent — but whether eCW counts a failed username step toward its own lockout was **never measured** (section 1). One check, then a person. Not a probe you repeat. |
 | 4 | security image not enrolled | a modal picture grid | URL is `.../login/SecurityImage.jsp` | **stop, tell a person** (section 4). Never click through: the X and Logout both sign you out. |
 | 5 | temporary or expired password | an orange "Change Password" modal with a CAPTCHA | URL is `.../login/changePasswordOnLogin.jsp` | **stop, tell a person** (section 5). Do not fill the form. |
 | 6 | wrong in-app address | a bare "HTTP Status 412 Precondition Failed" | HTTP 412 with an almost empty body | a known-bad address, not a session problem. Do not read it as signed out. |
