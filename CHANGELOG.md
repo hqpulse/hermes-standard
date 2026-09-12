@@ -2,6 +2,16 @@
 
 Earlier versions are in the git history (`git log --oneline v0.1.1..v0.2.2`).
 
+## 0.9.1
+
+- **The reach script no longer rewrites the page's two standing answers on every grant.** It sends
+  them to the fleet door only when the bridge says she changed them, so a toggle made on the page
+  whose live push did not land is not undone by her next yes. The skill now says what is true after
+  a yes, a no, or a folded question: two groups from one "tell me which" are two commands on one
+  key; "they can ask about my diary" a minute after her yes is a widening that works; a no she gave
+  can be put right with `reach allow` while it stands; and a number nobody ever asked her about is
+  not granted from chat, she is asked the moment they write.
+
 ## 0.9.0
 
 - **Who may reach the assistant is now asked in her own chat, and enacted from it.** When she adds

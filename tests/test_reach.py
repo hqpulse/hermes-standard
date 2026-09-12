@@ -503,6 +503,14 @@ class ReachScript(unittest.TestCase):
         self.assertEqual((r.returncode, r.stdout), (0, "auto replies off; recorded\n"), r.stderr)
         self.assertEqual(self.bridge_body("/reach/auto"), {"which": "replies", "on": False, "key": KEY})
 
+    def test_the_standing_answers_travel_only_when_the_bridge_changed_them(self):
+        Bridge.status = dict(STATUS, auto={"groups_added_by_principal": True, "replies": True, "synced": True})
+        r = self.run_reach("allow", "group", "g3", "--key", KEY)
+        self.assertEqual((r.returncode, r.stdout), (0, "allowed group g3 Simcha Invites (working); 2 held released; recorded\n"), r.stderr)
+        body = Door.seen[0][3]
+        self.assertNotIn("auto", body)
+        self.assertEqual(body["entries"], DOOR_BODY["entries"])
+
     # --- the door: second, and never in the way ---------------------------------
     def test_a_redirect_from_the_door_is_not_followed_and_it_records_later(self):
         other, Catch = catcher()
@@ -725,9 +733,9 @@ class ReachScript(unittest.TestCase):
         self.assertIn("Do without asking", text)
 
     def test_changelog_and_manifest(self):
-        self.assertIn("## 0.9.0", (ROOT / "CHANGELOG.md").read_text())
+        self.assertIn("## 0.9.1", (ROOT / "CHANGELOG.md").read_text())
         manifest = (ROOT / "distribution.yaml").read_text()
-        self.assertIn("version: 0.9.0\n", manifest)
+        self.assertIn("version: 0.9.1\n", manifest)
         self.assertIn("  - skills/reach/SKILL.md\n", manifest)
         self.assertIn("  - skills/reach/scripts/reach\n", manifest)
 

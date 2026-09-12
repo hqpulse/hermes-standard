@@ -271,7 +271,8 @@ def door_body(status: dict) -> dict:
     """The bridge's unrecorded decisions, in the shape the door takes.
 
     A person known only by a linked identity, with no number yet, stays on
-    this machine until the bridge learns the number.
+    this machine until the bridge learns the number. The standing rules ride
+    along only when the bridge has a change of them to record.
     """
     entries = []
     for entry in status.get("unsynced") or []:
@@ -280,10 +281,15 @@ def door_body(status: dict) -> dict:
         if entry.get("kind") == "person" and not entry.get("phone"):
             continue
         entries.append({k: v for k, v in entry.items() if k not in POD_ONLY_KEYS})
+    body = {"platform": "whatsapp", "entries": entries}
+    # The two standing rules travel only when the bridge says it changed
+    # them. Sent every time, the door would take the bridge's copy as the
+    # truth and undo a page toggle whose live push never reached this bridge.
     auto = status.get("auto") if isinstance(status.get("auto"), dict) else {}
-    return {"platform": "whatsapp", "entries": entries,
-            "auto": {"groups_added_by_principal": bool(auto.get("groups_added_by_principal")),
-                     "replies": bool(auto.get("replies"))}}
+    if auto.get("synced") is False:
+        body["auto"] = {"groups_added_by_principal": bool(auto.get("groups_added_by_principal")),
+                        "replies": bool(auto.get("replies"))}
+    return body
 
 
 def record(base: str) -> bool:
