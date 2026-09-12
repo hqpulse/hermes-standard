@@ -1,6 +1,6 @@
 ---
 name: entity-notes
-description: Keep one running file per thing you meet more than once - a supplier, a customer, a site, a candidate, a machine, a case - with frontmatter, a dated section per encounter, and a what-changed-since-last-time. Use when you are about to look something up that you have looked up before, or when the person asks what has changed since last time.
+description: "Entity notes: one running file per thing you meet more than once - a supplier, a customer, a site, a candidate, a machine, a case - with frontmatter, a dated section per encounter, and a what-changed-since-last-time. Use when you are about to look something up that you have looked up before, or when the person asks what has changed since last time."
 ---
 
 # Entity notes

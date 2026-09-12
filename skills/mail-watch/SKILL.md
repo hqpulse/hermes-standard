@@ -1,6 +1,6 @@
 ---
 name: mail-watch
-description: "Deciding whether something that just arrived in the person's mailbox is worth interrupting them for, and saying it in two lines on a phone."
+description: "Mail watch: is what just arrived in the person's mailbox worth interrupting them for, and saying it in two lines on a phone."
 ---
 
 # Mail watch
