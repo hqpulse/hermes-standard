@@ -38,6 +38,13 @@ Only when the tools genuinely cannot do it - a long scripted sequence, a file
 download, a page you must drive dozens of steps deep. The Playwright client is on
 the pod; attach to the SAME browser rather than starting a second one:
 
+> **Never on eClinicalWorks.** If the `ecw` skill covers the site you are on, this
+> section does not apply: no Playwright script, no `browser_cdp` and no
+> `browser_exec` against that application, and `browser_console` there is limited to
+> reading a value off an element that is already rendered. A live medical record is
+> not a page to drive dozens of steps deep with nobody reading the refusals. Read
+> `ecw`'s "What this skill will not do" and follow that instead of this.
+
 ```python
 import os
 from playwright.sync_api import sync_playwright   # PYTHONPATH=$AGENT_VENDOR_DIR/site-packages
