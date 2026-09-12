@@ -2,6 +2,26 @@
 
 Earlier versions are in the git history (`git log --oneline v0.1.1..v0.2.2`).
 
+## 0.9.0
+
+- **Who may reach the assistant is now asked in her own chat, and enacted from it.** When she adds
+  the assistant to a group, when a number it does not know writes first, or when someone it wrote
+  to for her writes back, a short question in fixed words goes to her own chat before the model
+  sees anything, and a plain yes or no from her is acted on the spot, no page and no restart. A
+  yes with more in it, a rule said out of the blue, or a name goes to the model, whose turn now
+  carries a REACH note (what is waiting, short refs, a key good for that turn only). The new
+  `reach` skill says how to read the note, how to match her words to a waiting question (the
+  presets rule: two waiting and it fits either, ask which), what her phrases mean (guest by default
+  for a number that wrote first, "they can ask about my diary" widens it, "stay out of X" is a real
+  leave, "any group I add you to is fine" is a standing rule) and the one line to say back; its
+  script `skills/reach/scripts/reach` hands the bridge one decision at a time with her key, then
+  records it through the fleet door with the assistant's own key, and refuses `principal` before
+  it makes a call. assistant-standard's "Speaking first" gains two sentences naming these questions
+  as the one other thing that arrives unprompted, and policy-keeper's list of rules that need a real
+  switch gains "Who may reach you (groups, replies)." `tests/test_reach.py` proves the script
+  against a fake bridge and a fake door, and greps the skill and every string the script can print
+  for the words that never reach a person.
+
 ## 0.8.0
 
 - **eClinicalWorks.** A new skill, `ecw`, for the hosted V12.0.3 Web EMR: the two-screen

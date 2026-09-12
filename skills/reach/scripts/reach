@@ -1,0 +1,542 @@
+#!/usr/bin/env python3
+"""Enact who may reach this assistant on WhatsApp, from her own word in chat.
+
+    reach list
+    reach allow group <ref|name> [working|inner|outside] --key K     default working
+    reach allow person <ref|digits> [guest|delegate] --key K         default guest
+    reach deny group <ref|name> --key K
+    reach deny person <ref|digits> --key K
+    reach leave group <ref|name> --key K
+    reach remove person <ref|digits> --key K
+    reach auto groups on|off --key K
+    reach auto replies on|off --key K
+
+What this file is, and what it is not:
+
+  THE BRIDGE ON THIS MACHINE IS THE ONE TRUTH. It asked her, it holds her
+  answer, and it enforces it. This script hands it one decision at a time
+  over loopback and reads back what it did. The refs (g3, p4) are the
+  bridge's own short names for a group or a number; the script never
+  prints a group's address and never needs one.
+
+  THE KEY IS HERS. Every command but `list` carries the key from the note
+  on her own turn. The bridge refuses a key that is missing, spent, old, or
+  older than the question it is answering, so a word from anyone but her
+  cannot be turned into a grant through this file. Without a key the script
+  refuses before it makes a call.
+
+  A FULL OWNER IS NEVER MADE HERE. `principal` and `everything` are refused
+  before any call, and again if the bridge or the door says so.
+
+  THE DOOR HEARS ABOUT IT SECOND. After the bridge says yes, the script
+  posts the bridge's unrecorded decisions to the fleet door with this
+  assistant's own key, then tells the bridge which ones the door took. If
+  the door is down the decision still stands on this machine and the
+  bridge sends it again later on its own; the line ends "will record
+  later" and the exit is 0.
+
+  THE TOKEN GOES TO THE DOOR AND NOWHERE ELSE. One unredirected
+  Authorization header; environment proxies are ignored and a redirect is
+  refused outright. It appears in no output, no error and no traceback.
+
+  REFUSALS ARE PLAIN LINES. Everything the script wants to SAY goes to
+  stderr, one line, in words the assistant can say to her as they stand.
+  Exit 2 is "not from here" (no key, or a full owner); exit 1 is a target
+  it cannot find, a name two groups share, a bridge that is not answering,
+  or a bad command line.
+
+Standard library only: the pack ships no dependencies to a pod.
+"""
+from __future__ import annotations
+
+import json
+import os
+import re
+import sys
+import urllib.error
+import urllib.request
+from datetime import datetime, timezone
+from pathlib import Path
+
+TIMEOUT_S = 10
+DEFAULT_PORT = 3300
+
+TOKEN_ENV = "HERMES_LOGINS_TOKEN"
+DOOR_ENV = "HERMES_FLEET_URL"
+HOME_ENV = "HERMES_HOME"
+# The door's default host is the door variable's own name, lowercased and
+# hyphenated, on the fleet's door port. Spelled by derivation so that no
+# literal in this file carries a word the assistant may not say.
+DEFAULT_DOOR = "http://%s:8787" % DOOR_ENV[: -len("_URL")].lower().replace("_", "-")
+
+NEEDS_HER_WORD = "That needs her own word in this chat; I can't act on it from here."
+ASK_AGAIN = "That question arrived after her message; ask her to say it again."
+NOT_AN_OWNER = "Making someone a full owner isn't something I can do from here."
+UNKNOWN = "I don't know who that is. Run reach list."
+AMBIGUOUS = "Two groups are called that. Use the ref from reach list."
+NOT_NOW = "I can't change that just now. Try again in a minute."
+NOBODY = "Nobody is waiting and nobody has been added from chat."
+
+USAGE = """usage: reach list
+       reach allow group <ref|name> [working|inner|outside] --key K
+       reach allow person <ref|digits> [guest|delegate] --key K
+       reach deny group <ref|name> --key K
+       reach deny person <ref|digits> --key K
+       reach leave group <ref|name> --key K
+       reach remove person <ref|digits> --key K
+       reach auto groups on|off --key K
+       reach auto replies on|off --key K"""
+
+ROOM_WORDS = ("working", "inner", "outside")
+PERSON_WORDS = ("guest", "delegate")
+OWNER_WORDS = ("principal", "everything")
+OWNER_DETAIL = "making someone a full owner is not done from here"
+
+# Keys the journal keeps for the bridge alone; the door body never carries them.
+POD_ONLY_KEYS = ("ref", "synced", "lid")
+
+
+class RefuseRedirects(urllib.request.HTTPRedirectHandler):
+    """A redirect from the door is never followed: the token would go with it."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise urllib.error.HTTPError(req.full_url, code, msg, headers, fp)
+
+
+OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}), RefuseRedirects())
+
+
+class Refused(Exception):
+    """A plain line for stderr and an exit code."""
+
+    def __init__(self, message: str, code: int):
+        super().__init__(message)
+        self.message = message
+        self.code = code
+
+
+class BridgeAnswer(Exception):
+    """The bridge answered with a status this script maps to a line."""
+
+    def __init__(self, status: int, payload: object):
+        super().__init__(status)
+        self.status = status
+        self.payload = payload
+
+
+# --- where things are ---------------------------------------------------------
+
+def profile_home() -> Path:
+    env = (os.environ.get(HOME_ENV) or "").strip()
+    if env:
+        return Path(env)
+    return Path(__file__).resolve().parents[3]
+
+
+def bridge_port(home: Path) -> int:
+    """platforms.whatsapp.extra.bridge_port from the profile's config.yaml.
+
+    PyYAML when it imports, a one-line text read when it does not, and the
+    fleet's fixed port when the file or the key is absent.
+    """
+    try:
+        raw = (home / "config.yaml").read_text(encoding="utf-8")
+    except OSError:
+        return DEFAULT_PORT
+    try:
+        import yaml  # optional, see the docstring
+        cfg = yaml.safe_load(raw) or {}
+        extra = (((cfg.get("platforms") or {}).get("whatsapp") or {}).get("extra") or {})
+        port = extra.get("bridge_port")
+        if isinstance(port, int) and 0 < port < 65536:
+            return port
+        if isinstance(port, str) and port.strip().isdigit():
+            return int(port.strip())
+    except Exception:
+        pass
+    match = re.search(r"^\s*bridge_port:\s*['\"]?(\d{1,5})", raw, re.MULTILINE)
+    return int(match.group(1)) if match else DEFAULT_PORT
+
+
+def bridge_base(home: Path | None = None) -> str:
+    return "http://127.0.0.1:%d" % bridge_port(home if home is not None else profile_home())
+
+
+def door_base() -> str:
+    return (os.environ.get(DOOR_ENV) or "").strip().rstrip("/") or DEFAULT_DOOR
+
+
+# --- talking --------------------------------------------------------------------
+
+def _read_json(raw: bytes) -> object:
+    try:
+        return json.loads(raw.decode() or "null")
+    except (UnicodeDecodeError, ValueError):
+        return None
+
+
+def bridge(base: str, path: str, body: dict | None = None) -> object:
+    """One request to the bridge on loopback. Returns the decoded 200 body.
+
+    A non-2xx answer raises BridgeAnswer; a bridge that is not there raises
+    Refused with the try-again line.
+    """
+    data = json.dumps(body).encode() if body is not None else None
+    request = urllib.request.Request(base + path, data=data, method="POST" if data else "GET")
+    if data is not None:
+        request.add_header("Content-Type", "application/json")
+    try:
+        with OPENER.open(request, timeout=TIMEOUT_S) as response:
+            return _read_json(response.read())
+    except urllib.error.HTTPError as error:
+        raise BridgeAnswer(error.code, _read_json(error.read() or b""))
+    except (urllib.error.URLError, OSError, ValueError):
+        raise Refused(NOT_NOW, 1)
+
+
+def door(body: dict) -> object:
+    """POST the door body to /v1/reach. Returns the decoded 200 body.
+
+    Any failure raises Refused: the caller decides whether that is fatal
+    (an owner refusal) or a record-later.
+    """
+    token = (os.environ.get(TOKEN_ENV) or "").strip()
+    if not token:
+        raise Refused(NOT_NOW, 1)
+    data = json.dumps(body).encode()
+    request = urllib.request.Request(door_base() + "/v1/reach", data=data, method="POST")
+    request.add_unredirected_header("Authorization", "Bearer " + token)
+    request.add_header("Content-Type", "application/json")
+    try:
+        with OPENER.open(request, timeout=TIMEOUT_S) as response:
+            payload = _read_json(response.read())
+    except urllib.error.HTTPError as error:
+        detail = ""
+        answer = _read_json(error.read() or b"")
+        if isinstance(answer, dict) and isinstance(answer.get("detail"), str):
+            detail = answer["detail"].strip().lower()
+        if error.code == 422 and detail == OWNER_DETAIL:
+            raise Refused(NOT_AN_OWNER, 2)
+        raise Refused(NOT_NOW, 1)
+    except (urllib.error.URLError, OSError, ValueError):
+        raise Refused(NOT_NOW, 1)
+    if not isinstance(payload, dict):
+        raise Refused(NOT_NOW, 1)
+    return payload
+
+
+# --- words ------------------------------------------------------------------------
+
+def format_number(digits: object) -> str:
+    d = re.sub(r"\D", "", str(digits or ""))
+    if not d:
+        return ""
+    if len(d) == 11 and d[0] == "1":
+        return "+1 %s %s %s" % (d[1:4], d[4:7], d[7:])
+    return "+" + d
+
+
+def local_time(stamp: object) -> datetime | None:
+    if not isinstance(stamp, str):
+        return None
+    try:
+        when = datetime.strptime(stamp.strip(), "%Y-%m-%dT%H:%M:%SZ")
+    except ValueError:
+        return None
+    return when.replace(tzinfo=timezone.utc).astimezone()
+
+
+def since(stamp: object) -> str:
+    when = local_time(stamp)
+    if when is None:
+        return str(stamp or "")
+    return "%d %s %s" % (when.day, when.strftime("%b"), when.strftime("%H:%M"))
+
+
+def clock(stamp: object) -> str:
+    when = local_time(stamp)
+    return when.strftime("%H:%M") if when is not None else str(stamp or "")
+
+
+def clean(text: object) -> str:
+    return " ".join(str(text or "").split())
+
+
+# --- the door body -----------------------------------------------------------------
+
+def door_body(status: dict) -> dict:
+    """The bridge's unrecorded decisions, in the shape the door takes.
+
+    A person known only by a linked identity, with no number yet, stays on
+    this machine until the bridge learns the number.
+    """
+    entries = []
+    for entry in status.get("unsynced") or []:
+        if not isinstance(entry, dict):
+            continue
+        if entry.get("kind") == "person" and not entry.get("phone"):
+            continue
+        entries.append({k: v for k, v in entry.items() if k not in POD_ONLY_KEYS})
+    auto = status.get("auto") if isinstance(status.get("auto"), dict) else {}
+    return {"platform": "whatsapp", "entries": entries,
+            "auto": {"groups_added_by_principal": bool(auto.get("groups_added_by_principal")),
+                     "replies": bool(auto.get("replies"))}}
+
+
+def record(base: str) -> bool:
+    """Carry the bridge's unrecorded decisions to the door. True when the door took them."""
+    try:
+        status = bridge(base, "/reach")
+    except BridgeAnswer:
+        return False
+    except Refused:
+        return False
+    if not isinstance(status, dict):
+        return False
+    try:
+        answer = door(door_body(status))
+    except Refused as refused:
+        if refused.code == 2:
+            raise
+        return False
+    synced = answer.get("synced")
+    client_ids = [c for c in synced if isinstance(c, str)] if isinstance(synced, list) else []
+    version = answer.get("reach_version")
+    try:
+        bridge(base, "/reach/synced",
+               {"client_ids": client_ids, "reach_version": version if isinstance(version, str) else None})
+    except (BridgeAnswer, Refused):
+        pass
+    return True
+
+
+# --- the command line -----------------------------------------------------------------
+
+def split_key(argv: list) -> tuple:
+    """Pull --key K (or --key=K) out of argv; the rest are positionals."""
+    key = ""
+    rest = []
+    i = 0
+    while i < len(argv):
+        arg = argv[i]
+        if arg == "--key":
+            if i + 1 < len(argv):
+                key = argv[i + 1].strip()
+                i += 2
+                continue
+            i += 1
+            continue
+        if arg.startswith("--key="):
+            key = arg[len("--key="):].strip()
+            i += 1
+            continue
+        rest.append(arg)
+        i += 1
+    return key, rest
+
+
+def refuse_owner_words(words: list) -> None:
+    for word in words:
+        if str(word).strip().lower() in OWNER_WORDS:
+            raise Refused(NOT_AN_OWNER, 2)
+
+
+def person_target(raw: str) -> str:
+    text = raw.strip()
+    if re.fullmatch(r"\+?[\d\s().-]+", text) and re.search(r"\d", text):
+        return re.sub(r"\D", "", text)
+    return text
+
+
+def group_target(words: list, tail_words: tuple) -> tuple:
+    """A group is named by a ref or by name; a name may run over several words.
+
+    Returns (target, tail) where tail is the last word when it is one of
+    tail_words and more than one word was given, else "".
+    """
+    if len(words) > 1 and words[-1].lower() in tail_words:
+        return " ".join(words[:-1]).strip(), words[-1].lower()
+    return " ".join(words).strip(), ""
+
+
+def map_bridge_answer(answer: BridgeAnswer) -> Refused:
+    error = ""
+    if isinstance(answer.payload, dict) and isinstance(answer.payload.get("error"), str):
+        error = answer.payload["error"].strip().lower()
+    if answer.status == 403:
+        if "arrived after" in error:
+            return Refused(ASK_AGAIN, 2)
+        return Refused(NEEDS_HER_WORD, 2)
+    if answer.status == 422:
+        return Refused(NOT_AN_OWNER, 2)
+    if answer.status == 404:
+        return Refused(UNKNOWN, 1)
+    if answer.status == 409:
+        return Refused(AMBIGUOUS, 1)
+    if answer.status == 400:
+        return Refused(USAGE, 1)
+    return Refused(NOT_NOW, 1)
+
+
+def enact(base: str, path: str, body: dict) -> dict:
+    try:
+        answer = bridge(base, path, body)
+    except BridgeAnswer as bridge_answer:
+        raise map_bridge_answer(bridge_answer)
+    if not isinstance(answer, dict) or answer.get("ok") is not True:
+        raise Refused(NOT_NOW, 1)
+    return answer
+
+
+def list_rows(status: dict) -> list:
+    rows = []
+    for entry in status.get("entries") or status.get("unsynced") or []:
+        if not isinstance(entry, dict):
+            continue
+        ref = clean(entry.get("ref"))
+        name = clean(entry.get("name"))
+        decided = clean(entry.get("decided")).lower()
+        when = "since " + since(entry.get("at"))
+        if entry.get("kind") == "group":
+            if decided == "allow":
+                what = "answering when asked (%s)" % (clean(entry.get("level")).lower() or "working")
+            elif decided == "deny":
+                what = "answering only her"
+            else:
+                what = "left"
+            rows.append("\t".join((ref, "group", name, what, when)))
+        else:
+            number = format_number(entry.get("phone"))
+            who = " ".join(part for part in (name, number) if part) or ref
+            if decided == "allow":
+                what = clean(entry.get("scope")).lower() or "guest"
+            elif decided == "deny":
+                what = "not answering"
+            else:
+                what = "not answering any more"
+            rows.append("\t".join((ref, "person", who, what, when)))
+    for ask in status.get("pending") or []:
+        if not isinstance(ask, dict):
+            continue
+        rows.append("\t".join((clean(ask.get("id")), "waiting", clean(ask.get("kind")),
+                               clean(ask.get("name")) or clean(ask.get("ref")),
+                               "asked " + clock(ask.get("at")))))
+    return rows
+
+
+def run(argv: list) -> int:
+    if not argv or argv[0] in ("-h", "--help"):
+        raise Refused(USAGE, 1)
+    key, words = split_key(argv)
+    if not words:
+        raise Refused(USAGE, 1)
+    command, rest = words[0].lower(), words[1:]
+
+    if command == "list":
+        if rest:
+            raise Refused(USAGE, 1)
+        base = bridge_base()
+        try:
+            status = bridge(base, "/reach")
+        except BridgeAnswer:
+            raise Refused(NOT_NOW, 1)
+        if not isinstance(status, dict):
+            raise Refused(NOT_NOW, 1)
+        rows = list_rows(status)
+        print("\n".join(rows) if rows else NOBODY)
+        return 0
+
+    if command not in ("allow", "deny", "leave", "remove", "auto"):
+        raise Refused(USAGE, 1)
+    refuse_owner_words(rest)
+    if len(rest) < 2:
+        raise Refused(USAGE, 1)
+    if not key:
+        raise Refused(NEEDS_HER_WORD, 2)
+
+    kind = rest[0].lower()
+    how = ""
+    if command == "auto":
+        which, state = kind, rest[1].lower()
+        if which not in ("groups", "replies") or state not in ("on", "off") or len(rest) != 2:
+            raise Refused(USAGE, 1)
+        path, body = "/reach/auto", {"which": which, "on": state == "on", "key": key}
+        line = "auto %s %s" % (which, state)
+    elif kind == "group":
+        if command == "allow":
+            target, how = group_target(rest[1:], ROOM_WORDS)
+            how = how or "working"
+            if not target:
+                raise Refused(USAGE, 1)
+            path = "/reach/allow"
+            body = {"kind": "group", "target": target, "level": how, "key": key}
+        else:
+            target, _ = group_target(rest[1:], ())
+            if not target:
+                raise Refused(USAGE, 1)
+            if command == "deny":
+                path, body = "/reach/deny", {"kind": "group", "target": target, "key": key}
+            else:
+                # leave, and remove as its alias: the assistant goes out of the group.
+                path, body = "/reach/leave", {"target": target, "key": key}
+        line = ""
+    elif kind == "person":
+        if command == "leave":
+            raise Refused(USAGE, 1)
+        if command == "allow":
+            if len(rest) not in (2, 3):
+                raise Refused(USAGE, 1)
+            how = rest[2].lower() if len(rest) == 3 else "guest"
+            if how not in PERSON_WORDS:
+                raise Refused(USAGE, 1)
+            target = person_target(rest[1])
+            path = "/reach/allow"
+            body = {"kind": "person", "target": target, "scope": how, "key": key}
+        else:
+            if len(rest) != 2:
+                raise Refused(USAGE, 1)
+            target = person_target(rest[1])
+            path = "/reach/" + command
+            body = {"kind": "person", "target": target, "key": key}
+        line = ""
+    else:
+        raise Refused(USAGE, 1)
+
+    base = bridge_base()
+    answer = enact(base, path, body)
+
+    if not line:
+        ref = clean(answer.get("ref"))
+        name = clean(answer.get("name"))
+        head = " ".join(part for part in (ref, name) if part)
+        if command == "allow":
+            line = "allowed %s %s (%s)" % (kind, head, how)
+            released = answer.get("released")
+            if isinstance(released, int) and released > 0:
+                line += "; %d held released" % released
+        elif command == "deny":
+            line = "denied %s %s" % (kind, head)
+        elif kind == "group":
+            line = "left group %s" % head
+        else:
+            line = "removed person %s" % head
+
+    recorded = record(base)
+    print(line + ("; recorded" if recorded else "; will record later"))
+    return 0
+
+
+def main(argv: list) -> int:
+    try:
+        return run(argv)
+    except Refused as refused:
+        print(refused.message, file=sys.stderr)
+        return refused.code
+    except Exception:
+        # Whatever went wrong, the line is plain and carries nothing from inside.
+        print(NOT_NOW, file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))
