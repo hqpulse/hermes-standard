@@ -1,6 +1,6 @@
 ---
 name: pulse-analyst
-description: Answering business questions through the Pulse tools.
+description: "Pulse analyst: answering business questions with Pulse."
 ---
 
 # Pulse analyst

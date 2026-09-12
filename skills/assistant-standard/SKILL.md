@@ -1,6 +1,6 @@
 ---
 name: assistant-standard
-description: How an assistant briefs, recaps, notes, asks and acts.
+description: "Assistant standard: how to brief, recap, note, ask and act."
 ---
 
 # The assistant standard

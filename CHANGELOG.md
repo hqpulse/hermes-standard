@@ -19,6 +19,17 @@ Earlier versions are in the git history (`git log --oneline v0.1.1..v0.2.2`).
   Favorite Templates are marked UNRECORDED; what is said about them is labeled "from the
   SOP, not observed"; and `references/doctrine.md` is labeled as ported from a stand-in
   replica, with its two claims that the live recording refuted corrected in place.
+- **PointClickCare.** A second clinical skill, `pointclickcare`, ships in the same pack
+  (merged separately as #2, and it added no entry of its own). Same shape and same refusals
+  as `ecw`: read only, gated on the browser tools, and written about the effect rather than
+  the gesture, so acknowledging an alert or an eINTERACT Stop and Watch is refused as the
+  write it is. It carries the behaviors that were each paid for once against the live
+  application: the self-submitting six-box challenge, the resident id that rotates on every
+  page load, the menu wrapper that goes stale and re-serves the previous row's report, and
+  the assessment that must be read from the checked inputs rather than the page text. No
+  login of ours exists for it yet, so nothing in it has been run end to end and the skill
+  says so.
+
 - **On the gate.** `requires_tools: [browser_navigate, browser_console]` is a **discovery**
   gate, not an access gate: it keeps the skill out of the system-prompt index on an
   assistant without those tools (`_skill_should_show`, reached only from the index builder),
@@ -28,6 +39,25 @@ Earlier versions are in the git history (`git log --oneline v0.1.1..v0.2.2`).
 - **`browser`: one carve-out.** Its "write your own automation" section now says the
   Playwright route, `browser_cdp` and `browser_exec` are off for eClinicalWorks, and
   points at the `ecw` refusals instead. One paragraph, nothing else in that skill moved.
+
+## 0.7.6
+
+- **The pack has checks that run themselves, and every skill now says its own name in the one
+  line the model reads.** A GitHub Action runs all seven scripts under `tests/` on every push
+  and pull request, against the engine's own parsers at a pinned commit, so a green run means
+  what the `check_pack.py` docstring says a green run should mean rather than the quieter
+  fallback: schedules parsed, preset fields checked against the real cronjob schema. Two checks
+  are new. `check_skill_index.py` prints the skills index exactly as the engine builds it and
+  refuses a description whose visible part never says the skill's own name. The index cuts a
+  description at 60 characters (`SKILL_PROMPT_DESC_LIMIT`), so anything past that cannot be
+  matched on, and eight of the fourteen skills were in that state: a model looking for the mail
+  watch read "Deciding whether something that just arrived in the perso..." and had nothing to
+  go on. Those eight now lead with the name and read the same afterwards. `check_distribution.py`
+  covers the manifest's quiet ways of going wrong: a line listed twice, a symlink, a path git
+  does not track, and `scripts/` as well as `skills/`, which is where the mail watch's own
+  script lives. Quoting the eight descriptions also fixed two that were not valid YAML at all,
+  `documents` and `policy-keeper`, each carrying an unquoted colon and loading only because the
+  engine falls back to splitting a line on its first one.
 
 ## 0.7.5
 

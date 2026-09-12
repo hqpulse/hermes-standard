@@ -1,0 +1,106 @@
+name: pack
+
+# hermes-standard had no CI at all: seven test scripts under tests/, every one
+# of them run by hand, on a repo that installs itself into every pod on the
+# fleet. This runs all seven, in a clean clone, on the interpreter their
+# docstrings ask for.
+#
+# push AND pull_request, so a branch is proven green before a pull request
+# exists and the pull request is proven again on its merge commit. A branch in
+# this repo therefore runs twice. The whole job is well under a minute and
+# knowing a branch is good before opening the pull request is worth it.
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pack-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: pack checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # The engine the pods run. check_pack.py reads its frontmatter parser,
+      # its cron parser and the cronjob tool schema out of this tree when it
+      # can find one, and silently checks less when it cannot: no schedule is
+      # parsed and no preset field is validated against the real tool schema.
+      # So CI fetches it, pinned, and a person bumps the pin deliberately.
+      HERMES_AGENT_REPO: https://github.com/NousResearch/hermes-agent.git
+      HERMES_AGENT_SHA: bf51fee548ceaa28d2c299a41c0f65066c04c061
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install what the checks import
+        # croniter is the one that matters: parse_schedule imports without it
+        # and then fails at call time, so check_pack.py drops the schedule
+        # check with a note rather than reporting three false failures.
+        run: pip install --quiet pyyaml croniter
+
+      - name: Fetch the Hermes engine at the pinned commit
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/hermes-agent"
+          cd "$RUNNER_TEMP/hermes-agent"
+          git init --quiet .
+          git remote add origin "$HERMES_AGENT_REPO"
+          git fetch --quiet --depth 1 origin "$HERMES_AGENT_SHA"
+          git checkout --quiet FETCH_HEAD
+          echo "HERMES_SRC=$RUNNER_TEMP/hermes-agent" >> "$GITHUB_ENV"
+
+      - name: The engine helpers really import
+        # When HERMES_SRC points at nothing, check_pack.py falls back without
+        # printing anything at all, so a fallback run and a full run look
+        # identical from the outside. Assert the real thing loaded first;
+        # otherwise a green here would mean less than the green on a
+        # workstation, which is the opposite of what CI is for.
+        run: python -c "import os,sys; sys.path.insert(0, os.environ['HERMES_SRC']); import croniter; from agent.skill_utils import SKILL_PROMPT_DESC_LIMIT as L; from cron.jobs import parse_schedule as s; from tools.cronjob_tools import CRONJOB_SCHEMA; s('0 7 * * *'); print('engine helpers ok, skill description limit', L)"
+
+      - name: check_pack.py
+        # The executable check in here reads the mode on disk, and a fresh
+        # checkout takes its modes from git, so this is also what catches a
+        # chmod +x that was never committed.
+        run: python tests/check_pack.py
+
+      - name: check_skill_index.py, the index line the model actually reads
+        run: python tests/check_skill_index.py
+
+      - name: check_distribution.py, what reaches a pod
+        run: python tests/check_distribution.py
+
+      - name: check_entity_notes.py
+        run: python tests/check_entity_notes.py
+
+      - name: test_login.py
+        run: python tests/test_login.py
+
+      - name: test_mail_watch.py
+        run: python tests/test_mail_watch.py
+
+      - name: test_own_whatsapp.py
+        run: python tests/test_own_whatsapp.py
+
+      - name: The index lint can still fail
+        # A lint nobody has watched fail is indistinguishable from a lint that
+        # returns zero on everything. Break one description in a copy of the
+        # tree and require a red.
+        run: |
+          set -euo pipefail
+          cp -r . "$RUNNER_TEMP/badpack"
+          sed -i 's/^description: .*/description: Something that never says its own name./' \
+            "$RUNNER_TEMP/badpack/skills/browser/SKILL.md"
+          if (cd "$RUNNER_TEMP/badpack" && python tests/check_skill_index.py); then
+            echo "::error::the index lint passed a description with no skill name in it"
+            exit 1
+          fi
+          echo "ok: the lint refused a nameless description"
