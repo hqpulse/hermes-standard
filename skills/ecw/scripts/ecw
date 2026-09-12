@@ -1,0 +1,867 @@
+#!/usr/bin/env python3
+"""This skill's own command. Run it with the terminal tool and read what it prints.
+
+    ecw preflight                 is it safe to sign in at all? costs no attempt
+    ecw url                       the page's address, after a click
+    ecw where                     what the landing address MEANS, in one word
+    ecw viewport [W H]            read it; raise it to at least 1600x1000
+    ecw wait <selector|ms>        a deterministic wait, no snapshot poll
+    ecw gone <selector>           wait for something to go away (a spinner)
+    ecw keys <selector> <text>    type with REAL key events, one per character
+    ecw dialogs                   clear the three entry dialogs, with force and settle
+    ecw confirm                   the mailed confirmation link, in an ISOLATED context
+    ecw signin                    the whole entry, refusals compiled in
+    ecw session save|restore      keep a live session across a pod roll
+
+WHY THIS FILE EXISTS
+
+`SKILL.md` rules 5 and 6 refuse `browser_cdp` and a free-hand Playwright script
+on this application, and they are right to: a live medical record is not a page
+to drive dozens of steps deep with nobody reading the refusals. But four things
+this door needs have no permitted road without them, and they were measured
+rather than guessed:
+
+  1. There is no isolated browser context. The mailed confirmation link carries
+     its own JWT and eCW answers "An error occurred while processing the
+     request" when it is opened while the pending login's JSESSIONID is in the
+     jar. No `browser_*` tool takes a session, a context or a tab.
+  2. There is no wait, no force-click and no settle. The entry dialogs need all
+     three: the proven run had to wait for `div#load` to go hidden and then
+     click with force on the second attempt.
+  3. `browser_type` fires NO key events at all -- 0 keydown, 0 keyup, measured.
+     It maps to agent-browser's `fill`. Anything on an Angular ng-keyup never
+     reacts to it.
+  4. No tool reports the page's address after a click. `browser_navigate`
+     returns a url, `browser_click` returns {success, clicked}, and
+     `browser_snapshot` drops the url agent-browser sends beside it. So the
+     skill's own central rule -- match on the query string, never on the page --
+     has no permitted way to run.
+
+So the ban stays and it is given somewhere to send the assistant. This is one
+named, reviewable artifact, versioned in `distribution.yaml`, changed by a pull
+request, and its refusals are compiled in rather than remembered:
+
+  * it touches ONE host, the configured one, and there is no default;
+  * it stops on SecurityImage.jsp and on changePasswordOnLogin.jsp;
+  * it never presses Verify, Save, the do-not-show-again checkbox or a picture;
+  * it never navigates to logout.jsp and it never closes the browser;
+  * the two-attempt budget is on DISK, so a fresh session cannot forget it;
+  * no secret is a tool argument: the password comes from the logins door and
+    the Graph token from the controller door, both inside this process.
+
+And it is not a second browser. It attaches to the SAME Chromium at
+BROWSER_CDP_URL and drives the SAME page the `browser_*` tools are on, so the
+assistant's very next `browser_snapshot` sees what this did.
+
+CONFIGURATION, all from the environment, none with a default that reaches a host:
+
+    ECW_BASE_URL          https://<this practice's own eCW host>   REQUIRED
+    ECW_LOGIN_TITLE       the title of the login in this assistant's vault
+    BROWSER_CDP_URL       the Chromium beside this assistant
+    AGENT_VENDOR_DIR      where the Playwright client was unpacked
+    HERMES_LOGINS_TOKEN   this pod's own key for the controller doors
+    HERMES_FLEET_URL      the controller, default http://hermes-fleet:8787
+    ECW_STATE_DIR         default /opt/data/state/ecw, on the retained disk
+
+Standard library, plus the Playwright client already on the pod. The pack ships
+no dependencies.
+"""
+from __future__ import annotations
+
+import json
+import os
+import re
+import sys
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+from pathlib import Path
+
+# --- what this door is allowed to know ------------------------------------
+
+#: Every path this file will ever open, relative to the configured host. A path
+#: that is not here is not visited, so a typo cannot become a chart address.
+LOGIN_PATH = "/mobiledoc/jsp/webemr/login/newLogin.jsp"
+SHELL_PATH = "/mobiledoc/jsp/webemr/index.jsp"
+
+#: The three server-rendered flags the preflight reads, plus the error element.
+#: Truthy on any one of them means the account is soft-locked, blocked, or has
+#: been put behind a CAPTCHA, and a sign-in attempt would be spent finding out.
+PREFLIGHT_FLAGS = ("newLoginStep_isUserSoftLockOut", "newLogin_bBlocked", "newLogin_bCaptcha")
+CLEAR_VALUES = ("false", "0", "absent", "")
+
+#: A non-browser user agent gets HTTP 400 on a URL that answers 200 in Chrome
+#: (login.md failure 8). The preflight is the one request this file makes
+#: outside the browser, so it carries the header the browser would have sent.
+DESKTOP_UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+              "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36")
+
+#: The three stacked entry dialogs, top of the stack first, each with the one
+#: control that may be pressed. Nothing else in these dialogs is touched: the
+#: CPT notice's do-not-show-again checkbox changes a setting, and the Security
+#: Verification popup's Verify mails a code and Save writes a profile setting.
+DIALOGS = (
+    ("div#showCPTCopyRightModal", "input#okBtn"),
+    ("div.bootbox", "button.btn"),
+    ("div#verificationMethodPopup", "button#showCloseBtnOnHeader"),
+)
+#: eCW's own loading veil. Clicking through it is what needed force last time.
+VEIL = "div#load"
+
+#: The two localStorage entries that carry the in-app AES key. They are saved
+#: and restored with the cookie so a pod roll does not cost a sign-in; clearing
+#: storage mid-session breaks in-app AJAX without touching the cookie.
+CRYPTO_KEYS = ("crypto_aesKey_requestEnc", "crypto_aesIv_requestEnc")
+
+#: SKILL.md rule 7. On disk, because a fresh session does not remember.
+ATTEMPT_BUDGET = 2
+ATTEMPT_WINDOW_S = 6 * 3600
+
+DEFAULT_FLEET = "http://hermes-fleet:8787"
+DEFAULT_STATE_DIR = "/opt/data/state/ecw"
+MIN_W, MIN_H = 1600, 1000
+HTTP_TIMEOUT_S = 40
+SETTLE_MS = 2000
+
+# --- refusals, as plain lines a person can be told -------------------------
+
+NO_BASE = ("no eCW host is configured, so nothing is opened. ECW_BASE_URL is not set, "
+           "and this door has no default host: a default is one practice's live chart "
+           "system being opened by every setup that forgot to name its own.")
+NO_TITLE = "no ECW_LOGIN_TITLE is configured, so there is no login to sign in with"
+NO_BROWSER = ("this assistant has no browser here: BROWSER_CDP_URL is not set. That is a "
+              "configuration fact, not something to work around")
+NO_PLAYWRIGHT = ("the browser client is not on this pod (AGENT_VENDOR_DIR), so an isolated "
+                 "context cannot be opened; tell the Pulse team")
+NO_KEY = ("this pod has no login key, so the doors cannot be asked; tell the Pulse team "
+          "(it is not an empty answer)")
+BUDGET_SPENT = ("the sign-in budget of two attempts for this working session is spent. "
+                "Say the sign-in did not go through, name the login by its title, and stop. "
+                "A third attempt locks a real clinician out of their own day")
+SECURITY_IMAGE = ("STOP. This account has never enrolled its security image. That is one "
+                  "person's single click, done once, at the practice. Do not pick a picture, "
+                  "do not press Save, and do not press the X or Logout: both sign out")
+PASSWORD_CHANGE = ("STOP. This credential is temporary or expired. The credential door is "
+                   "read-only, so a password changed here would exist nowhere afterward. "
+                   "Name the login by its title and tell a person")
+REFUSED = ("the sign-in did not go through. This practice's login page renders no error "
+           "element at all, so a refusal and a session bounce look identical")
+NO_MAILBOX = ("this assistant has no mailbox connected, so the confirmation link cannot be "
+              "read. Tell the Pulse team; it is not something to retry")
+NO_LINK = "no confirmation link arrived in the mailbox within the time allowed"
+
+USAGE = __doc__.split("WHY THIS FILE EXISTS")[0].strip()
+
+
+def say(message: str) -> None:
+    """Everything this file wants to SAY goes to stderr, so stdout is a value."""
+    print(message, file=sys.stderr)
+
+
+def die(message: str, code: int = 1) -> None:
+    say(message)
+    raise SystemExit(code)
+
+
+# --- the doors on the controller ------------------------------------------
+
+class RefuseRedirects(urllib.request.HTTPRedirectHandler):
+    """A redirect from a door is never followed: the token would go with it."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise urllib.error.HTTPError(req.full_url, code, msg, headers, fp)
+
+
+OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}), RefuseRedirects())
+
+
+def door(path: str, body: dict | None = None) -> dict:
+    """One request to the controller, with this pod's own key on one header."""
+    token = os.environ.get("HERMES_LOGINS_TOKEN", "").strip()
+    if not token:
+        die(NO_KEY, 3)
+    base = os.environ.get("HERMES_FLEET_URL", "").strip().rstrip("/") or DEFAULT_FLEET
+    data = json.dumps(body or {}).encode()
+    request = urllib.request.Request(base + path, data=data, method="POST")
+    request.add_unredirected_header("Authorization", "Bearer " + token)
+    request.add_header("Content-Type", "application/json")
+    try:
+        with OPENER.open(request, timeout=HTTP_TIMEOUT_S) as response:
+            return json.loads(response.read().decode())
+    except urllib.error.HTTPError as error:
+        if error.code == 404:
+            die(NO_MAILBOX, 2)
+        detail = ""
+        try:
+            payload = json.loads(error.read().decode() or "{}")
+            detail = str(payload.get("detail") or "").strip()
+        except (OSError, ValueError, AttributeError):
+            detail = ""
+        die(detail or f"the controller refused this ({error.code})", 1)
+    except (urllib.error.URLError, OSError, ValueError):
+        die("the controller is not reachable right now", 1)
+    return {}
+
+
+def login_call(verb: str, title: str) -> str:
+    """One call to the sibling logins script. The value never reaches the model:
+    it is read here, in this process, and put straight into the field."""
+    import subprocess
+    script = Path(__file__).resolve().parents[2] / "logins" / "scripts" / "login"
+    if not script.is_file():
+        die("the logins door is not installed beside this skill", 1)
+    done = subprocess.run([sys.executable, str(script), verb, title],
+                          capture_output=True, timeout=30)
+    if done.returncode != 0:
+        die(done.stderr.decode().strip() or "the logins door refused", done.returncode)
+    value = done.stdout.decode()
+    if not value.strip():
+        die(f"the logins door returned nothing for {verb} on that login", 1)
+    return value
+
+
+def login_username(title: str) -> str:
+    """`show` prints the site and THEN the username: there is no username verb."""
+    lines = [line for line in login_call("show", title).splitlines()]
+    if len(lines) < 2 or not lines[1].strip():
+        die("that login has no username on it", 1)
+    return lines[1].strip()
+
+
+def login_password(title: str) -> str:
+    return login_call("password", title).strip()
+
+
+# --- configuration ---------------------------------------------------------
+
+def base_url() -> str:
+    raw = os.environ.get("ECW_BASE_URL", "").strip().rstrip("/")
+    if not raw:
+        die(NO_BASE, 3)
+    parts = urllib.parse.urlsplit(raw)
+    if parts.scheme != "https" or not parts.netloc or parts.path:
+        die(f"ECW_BASE_URL must be an https host and nothing else, not {raw!r}", 3)
+    return raw
+
+
+def state_dir() -> Path:
+    path = Path(os.environ.get("ECW_STATE_DIR", "").strip() or DEFAULT_STATE_DIR)
+    path.mkdir(parents=True, exist_ok=True, mode=0o700)
+    os.chmod(path, 0o700)   # mkdir's mode is cut by the umask; this is not
+    return path
+
+
+# --- the browser -----------------------------------------------------------
+
+def connect(stack):
+    """Attach to the SAME Chromium the browser_* tools are on. Never launch one."""
+    cdp = os.environ.get("BROWSER_CDP_URL", "").strip()
+    if not cdp:
+        die(NO_BROWSER, 3)
+    vendor = os.environ.get("AGENT_VENDOR_DIR", "").strip()
+    if vendor:
+        site = str(Path(vendor) / "site-packages")
+        if site not in sys.path:
+            sys.path.insert(0, site)
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        die(NO_PLAYWRIGHT, 3)
+    play = stack.enter_context(sync_playwright())
+    try:
+        browser = play.chromium.connect_over_cdp(cdp, timeout=20000)
+    except Exception:
+        die(NO_BROWSER, 3)
+    # NOTE there is deliberately no browser.close() here, and no callback that
+    # would reach one. Letting go of a CDP connection leaves Chromium running,
+    # which is what we want: closing it would take the browser down for whoever
+    # calls next, including this assistant's own browser_* tools.
+    if not browser.contexts:
+        die("the browser is up but has no context to drive", 1)
+    return browser
+
+
+def pick_page(browser, base: str, make: bool = False):
+    """The page the assistant is looking at.
+
+    Preference order, and it is stated out loud because a wrong guess would
+    drive somebody else's tab: a page already on the configured host, then the
+    last page that is not about:blank, then the last page there is.
+    """
+    context = browser.contexts[0]
+    pages = [p for p in context.pages]
+    host = urllib.parse.urlsplit(base).netloc
+    for page in reversed(pages):
+        if urllib.parse.urlsplit(page.url).netloc == host:
+            return page
+    for page in reversed(pages):
+        if page.url not in ("about:blank", ""):
+            say(f"  no page is on {host}; driving the page at {short(page.url)}")
+            return page
+    if pages:
+        return pages[-1]
+    if make:
+        return context.new_page()
+    die("the browser has no page open", 1)
+
+
+def for_host(hostname: str, domain: str) -> bool:
+    """Does a cookie's domain cover this host? Exactly, or as its parent."""
+    domain = domain.lstrip(".")
+    return bool(domain) and (hostname == domain or hostname.endswith("." + domain))
+
+
+def short(url: str) -> str:
+    """A url with its query kept but its length bounded. No page text, ever."""
+    return url if len(url) <= 120 else url[:117] + "..."
+
+
+# --- what an address MEANS -------------------------------------------------
+
+def classify(url: str) -> str:
+    """The skill's central recognition rule, as one function.
+
+    Match on the query string. Never on the page: after a CORRECT password eCW
+    bounces to newLogin.jsp with error=6 and that page renders no error, no
+    banner and no red text, so anything reading the page reports a failure on a
+    login that plainly succeeded, and then retries, and a retry loop on a live
+    clinical account is a lockout.
+    """
+    parts = urllib.parse.urlsplit(url)
+    path, query = parts.path, urllib.parse.parse_qs(parts.query)
+    if "SecurityImage.jsp" in path:
+        return "security-image"
+    if "changePasswordOnLogin.jsp" in path:
+        return "password-change"
+    if "OTPVerification" in path or "OTPVerification" in parts.query:
+        return "confirm-link"
+    if "/webemr/login/" not in path:
+        return "in-the-app"
+    if "6" in query.get("error", []):
+        return "signed-in"
+    return "refused"
+
+
+WHAT_IT_MEANS = {
+    "security-image": SECURITY_IMAGE,
+    "password-change": PASSWORD_CHANGE,
+    "confirm-link": "eCW has mailed a confirmation link. It must be opened and confirmed "
+                    "before the sign-in completes: `ecw confirm`",
+    "signed-in": "signed in. The plug-in nag bounced you onto a page with no error on it. "
+                 "Do NOT retry the password. Go to the shell",
+    "in-the-app": "already in the application",
+    "refused": REFUSED,
+}
+
+
+# --- the attempt budget, on disk -------------------------------------------
+
+def attempts_file() -> Path:
+    return state_dir() / "attempts.json"
+
+
+def attempts_read() -> list:
+    try:
+        rows = json.loads(attempts_file().read_text())
+    except (OSError, ValueError):
+        return []
+    now = time.time()
+    return [t for t in rows if isinstance(t, (int, float)) and now - t < ATTEMPT_WINDOW_S]
+
+
+def attempts_spend() -> None:
+    rows = attempts_read()
+    if len(rows) >= ATTEMPT_BUDGET:
+        die(BUDGET_SPENT, 2)
+    rows.append(time.time())
+    write_private(attempts_file(), json.dumps(rows))
+
+
+def attempts_clear() -> None:
+    write_private(attempts_file(), "[]")
+
+
+def write_private(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(text)
+    os.chmod(tmp, 0o600)
+    tmp.replace(path)
+
+
+# --- the subcommands -------------------------------------------------------
+
+def preflight_state() -> tuple:
+    """Free, credential-free, and it spends nothing: is a sign-in safe at all?
+
+    The three flags are server-rendered JavaScript variables on the login page.
+    An accessibility snapshot cannot see them and `browser_snapshot` would not
+    show them, which is why this is the one request this file makes outside the
+    browser -- and why it sends a desktop user agent, because a non-browser one
+    answers HTTP 400 on a URL that answers 200 in Chrome.
+    """
+    base = base_url()
+    request = urllib.request.Request(base + LOGIN_PATH, headers={"User-Agent": DESKTOP_UA})
+    try:
+        with OPENER.open(request, timeout=HTTP_TIMEOUT_S) as response:
+            html = response.read().decode("utf-8", "replace")
+    except urllib.error.HTTPError as error:
+        die(f"the login page answered {error.code}; the practice's eCW is not reachable "
+            f"as expected. Do not sign in", 1)
+        raise
+    except (urllib.error.URLError, OSError):
+        die("the practice's eCW did not answer. Do not sign in", 1)
+        raise
+    state = {}
+    for flag in PREFLIGHT_FLAGS:
+        found = re.search(flag + r"\s*=\s*['\"]?([A-Za-z0-9_]+)", html)
+        state[flag] = found.group(1).lower() if found else "absent"
+    clear = all(value in CLEAR_VALUES for value in state.values())
+    return clear, state
+
+
+def cmd_preflight(argv: list) -> int:
+    clear, state = preflight_state()
+    print(" ".join(f"{k}={v}" for k, v in state.items()))
+    if not clear:
+        say("the login page says this account is locked out, blocked, or behind a CAPTCHA. "
+            "A sign-in would spend an attempt to find that out. Tell a person")
+        return 2
+    say("  preflight clear")
+    return 0
+
+
+def cmd_url(argv: list) -> int:
+    """The page's address, which no browser_* tool reports after a click."""
+    import contextlib
+    base = base_url()
+    with contextlib.ExitStack() as stack:
+        page = pick_page(connect(stack), base)
+        print(page.url)
+    return 0
+
+
+def cmd_where(argv: list) -> int:
+    """The address, and in one word what it MEANS."""
+    import contextlib
+    base = base_url()
+    with contextlib.ExitStack() as stack:
+        page = pick_page(connect(stack), base)
+        verdict = classify(page.url)
+    print(verdict)
+    say("  " + WHAT_IT_MEANS[verdict])
+    return 0 if verdict in ("signed-in", "in-the-app") else 2
+
+
+def cmd_viewport(argv: list) -> int:
+    """Read it, and raise it if it is under the floor the application needs.
+
+    The sidecar gets no --window-size, so Chromium picks its own and the last
+    measurement was 780 x 440 against a floor of 1600 x 1000. Below the floor
+    the application silently re-lays out, and a door reading a different page
+    reads a different answer. The real fix is one flag on the browser image;
+    this is the belt-and-braces second answer, and it is a browser setting, not
+    a page write.
+    """
+    import contextlib
+    want_w, want_h = MIN_W, MIN_H
+    if len(argv) == 2:
+        try:
+            want_w, want_h = int(argv[0]), int(argv[1])
+        except ValueError:
+            die("usage: ecw viewport [WIDTH HEIGHT]", 1)
+    elif argv:
+        die("usage: ecw viewport [WIDTH HEIGHT]", 1)
+    base = base_url()
+    with contextlib.ExitStack() as stack:
+        page = pick_page(connect(stack), base)
+        size = page.evaluate("[window.innerWidth, window.innerHeight]")
+        if size[0] >= want_w and size[1] >= want_h:
+            print(f"{size[0]}x{size[1]}")
+            return 0
+        say(f"  {size[0]}x{size[1]} is under {want_w}x{want_h}; raising it")
+        try:
+            page.set_viewport_size({"width": want_w, "height": want_h})
+        except Exception:
+            # A page Playwright did not create can refuse the high-level call.
+            # This is the same request one level down, and it is a BROWSER
+            # setting: it writes nothing to the page and presses no control.
+            session = page.context.new_cdp_session(page)
+            session.send("Emulation.setDeviceMetricsOverride",
+                         {"width": want_w, "height": want_h,
+                          "deviceScaleFactor": 1, "mobile": False})
+        size = page.evaluate("[window.innerWidth, window.innerHeight]")
+        print(f"{size[0]}x{size[1]}")
+        return 0 if size[0] >= want_w and size[1] >= want_h else 2
+
+
+def cmd_wait(argv: list) -> int:
+    """A deterministic wait. The alternative is a snapshot poll, one model turn
+    per poll, against a shell that paints a frame which never clears on its own."""
+    if len(argv) not in (1, 2):
+        die("usage: ecw wait <selector|milliseconds> [timeout_ms]", 1)
+    target, timeout = argv[0], int(argv[1]) if len(argv) == 2 else 30000
+    import contextlib
+    base = base_url()
+    if target.isdigit():
+        time.sleep(min(int(target), 120000) / 1000.0)
+        print("waited")
+        return 0
+    with contextlib.ExitStack() as stack:
+        page = pick_page(connect(stack), base)
+        try:
+            page.wait_for_selector(target, state="visible", timeout=timeout)
+        except Exception:
+            say(f"  {target} never became visible in {timeout} ms")
+            return 2
+    print("visible")
+    return 0
+
+
+def cmd_gone(argv: list) -> int:
+    """Wait for something to go away. The loading veil is the one that matters:
+    with it up, a real click on any control times out on the backdrop even
+    though the control is present and reports visible."""
+    if len(argv) not in (1, 2):
+        die("usage: ecw gone <selector> [timeout_ms]", 1)
+    target, timeout = argv[0], int(argv[1]) if len(argv) == 2 else 30000
+    import contextlib
+    base = base_url()
+    with contextlib.ExitStack() as stack:
+        page = pick_page(connect(stack), base)
+        try:
+            page.wait_for_selector(target, state="hidden", timeout=timeout)
+        except Exception:
+            say(f"  {target} was still there after {timeout} ms")
+            return 2
+    print("gone")
+    return 0
+
+
+def cmd_keys(argv: list) -> int:
+    """Type with REAL key events, one keydown/keyup/input per character.
+
+    Measured on a page counting events, driven the way the tool drives it:
+
+        browser_type (= agent-browser fill)  ->  keydown 0, keyup 0, input 2
+        agent-browser type (Input.insertText) -> keydown 0, keyup 0, input 10
+        a real key press per character        -> keydown 10, keyup 10, input 10
+
+    So an ng-model binding updates under browser_type and an ng-keyup handler
+    never fires. eCW's date box, its provider lookup and PointClickCare's
+    self-advancing six-box challenge all listen on keys.
+
+    It types and it does nothing else: no Enter unless asked, and the target
+    must be a field, so this cannot become a way to press a control.
+    """
+    if len(argv) < 2:
+        die("usage: ecw keys <selector> <text> [--enter]", 1)
+    enter = "--enter" in argv
+    argv = [a for a in argv if a != "--enter"]
+    selector, text = argv[0], " ".join(argv[1:])
+    import contextlib
+    base = base_url()
+    with contextlib.ExitStack() as stack:
+        page = pick_page(connect(stack), base)
+        handle = page.query_selector(selector)
+        if handle is None:
+            die(f"nothing on this page matches {selector}", 2)
+        kind = page.evaluate(
+            "el => [el.tagName.toLowerCase(), el.isContentEditable, (el.type||'').toLowerCase()]",
+            handle)
+        if kind[0] not in ("input", "textarea") and not kind[1]:
+            die(f"{selector} is a <{kind[0]}>, not a field. This types into fields; "
+                f"it is not a way to press a control", 2)
+        handle.click()
+        page.keyboard.press("Control+a")
+        page.keyboard.press("Delete")
+        page.keyboard.type(text, delay=30)
+        if enter:
+            page.keyboard.press("Enter")
+        print(page.evaluate("el => el.value !== undefined ? el.value : el.innerText", handle))
+    return 0
+
+
+SHELL_ANCHOR = 'a[href$="jellybean/officevisit/officeVisits.jsp"]'
+SHELL_ANCHOR_FALLBACK = "a#jellybean-panelLink22"
+
+
+def in_the_shell(page):
+    """The assertion is a real control, never a status code and never the URL.
+
+    A bounce, a 412, a modal and a loading frame all answer with something, so
+    "no visits" has to come from a screen that proved it is the screen. The
+    Office Visits jellybean is the one that also proves the page is
+    interactive. Its numeric id is assigned per user layout, so the href is the
+    durable form and the id is the fallback.
+    """
+    return (page.query_selector(SHELL_ANCHOR)
+            or page.query_selector(SHELL_ANCHOR_FALLBACK)) is not None
+
+
+def clear_dialogs(page, rounds: int = 8) -> int:
+    """The three stacked entry dialogs, top of the stack first.
+
+    Only the top of the stack is ever clickable, so this re-reads between every
+    press rather than clicking three refs from one snapshot. It waits for the
+    loading veil first and it will click with force on the second attempt,
+    because the proven run needed both.
+
+    It presses the three named OK controls and nothing else. It does not touch
+    the do-not-show-again checkbox (a setting), Verify (mails a code) or Save
+    (writes a profile setting).
+    """
+    cleared = 0
+    for _ in range(rounds):
+        did = False
+        for root, control in DIALOGS:
+            box = page.query_selector(root)
+            if box is None or not box.is_visible():
+                continue
+            button = page.query_selector(f"{root} {control}")
+            if button is None or not button.is_visible():
+                continue
+            try:
+                page.wait_for_selector(VEIL, state="hidden", timeout=10000)
+            except Exception:
+                pass
+            for force in (False, True):
+                try:
+                    button.click(timeout=5000, force=force)
+                    did, cleared = True, cleared + 1
+                    break
+                except Exception:
+                    continue
+            page.wait_for_timeout(SETTLE_MS)
+        if not did:
+            break
+    return cleared
+
+
+def cmd_dialogs(argv: list) -> int:
+    import contextlib
+    base = base_url()
+    with contextlib.ExitStack() as stack:
+        page = pick_page(connect(stack), base)
+        print(clear_dialogs(page))
+    return 0
+
+
+def graph_link(since_iso: str, tries: int = 30, wait_s: int = 6) -> tuple:
+    """The confirmation link, out of this assistant's OWN mailbox.
+
+    The token is minted inside this process at the controller door, with this
+    pod's own key. It is never a tool argument and it never reaches the model.
+    """
+    token = str(door("/v1/email/microsoft/access-token").get("access_token") or "")
+    if not token:
+        die(NO_MAILBOX, 2)
+    query = urllib.parse.urlencode({
+        "$top": 5, "$select": "receivedDateTime,body", "$orderby": "receivedDateTime desc"})
+    url = "https://graph.microsoft.com/v1.0/me/messages?" + query
+    for _ in range(tries):
+        request = urllib.request.Request(url, headers={"Authorization": "Bearer " + token})
+        try:
+            with OPENER.open(request, timeout=HTTP_TIMEOUT_S) as response:
+                messages = json.loads(response.read().decode()).get("value", [])
+        except (urllib.error.HTTPError, urllib.error.URLError, OSError, ValueError):
+            die("the mailbox did not answer", 1)
+            return None, None
+        for message in messages:
+            if message.get("receivedDateTime", "") <= since_iso:
+                continue
+            body = (message.get("body") or {}).get("content", "")
+            for href in re.findall(r'href=["\']([^"\']+)["\']', body):
+                if "openLoginConfirmation" in href:
+                    return href, message.get("receivedDateTime")
+        time.sleep(wait_s)
+    return None, None
+
+
+def confirm_link(browser, link: str) -> str:
+    """Open the link in an ISOLATED context, press "Yes, it's me", close the CONTEXT.
+
+    Isolation is not a preference. The link carries its own JWT and eCW answers
+    "An error occurred while processing the request" when it is opened while the
+    pending login's JSESSIONID is in the jar. There is no browser_* tool that
+    makes a context, and a tab would share the jar.
+
+    `context.close()` and never `browser.close()`: the second would take
+    Chromium down for whoever calls next.
+    """
+    fresh = browser.new_context(viewport={"width": 1200, "height": 900})
+    try:
+        tab = fresh.new_page()
+        tab.goto(link, wait_until="domcontentloaded", timeout=60000)
+        tab.wait_for_timeout(3500)
+        button = None
+        for selector in ('button:has-text("Yes, it")', 'a:has-text("Yes, it")',
+                         'input[value*="Yes"]', "#yesItsMe", "button.btn-primary"):
+            found = tab.query_selector(selector)
+            if found is not None and found.is_visible():
+                button = found
+                break
+        if button is None:
+            die("the confirmation page had no \"Yes, it's me\" on it", 2)
+        button.click()
+        tab.wait_for_timeout(4000)
+        return "confirmed"
+    finally:
+        fresh.close()
+
+
+def cmd_confirm(argv: list) -> int:
+    import contextlib
+    import datetime
+    base_url()      # the host rule first: it refuses before anything is opened
+    since = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=10))
+    since_iso = since.isoformat().replace("+00:00", "Z")
+    with contextlib.ExitStack() as stack:
+        browser = connect(stack)
+        link, at = graph_link(since_iso)
+        if not link:
+            die(NO_LINK, 2)
+        say(f"  link read from the mailbox, sent {at}")
+        print(confirm_link(browser, link))
+    return 0
+
+
+def cmd_signin(argv: list) -> int:
+    """The whole entry, with every refusal compiled in."""
+    import contextlib
+    import datetime
+    base, title = base_url(), os.environ.get("ECW_LOGIN_TITLE", "").strip()
+    if not title:
+        die(NO_TITLE, 3)
+    clear, flags = preflight_state()
+    if not clear:
+        die("the login page says this account is locked out, blocked, or behind a CAPTCHA "
+            f"({' '.join(f'{k}={v}' for k, v in flags.items())}). A sign-in would spend an "
+            "attempt to find that out. Tell a person", 2)
+    say("  preflight clear")
+    with contextlib.ExitStack() as stack:
+        browser = connect(stack)
+        page = pick_page(browser, base, make=True)
+        if classify(page.url) == "in-the-app":
+            say("  already in the application; not signing in again")
+            print("in-the-app")
+            return 0
+        attempts_spend()
+        page.goto(base + LOGIN_PATH, wait_until="domcontentloaded", timeout=60000)
+        page.wait_for_selector("input#doctorID", timeout=30000)
+        page.fill("input#doctorID", login_username(title))
+        page.click("input#nextStep")
+        # A VISIBLE password field. Screen one also renders a hidden one, and
+        # anything that fills by id alone submits the password on screen one.
+        try:
+            page.wait_for_selector("input#passwordField:visible", timeout=40000)
+        except Exception:
+            die("screen one never advanced, so the username was not recognized. No password "
+                "was submitted. One check, then a person -- this is not a probe to repeat", 2)
+        since_iso = (datetime.datetime.now(datetime.timezone.utc)
+                     .isoformat().replace("+00:00", "Z"))
+        page.fill("input#passwordField", login_password(title))
+        page.click("input#Login")
+        page.wait_for_timeout(8000)
+        verdict = classify(page.url)
+        if verdict in ("security-image", "password-change", "refused"):
+            die(WHAT_IT_MEANS[verdict], 2)
+        if verdict == "confirm-link":
+            say("  eCW mailed a confirmation link; reading it out of the mailbox")
+            link, at = graph_link(since_iso)
+            if not link:
+                die(NO_LINK, 2)
+            say(f"  link sent {at}")
+            confirm_link(browser, link)
+            say("  confirmed; waiting for the pending sign-in to move on")
+            for _ in range(20):
+                page.wait_for_timeout(3000)
+                if classify(page.url) != "confirm-link":
+                    break
+            else:
+                die("the confirmation went through but the sign-in did not move on", 2)
+        page.goto(base + SHELL_PATH, wait_until="domcontentloaded", timeout=60000)
+        page.wait_for_timeout(6000)
+        cleared = clear_dialogs(page)
+        say(f"  {cleared} entry dialog(s) cleared")
+        if not in_the_shell(page):
+            die("the shell did not finish painting: the Office Visits anchor is not there. "
+                "Do not read this as an empty practice", 2)
+        attempts_clear()
+        print("in-the-app")
+    return 0
+
+
+def cmd_session(argv: list) -> int:
+    """Keep a live session across a pod roll.
+
+    The Chromium profile is --user-data-dir=/tmp/chrome-profile on an emptyDir,
+    so every ordinary pod roll costs a sign-in, and a sign-in is budgeted. This
+    saves the cookie for the configured host and the two AES entries the in-app
+    request path needs, 0600, on the retained disk, and puts them back.
+
+    The file is never printed and never named to anybody.
+    """
+    if len(argv) != 1 or argv[0] not in ("save", "restore"):
+        die("usage: ecw session save | ecw session restore", 1)
+    import contextlib
+    base = base_url()
+    # The HOSTNAME, not the netloc: a cookie's domain never carries the port,
+    # so comparing against "host:8443" quietly matches nothing and the save
+    # reports zero cookies on a live session.
+    host = urllib.parse.urlsplit(base).hostname or ""
+    path = state_dir() / "session.json"
+    with contextlib.ExitStack() as stack:
+        browser = connect(stack)
+        context = browser.contexts[0]
+        page = pick_page(browser, base)
+        if argv[0] == "save":
+            cookies = [c for c in context.cookies() if for_host(host, str(c.get("domain") or ""))]
+            keys = page.evaluate(
+                "ks => Object.fromEntries(ks.map(k => [k, localStorage.getItem(k)]))",
+                list(CRYPTO_KEYS))
+            write_private(path, json.dumps({"cookies": cookies, "storage": keys}))
+            print(f"{len(cookies)} cookie(s), {sum(1 for v in keys.values() if v)} key(s)")
+            return 0
+        try:
+            saved = json.loads(path.read_text())
+        except (OSError, ValueError):
+            die("there is no saved session to put back", 2)
+            return 2
+        context.add_cookies(saved.get("cookies") or [])
+        page.goto(base + LOGIN_PATH, wait_until="domcontentloaded", timeout=60000)
+        page.evaluate("kv => { for (const k in kv) if (kv[k] !== null) localStorage.setItem(k, kv[k]); }",
+                      saved.get("storage") or {})
+        page.goto(base + SHELL_PATH, wait_until="domcontentloaded", timeout=60000)
+        page.wait_for_timeout(4000)
+        clear_dialogs(page)
+        # classify() alone is not enough here: every unknown address on this
+        # host answers 302 to the login page, so a good verdict has to come
+        # from a control on the screen as well.
+        if classify(page.url) != "in-the-app" or not in_the_shell(page):
+            print("signed-out")
+            say("  the saved session is no longer good; a sign-in is needed")
+            return 2
+        print("in-the-app")
+    return 0
+
+
+COMMANDS = {
+    "preflight": cmd_preflight, "url": cmd_url, "where": cmd_where,
+    "viewport": cmd_viewport, "wait": cmd_wait, "gone": cmd_gone, "keys": cmd_keys,
+    "dialogs": cmd_dialogs, "confirm": cmd_confirm, "signin": cmd_signin,
+    "session": cmd_session,
+}
+
+
+def main(argv: list) -> int:
+    if not argv or argv[0] in ("-h", "--help"):
+        die(USAGE, 1)
+    if argv[0] not in COMMANDS:
+        die(f"no such command: {argv[0]}\n\n{USAGE}", 1)
+    return COMMANDS[argv[0]](argv[1:])
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

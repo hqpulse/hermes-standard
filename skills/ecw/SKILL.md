@@ -61,27 +61,28 @@ selector below may have moved.
 **Sign in once and keep the session. Never sign out.** Do not sign in per task. There are
 two hard reasons and both are in `references/login.md`:
 
-1. The practice has **mandatory email verification** switched on. The skip counter goes
-   down on **every single sign-in, whether or not anybody touches the popup** — across
-   five sign-ins it was read at Eight, then Seven, then Six, then **not read on the
-   fourth**, then Four, and it was not clicked in the first two. It is **per login, not
-   per device**, so a trusted machine buys nothing. **Four skips remained** on the
-   recorded account. When they run out the account is stuck behind an emailed code until
-   a person at the practice completes the verification on purpose from the practice
-   mailbox.
+1. **This practice has a real second factor.** The account's verification is now enrolled
+   on email, and eCW **mails a confirmation link on every sign-in**: the password lands on
+   an `OTPVerification` page and stays there until the link is opened and "Yes, it's me" is
+   pressed. Four sign-ins on 12 September 2026 all completed that way. So a sign-in is not
+   a free thing to repeat — it is a mailbox round trip, and it needs a mailbox.
 2. **The login page renders no error element at all**, so a refusal and a bounce look
    identical, and retrying is how a real clinician's account gets locked.
 
-The entry procedure is four moves:
+The entry procedure is five moves, and `scripts/ecw signin` does all five:
 
 1. Sign in across the two screens (`input#doctorID`, `input#nextStep`, then
    `input#passwordField`, `input#Login`).
 2. Read the landing URL, not the page. A successful login is bounced back to the login
    page carrying `error=6`, and that page shows no error of any kind.
-3. Navigate to `/mobiledoc/jsp/webemr/index.jsp`. It answers **200** and paints a
+3. **If the landing is `OTPVerification`, a confirmation link has been mailed.** It must be
+   opened in a **clean, isolated browser context** — opened while the pending sign-in's
+   `JSESSIONID` is in the jar, eCW answers "An error occurred while processing the
+   request" — and "Yes, it's me" pressed. Then the first tab moves on by itself.
+4. Navigate to `/mobiledoc/jsp/webemr/index.jsp`. It answers **200** and paints a
    **loading frame reading "Building your user experience"** that **never clears on its
    own** — it was held there for sixty seconds. Never `home.jsp`: that is a 412.
-4. Clear the three entry dialogs, in this order. Only then is the shell interactive.
+5. Clear the three entry dialogs, in this order. Only then is the shell interactive.
 
 | # | dialog | the control to press |
 |---|---|---|
@@ -113,6 +114,56 @@ note, the template merge, the action fields and the structured-data default:
 What a page can and cannot tell you, and why a refusal is often the right answer:
 `references/doctrine.md`, read with the provenance warning at the top of this file in
 mind.
+
+## This skill's own command
+
+Four things this door needs have no permitted road with the `browser_*` tools, and each
+one was measured rather than assumed: there is **no isolated browser context** (the mailed
+confirmation link fails when it is opened holding the pending sign-in's cookie), there is
+**no wait, no force-click and no settle** (the entry dialogs need all three), **`browser_type`
+fires no key events at all** (0 keydown, 0 keyup — anything on an Angular `ng-keyup` never
+reacts to it), and **no tool reports the page's address after a click**.
+
+So the skill ships one command instead of loosening rules 5 and 6:
+
+    /opt/data/profiles/hermes-standard/skills/ecw/scripts/ecw <command>
+
+    preflight              is a sign-in safe at all? costs no attempt, no credential
+    url                    the page's address
+    where                  what the address MEANS: signed-in, confirm-link, refused,
+                           security-image, password-change, in-the-app
+    viewport [W H]         read it; raise it to at least 1600x1000
+    wait <selector|ms>     a deterministic wait
+    gone <selector>        wait for something to go away (the loading veil)
+    keys <sel> <text>      type with REAL key events, one per character
+    dialogs                clear the three entry dialogs, with force and settle
+    confirm                the mailed confirmation link, in an isolated context
+    signin                 the whole entry, refusals compiled in
+    session save|restore   keep a live session across a pod roll
+
+**Run it with the terminal tool, never with `execute_code`** — the same reason `logins`
+gives: `execute_code` drops the environment the script needs and it would tell you the
+door is not configured when it is.
+
+**It is not a second browser.** It attaches to the same Chromium at `BROWSER_CDP_URL` and
+drives the same page you are looking at, so your very next `browser_snapshot` sees what it
+did. Snapshot after every call, the same as after a click.
+
+**What it will not do, in the file rather than in prose:** it visits exactly two paths on
+the configured host and has no default host; it stops on `SecurityImage.jsp` and on
+`changePasswordOnLogin.jsp`; it never presses Verify, Save, a picture or the
+do-not-show-again checkbox; it never navigates to `logout.jsp` and it never closes the
+browser, only its own context; `keys` refuses anything that is not a field, so it cannot
+become a way to press a control; and **the two-attempt budget is kept on disk**, so a
+fresh session that has forgotten rule 7 still cannot spend a third.
+
+No secret passes through you: `signin` takes the password from the `logins` door and the
+mailbox token from the controller door **inside the script**, so neither is ever a tool
+argument. That is strictly better than filling the field yourself, where the password is
+the `text` argument of `browser_type`.
+
+When it refuses, it prints one plain sentence and a non-zero exit. Say that sentence.
+Do not run it again to see whether it means it.
 
 ## Never enumerate and click
 
@@ -172,13 +223,33 @@ vocabulary of clicking is not satisfied by finding a way to do it without clicki
              document.querySelectorAll(sel).length
              window.innerWidth
              window.innerHeight
+             location.href
+             window.newLogin_bBlocked
+             window.newLoginStep_isUserSoftLockOut
+             window.newLogin_bCaptcha
              JSON.stringify(  an array or object built only of the above  )
    ```
 
-   The two `window` entries are the only reads here that are not about an element. They
-   are on the list because a wrong viewport silently re-lays out the page (login.md
-   failure 11) and the diagnosis needs a number. They return a number and can reach
-   nothing else. Nothing else on `window` is permitted.
+   The entries that are not about an element are on the list one at a time, each for a
+   named reason, and **that is the whole of what is permitted off `window` and `location`.**
+
+   - `window.innerWidth` / `window.innerHeight`: a wrong viewport silently re-lays out the
+     page (login.md failure 11) and the diagnosis needs a number.
+   - **`location.href`: the page's own address.** This skill's central recognition rule is
+     *match on the query string, never on the page* — and **no other tool reports the
+     address after a click.** `browser_navigate` returns a url, `browser_click` returns
+     `{success, clicked}`, and `browser_snapshot` drops the url agent-browser sends beside
+     it. Without this read the rule that keeps this door off a retry loop cannot be run at
+     all. It returns a string and reaches nothing.
+   - **The three login flags** are server-rendered JavaScript variables on the login page,
+     and they say whether the account is soft-locked out, blocked, or behind a CAPTCHA
+     before a single credential is spent finding out. They are the cheapest safeguard this
+     door owns and an accessibility snapshot cannot see them. They are read **on
+     `newLogin.jsp`, before signing in, and nowhere else**; they return a boolean.
+
+   Nothing else on `window` is permitted, and none of these five is a licence for a
+   neighbouring read: `location.replace`, `location.href =`, and anything else on
+   `location` stay refused under the assignment and navigation lines below.
 
    An expression that only reads, and returns only a string, a number, a boolean or a
    list of those, is a read. **That list is exhaustive.** If the expression you want is
@@ -215,18 +286,26 @@ vocabulary of clicking is not satisfied by finding a way to do it without clicki
    unsupervised loop. Neither leaves a legible record of what it did to a chart. If the
    only way to do something here is one of those two, it is not done: say what you were
    asked for, say it needs a person, and stop. (This includes setting the viewport —
-   see `references/login.md` §0 for how the window size is handled instead.)
+   `scripts/ecw viewport` handles the window size instead; see the section below.)
 6. **No Playwright script against this application.** `skills/browser` documents attaching
    the Playwright client to the same Chromium for long scripted sequences. **That door is
    closed here.** A script is rules 1 to 5 with nobody reading them.
+
+   **The one exception to rules 5 and 6 is `scripts/ecw`, which is this skill's own
+   command.** Run it with the terminal tool and read what it prints. It is not a way
+   around the two rules and it does not widen them: it is one named, reviewable file that
+   does the four things this door needs and the tools cannot do, with every refusal above
+   compiled into it. A script you write yourself is still refused, whatever it is for.
 7. **Two sign-in attempts per working session, across every cause, and then stop.** Not
    two per attempt, not two per reason, and not two each time the session drops. A
    refused password, an expired session bounce and a fresh start all spend from the same
    budget of two, because this practice's login page **renders no error box at all** and
    the three are indistinguishable from one another. When the budget is spent, say the
    sign-in did not go through, name the login by its title, and stop. Repeated failures
-   lock an account a clinician needs the same day, and every attempt also spends one of
-   the four remaining verification skips.
+   lock an account a clinician needs the same day, and every attempt is also a mailbox
+   round trip (`references/login.md` §6). **`scripts/ecw` keeps this budget on disk**, so
+   a fresh session that has forgotten this rule still cannot spend a third attempt — that
+   is a floor under the rule, not a replacement for it.
 8. **Never sign out.** When you are finished, leave the browser on a blank page: the
    browser is shared and long lived, and a parked chart is somebody's medical record left
    on a screen. Do not close the session to tidy up. The session is the expensive thing.

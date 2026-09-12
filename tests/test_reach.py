@@ -733,9 +733,9 @@ class ReachScript(unittest.TestCase):
         self.assertIn("Do without asking", text)
 
     def test_changelog_and_manifest(self):
-        self.assertIn("## 0.9.1", (ROOT / "CHANGELOG.md").read_text())
+        self.assertIn("## 0.10.0", (ROOT / "CHANGELOG.md").read_text())
         manifest = (ROOT / "distribution.yaml").read_text()
-        self.assertIn("version: 0.9.1\n", manifest)
+        self.assertIn("version: 0.10.0\n", manifest)
         self.assertIn("  - skills/reach/SKILL.md\n", manifest)
         self.assertIn("  - skills/reach/scripts/reach\n", manifest)
 

@@ -41,9 +41,12 @@ the pod; attach to the SAME browser rather than starting a second one:
 > **Never on eClinicalWorks.** If the `ecw` skill covers the site you are on, this
 > section does not apply: no Playwright script, no `browser_cdp` and no
 > `browser_exec` against that application, and `browser_console` there is limited to
-> reading a value off an element that is already rendered. A live medical record is
-> not a page to drive dozens of steps deep with nobody reading the refusals. Read
-> `ecw`'s "What this skill will not do" and follow that instead of this.
+> a short named list of reads. A live medical record is not a page to drive dozens of
+> steps deep with nobody reading the refusals. Read `ecw`'s "What this skill will not
+> do" and follow that instead of this. Where that application genuinely needs
+> something these tools cannot do -- an isolated context, a real key event, a wait --
+> `ecw` ships its own command for it, `skills/ecw/scripts/ecw`. Use that; do not
+> write your own.
 
 ```python
 import os

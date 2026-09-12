@@ -22,11 +22,19 @@ is opened, and that is the correct outcome.
 lays its screens out for a desktop. A narrower window is a different page, and a door
 reading a different page reads a different answer.
 
-`browser_cdp` would set it, and `SKILL.md` rule 5 forbids `browser_cdp` on this
-application, so this is not something to fix from inside the session. Read the viewport
-(`window.innerWidth` is a permitted read under rule 4). If it is under 1600 x 1000, say so
-and stop: the browser sidecar's window size is a configuration fact, and a person sets it
-once.
+**The sidecar does not give you one.** Chromium is launched with no window size, so it
+picks its own: measured at **780 x 441** on a Chromium launched with the sidecar's exact
+flags, against a floor of 1600 x 1000. So this check fails by default, and a door that
+only knows how to stop here never types a character.
+
+**Run `scripts/ecw viewport`.** It reads the window and raises it to 1600 x 1000 if it is
+smaller, and it prints what it ended up with. That is a browser setting: it writes nothing
+to the page and presses no control. `browser_cdp` would also do it and rule 5 still
+refuses `browser_cdp` free-hand. If the command cannot raise it, say so and stop — at that
+point the window size really is a configuration fact and a person sets it once, with one
+line on the browser image: `--window-size=1920,1200` on the Chromium the sidecar launches.
+**Not 1920,1080** — that flag is the OUTER window, and it measures 1920 x 993 inside,
+under the floor. 1920,1200 measures 1920 x 1113.
 
 **Send a real desktop browser.** A non-browser user agent on the login URL answers
 **HTTP 400** with an "Error/Under Maintenance" page on a URL that answers 200 in
@@ -97,13 +105,13 @@ so typing into the real field is the whole of it. Nothing here needs to be repro
 |---|---|
 | `/mobiledoc/jsp/webemr/login/SecurityImage.jsp` | first sign-in on this account, the picture is not enrolled. Section 4. |
 | `/mobiledoc/jsp/webemr/login/changePasswordOnLogin.jsp` | the password is temporary or expired, forced change. Section 5. |
+| a path or query carrying `OTPVerification` | **the password was accepted and eCW has mailed a confirmation link.** Section 6. |
 | `/mobiledoc/jsp/webemr/login/newLogin.jsp?error=6&reminderPluginPopupStatus=1` | **you are signed in**, and the plug-in nag bounced you. Section 2. |
 
 ### Signing out, which this skill does not do
 
 **Do not sign out.** `SKILL.md` rule 8: the session is the expensive thing, because every
-sign-in spends one of the four remaining verification skips (section 6). Finish by parking
-the browser on a blank page.
+sign-in is a mailbox round trip (section 6). Finish by parking the browser on a blank page.
 
 The address is recorded here for the one case that is not this skill's own tidying up: a
 person asks for it. `/mobiledoc/jsp/webemr/logout.jsp`, read out of the security image
@@ -132,6 +140,12 @@ succeeded, and then retries, and a retry loop on a live clinical account is a lo
 **Match on the query string. Never on the page.** `error=6` on `newLogin.jsp` means
 authenticated and bounced.
 
+**And no `browser_*` tool reports the address after a click** — `browser_navigate` returns
+a url, `browser_click` returns `{success, clicked}`, and `browser_snapshot` drops the url
+agent-browser sends beside it. So the read is `browser_console(expression: "location.href")`,
+which rule 4 permits by name, or `scripts/ecw where`, which reads it and says what it
+means in one word.
+
 ### The procedure, exactly
 
 ```
@@ -144,6 +158,12 @@ authenticated and bounced.
                                            do not press the X or Logout: both sign out.
    path has changePasswordOnLogin.jsp   -> STOP. Credential expired. Section 5. Tell a
                                            person. Do not fill the form.
+   path or query has OTPVerification    -> the password was ACCEPTED and a confirmation
+                                           link has been mailed. Section 6. Do NOT retry
+                                           the password and do NOT read this as a refusal.
+                                           `scripts/ecw confirm` opens the link in a clean
+                                           context and presses "Yes, it's me"; the first
+                                           tab then moves on by itself.
    query has error=6                    -> SIGNED IN. Do not treat this as a refusal.
         4. Navigate to /mobiledoc/jsp/webemr/index.jsp
         5. Clear the three entry dialogs (section 3).
@@ -284,10 +304,14 @@ re-selected, it is not a code, and it does not gate the POST. It is account-leve
 device-level: nothing in the page, the flow or the cookies is bound to a machine, so a
 fresh browser lands straight on the password screen with the picture shown.
 
-The whole login flow was searched for otp, mfa, 2fa, verification-code and authenticator
-markers, and the only hits were inside allow-list host names. **This tenant has no
-second factor at sign-in.** Section 6 is a different thing that happens after you are
-already in, and it is worth reading before anybody calls this door unattended.
+**CORRECTED 12 September 2026. This tenant DOES have a second factor at sign-in.** The
+11 September reading — the login flow was searched for otp, mfa, 2fa, verification-code
+and authenticator markers and the only hits were inside allow-list host names — was true
+of the *bundles on the login page* and wrong as a conclusion. The account's verification
+has since been enrolled on email, and every sign-in now lands on an `OTPVerification` page
+and waits for a link mailed to the practice mailbox. Four sign-ins on 12 September all
+completed that way. Section 6 is that mechanism, rewritten. The Security Image is still
+not a second factor; it never was.
 
 ## 5. A temporary password, and its forced change
 
@@ -321,39 +345,42 @@ The real password rules live behind a blue information icon beside New Password.
 data on it, and it is worth somebody doing once — a person, in an operator session, not an
 assistant mid-task.
 
-## 6. The email verification, and the countdown that is already running
+## 6. The email verification: the countdown is over, and it is now a mailed link
 
-This is not a login challenge. You are already authenticated when it appears.
+**REWRITTEN 12 September 2026.** The 11 September reading of this screen was a popup on
+the shell offering to *skip* the practice's verification, with "N skips remaining" going
+down on every sign-in. That countdown ran out. The account is now **enrolled** — its User
+Profile shows Two Factor Modalities with Primary Type = Email — and the mechanism has
+changed shape entirely:
 
-> **Security Verification.** "A mandatory verification has been enabled by the practice
-> admin. You can come back to this window on your own time by going to User Initials >
-> Gear Icon > User Profile > Verify." One field, `input#uemail`, prefilled with the
-> user's own practice mailbox address, a `Verify` button, and the line "**N skips
-> remaining before required verification**".
+- **It is a login challenge now, not a shell popup.** The password is accepted and the
+  browser lands on an `OTPVerification` page. You are NOT in the application yet.
+- **eCW mails a confirmation link** to the account's own practice mailbox. The mail carries
+  an `openLoginConfirmation` href. There is no code to type.
+- **The link must be opened in a clean, isolated browser context.** Opened while the
+  pending sign-in's `JSESSIONID` is in the jar, eCW answers "An error occurred while
+  processing the request." This is measured, not a precaution.
+- The confirmation page carries a **"Yes, it's me"** control. Pressing it, and then closing
+  that context, lets the original tab move on by itself.
+- Four sign-ins on 12 September 2026 all completed this way, and **no skip counter was
+  shown on any of them.**
 
-What was observed, and this is the part that decides the design:
+**What that means for the design.** A sign-in is now a mailbox round trip, so this door
+needs a readable mailbox of its own and it needs an isolated browser context. Neither is
+something the `browser_*` tools can do, which is what `scripts/ecw confirm` is for: it
+mints a Graph token for this assistant's own mailbox at the controller door, finds the
+link, opens it in a fresh context, presses "Yes, it's me", and closes the CONTEXT — never
+the browser.
 
-- It appears **once per sign-in**, on the shell, immediately after `index.jsp`.
-- **The counter goes down on every sign-in whether or not anybody touches the popup.**
-  Across five sign-ins it was read at Eight, then Seven, then Six, then **not read on
-  the fourth**, then Four, and it was not clicked in the first two. So it is **per login,
-  not per device**, and a trusted machine does not buy a pass. The gap is a reading that
-  was missed, not a sign-in that was free: Eight, Seven and Six fall one apart, and the
-  Four two below Six is what the unread fourth sign-in leaves behind.
-- Closing it leaves you fully in the application.
-- On the account that was recorded, **four skips remain.**
+`Verify` and `Save` are still on the never list. This assistant confirms a link that was
+mailed to it; it does not enroll or change a verification setting.
 
-**What that means.** When the skips run out, the account is stuck at an email code and
-the assistant stops. The fix is a person completing the verification once, deliberately,
-from the practice mailbox. Not the assistant: pressing `Verify` sends mail and `Save`
-writes a profile setting, and both are on the never list.
+**Still not known, and worth one question to the practice:** whether the mailed
+confirmation is permanent or whether it was meant to be a one-time enrollment that is
+still repeating. It works either way; we would rather not be surprised.
 
-Whether the verification is once-forever or repeats on a schedule is **not known** and is
-worth one question to the practice, because the answer decides whether an assistant ever
-needs a readable mailbox of its own.
-
-Until it is done, **every automated sign-in spends a skip.** That is the whole reason
-this skill reuses a session instead of signing in per task.
+Because a sign-in costs a mailbox round trip and spends from a budget of two, **this skill
+reuses a session instead of signing in per task.**
 
 ## 7. There is no usable internal API, and here is why
 
@@ -408,10 +435,11 @@ Ranked by how likely it is to be misread as something else.
 | 5 | temporary or expired password | an orange "Change Password" modal with a CAPTCHA | URL is `.../login/changePasswordOnLogin.jsp` | **stop, tell a person** (section 5). Do not fill the form. |
 | 6 | wrong in-app address | a bare "HTTP Status 412 Precondition Failed" | HTTP 412 with an almost empty body | a known-bad address, not a session problem. Do not read it as signed out. |
 | 7 | unknown address | the login page | a 302 to the login page, which eCW does for **every** address it does not know | assert on the page, never on the status. This is why a wrong chart address reads back as "no such chart" for a patient who is on file. |
-| 8 | non-browser user agent | "Error/Under Maintenance" | HTTP 400 on a URL that answers 200 in Chrome | **not reachable from inside a session** — the user agent is the sidecar browser's, and rule 5 refuses `browser_cdp`. If you are seeing this you are not looking at the sidecar. It is why a `curl` check of "is eCW up" reports an outage that is not there. |
+| 8 | non-browser user agent | "Error/Under Maintenance" | HTTP 400 on a URL that answers 200 in Chrome | **not reachable from inside a session** — the user agent is the sidecar browser's, and rule 5 refuses `browser_cdp`. If you are seeing this you are not looking at the sidecar. It is why a `curl` check of "is eCW up" reports an outage that is not there. `scripts/ecw preflight` sends a desktop user agent for exactly this reason, so use it rather than a hand-written `curl`. |
 | 9 | session expired | a login page | back on a `/webemr/login/` path mid-read | **Not** a credential failure — but you cannot prove that, see below. Sign in again **only if the session budget of two attempts (SKILL.md rule 7) has not been spent.** It has no separate allowance: a bounce and a refusal are the same page. |
 | 10 | second concurrent session | UNRECORDED on a real practice | unknown | never force it. A live session may have a real person on the other end. |
-| 11 | window too narrow | a different, re-laid-out page | none. It silently renders differently. | read `window.innerWidth` and `window.innerHeight` (rule 4). Under 1600 x 1000, **say so and stop** — you cannot set it from here, because `browser_cdp` is what would and rule 5 refuses it. The sidecar's window size is a configuration fact a person sets once (section 0). |
+| 11 | window too narrow | a different, re-laid-out page | none. It silently renders differently. | the sidecar's default is **780 x 441**, so this is the state you START in. Run `scripts/ecw viewport`, which raises it to 1600 x 1000 and prints what it got. Only if that cannot raise it is it a configuration fact for a person (section 0). |
+| 11b | a confirmation link was mailed | a page that is not the application and is not the login page | the path or query carries **`OTPVerification`** | **the password was ACCEPTED.** Do not retry it, and do not read this as a refusal. `scripts/ecw confirm` (section 6). If no link arrives, say so and stop; do not sign in again to make one arrive. |
 | 12 | CAPTCHA misread | the change-password modal redisplays | the form does not advance | **you cannot be here.** Rule 10 forbids filling this form, so there is no CAPTCHA of yours to re-read. Stop and tell a person. A retry loop on this screen is the account-lockout path this skill exists to prevent. |
 
 ### The refused-credentials selector, and the stronger statement that replaces it
@@ -436,8 +464,9 @@ a selector would have:
 > An agent that treats row 9 as free re-signs in as many times as the session drops, each
 > time believing it is not retrying, and a stale session turns into a lockout on a real
 > clinician's account. Hence one budget of two attempts for the whole working session,
-> across every cause (`SKILL.md` rule 7), and every attempt also spends one of the four
-> remaining verification skips.
+> across every cause (`SKILL.md` rule 7), and every attempt is also a mailbox round trip
+> (section 6). **`scripts/ecw` keeps that budget on disk**, so a fresh session that has
+> forgotten rule 7 still cannot spend a third.
 
 ## 9. What is still unmeasured
 
@@ -452,7 +481,12 @@ authority to run it.
   gone.
 - **The real password rules** behind the information icon on the forced-change screen
   (section 5). A person's ten-second read, not an assistant's.
-- **Whether the email verification is once-forever or recurring** (section 6).
+- **Whether the mailed confirmation is permanent or was a one-time enrollment that is
+  still repeating** (section 6). It works either way.
+- **Whether a saved cookie and the two `crypto_aesKey_*` entries really carry a session
+  across a pod roll.** `scripts/ecw session save|restore` does it and was proved against a
+  stand-in, not against eCW. Treat a restored session as unproven until a real one
+  survives: assert on the Office Visits anchor, never on a status code.
 - **Whether an accessibility snapshot crosses same-origin frames on this shell.** The
   Web EMR is frame-heavy and `browser_snapshot` reports a frame tree, so the question is
   whether that tree reaches into every frame. This needs one live check by a person, not a
