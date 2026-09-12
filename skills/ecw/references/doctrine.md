@@ -130,7 +130,10 @@ than a provider of "nobody":
 > clinician's patients, which is the wrong-patient exposure the old rule thought it was
 > preventing.
 
-What survives: **set the filter, do not infer it.** The grid's own heading names the VIEW,
+What survives: **set the filter, do not infer it.** A grid's own filters are the one
+family of controls outside the sign-in and a search box that this assistant fills, and
+`SKILL.md` rule 1 says so and bounds it: a filter changes which rows are asked for and
+nothing on a record. The grid's own heading names the VIEW,
 not the row, so a row is not evidence of a provider unless the Provider filter was set to
 that provider before the grid was read. Say which filter value produced the list you are
 reporting. Where a grid genuinely has no provider on a row, absent still says "the page

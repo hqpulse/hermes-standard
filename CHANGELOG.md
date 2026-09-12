@@ -8,9 +8,9 @@ Earlier versions are in the git history (`git log --oneline v0.1.1..v0.2.2`).
   sign-in and its client-side encryption, the plug-in nag that bounces an already successful
   login onto a page with no error on it, the app shell behind three stacked dialogs, and the
   work queues, patient lookup and actions list with an anchor selector each. It is read only:
-  no form but the sign-in and a search box, and nothing saved, signed, locked, booked or
-  printed **by clicking or by evaluating** — the refusals are written about the effect, so
-  `browser_console` is pinned to reading a value off a rendered element and `browser_cdp`,
+  no form but the sign-in, a search box and a grid's own filters, and nothing saved, signed,
+  locked, booked or printed **by clicking or by evaluating** — the refusals are written about
+  the effect, so `browser_console` is pinned to reading a value off a rendered element and `browser_cdp`,
   `browser_exec` and a Playwright script are refused outright on this application, because
   `browser_navigate` cannot be granted without them. Two sign-in attempts per working
   session across every cause, because this practice's login page renders no error element

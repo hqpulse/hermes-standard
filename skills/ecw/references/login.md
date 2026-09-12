@@ -70,8 +70,10 @@ does not appear in a snapshot, so there is no ref to hit by accident. Treat that
 convenience and not a guarantee: check that the field you are about to fill is the one
 the snapshot shows on the password screen.
 
-**A username the server does not know never reaches a password screen.** That is the
-cheapest possible "is this account real" check, and it costs no login attempt.
+**A username the server does not know never reaches a password screen.** No password is
+submitted, so it spends no password attempt. Whether eCW counts a failed username step
+toward its own lockout was **never measured** — nobody has deliberately failed a login on
+this practice — so this is a single check before a sign-in, never a probe you repeat.
 
 ### Screen two, the password
 
@@ -236,6 +238,11 @@ sees it is not known. Treat it as "dismiss it if it is there", never as "wait fo
 
 ## 4. The Security Image, and why it is not two-factor
 
+**Where this section came from.** Both this screen and section 5 were seen during the
+10 September account-onboarding session, not during the 11 September recorded runs, so
+there is no log line or screenshot for either one in the recording set. Everything below
+is a description written to be RECOGNIZED, and rule 11 is the whole of what to do with it.
+
 On a brand-new account, `loginSuccess.jsp` sends you to
 `/mobiledoc/jsp/webemr/login/SecurityImage.jsp`, titled "Web EMR- Security Image". It is
 a SiteKey-style anti-phishing picture.
@@ -285,6 +292,8 @@ already in, and it is worth reading before anybody calls this door unattended.
 ## 5. A temporary password, and its forced change
 
 **This section is recognition only. Read it to know what the screen is. Do not fill it.**
+Like section 4, it was seen on 10 September during account onboarding and not during the
+11 September recorded runs, so no log line or screenshot of it exists in the recording set.
 
 Client-issued passwords are temporary. The first sign-in lands on
 `/mobiledoc/jsp/webemr/login/changePasswordOnLogin.jsp`, after an acknowledgement that
@@ -326,9 +335,11 @@ What was observed, and this is the part that decides the design:
 
 - It appears **once per sign-in**, on the shell, immediately after `index.jsp`.
 - **The counter goes down on every sign-in whether or not anybody touches the popup.**
-  It went Eight, Seven, Six, Four across five sign-ins in which it was not clicked in
-  the first two. So it is **per login, not per device**, and a trusted machine does not
-  buy a pass.
+  Across five sign-ins it was read at Eight, then Seven, then Six, then **not read on
+  the fourth**, then Four, and it was not clicked in the first two. So it is **per login,
+  not per device**, and a trusted machine does not buy a pass. The gap is a reading that
+  was missed, not a sign-in that was free: Eight, Seven and Six fall one apart, and the
+  Four two below Six is what the unread fourth sign-in leaves behind.
 - Closing it leaves you fully in the application.
 - On the account that was recorded, **four skips remain.**
 
@@ -392,15 +403,15 @@ Ranked by how likely it is to be misread as something else.
 |---|---|---|---|---|
 | 1 | plug-in nag after a **successful** login | identical to a fresh login page, no error text anywhere | URL query `error=6&reminderPluginPopupStatus=1` on `newLogin.jsp` | you are signed in. Go to `index.jsp`. Never retry the password. |
 | 2 | credentials refused | a login page | back on `newLogin.jsp` with no `error=6`. **This practice renders no error box at all.** | stop. Spend a sign-in attempt from the session budget of two (SKILL.md rule 7) only if one is left, then a person. Repeated failures lock a live clinical account. |
-| 3 | username not known | screen one never advances | a visible `input#passwordField` never appears after `input#nextStep` | stop. Costs no login attempt, so it is the cheapest pre-check there is. |
+| 3 | username not known | screen one never advances | a visible `input#passwordField` never appears after `input#nextStep` | stop. No password was submitted, so no password attempt was spent — but whether eCW counts a failed username step toward its own lockout was **never measured** (section 1). One check, then a person. Not a probe you repeat. |
 | 4 | security image not enrolled | a modal picture grid | URL is `.../login/SecurityImage.jsp` | **stop, tell a person** (section 4). Never click through: the X and Logout both sign you out. |
 | 5 | temporary or expired password | an orange "Change Password" modal with a CAPTCHA | URL is `.../login/changePasswordOnLogin.jsp` | **stop, tell a person** (section 5). Do not fill the form. |
 | 6 | wrong in-app address | a bare "HTTP Status 412 Precondition Failed" | HTTP 412 with an almost empty body | a known-bad address, not a session problem. Do not read it as signed out. |
 | 7 | unknown address | the login page | a 302 to the login page, which eCW does for **every** address it does not know | assert on the page, never on the status. This is why a wrong chart address reads back as "no such chart" for a patient who is on file. |
-| 8 | non-browser user agent | "Error/Under Maintenance" | HTTP 400 on a URL that answers 200 in Chrome | send a real desktop Chrome user agent. |
+| 8 | non-browser user agent | "Error/Under Maintenance" | HTTP 400 on a URL that answers 200 in Chrome | **not reachable from inside a session** — the user agent is the sidecar browser's, and rule 5 refuses `browser_cdp`. If you are seeing this you are not looking at the sidecar. It is why a `curl` check of "is eCW up" reports an outage that is not there. |
 | 9 | session expired | a login page | back on a `/webemr/login/` path mid-read | **Not** a credential failure — but you cannot prove that, see below. Sign in again **only if the session budget of two attempts (SKILL.md rule 7) has not been spent.** It has no separate allowance: a bounce and a refusal are the same page. |
 | 10 | second concurrent session | UNRECORDED on a real practice | unknown | never force it. A live session may have a real person on the other end. |
-| 11 | window too narrow | a different, re-laid-out page | none. It silently renders differently. | pin the viewport at 1600 x 1000. |
+| 11 | window too narrow | a different, re-laid-out page | none. It silently renders differently. | read `window.innerWidth` and `window.innerHeight` (rule 4). Under 1600 x 1000, **say so and stop** — you cannot set it from here, because `browser_cdp` is what would and rule 5 refuses it. The sidecar's window size is a configuration fact a person sets once (section 0). |
 | 12 | CAPTCHA misread | the change-password modal redisplays | the form does not advance | **you cannot be here.** Rule 10 forbids filling this form, so there is no CAPTCHA of yours to re-read. Stop and tell a person. A retry loop on this screen is the account-lockout path this skill exists to prevent. |
 
 ### The refused-credentials selector, and the stronger statement that replaces it
