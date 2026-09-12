@@ -62,12 +62,13 @@ selector below may have moved.
 two hard reasons and both are in `references/login.md`:
 
 1. The practice has **mandatory email verification** switched on. The skip counter goes
-   down on **every single sign-in, whether or not anybody touches the popup** — it was
-   watched going Eight, Seven, Six, Four across five sign-ins in which it was not clicked
-   in the first two. It is **per login, not per device**, so a trusted machine buys
-   nothing. **Four skips remained** on the recorded account. When they run out the account
-   is stuck behind an emailed code until a person at the practice completes the
-   verification on purpose from the practice mailbox.
+   down on **every single sign-in, whether or not anybody touches the popup** — across
+   five sign-ins it was read at Eight, then Seven, then Six, then **not read on the
+   fourth**, then Four, and it was not clicked in the first two. It is **per login, not
+   per device**, so a trusted machine buys nothing. **Four skips remained** on the
+   recorded account. When they run out the account is stuck behind an emailed code until
+   a person at the practice completes the verification on purpose from the practice
+   mailbox.
 2. **The login page renders no error element at all**, so a refusal and a bounce look
    identical, and retrying is how a real clinician's account gets locked.
 
@@ -140,9 +141,15 @@ same result, on the same record. Read every rule below as covering the click, th
 keystroke, the script and the **evaluated expression** alike. A rule written in the
 vocabulary of clicking is not satisfied by finding a way to do it without clicking.
 
-1. **No form but the sign-in and a search box.** The sign-in and a search field are the
-   only two places this assistant puts a value — by typing into them, and by no other
-   means. Everything else is read.
+1. **No form but the sign-in, a search box and a grid's own filters.** Those three are
+   the only places this assistant puts a value — by typing or picking in them, and by no
+   other means. A grid filter counts because setting one only changes which rows are
+   asked for: the Provider, Facility, Status and date controls above a queue, and the
+   `Filter` or `Search` button that runs them. Set the filter rather than inferring it
+   from the rows (`references/doctrine.md`), and say which value produced the list you
+   report. This does **not** reach a checkbox that changes a setting (the CPT notice's
+   do-not-show-again, rule 3), a field on a record, or anything a filter sits next to.
+   Everything else is read.
 2. **Never Save, Submit, Sign, Lock, Finalize or File.** Not a note, not an action, not
    a demographic field, not a setting. `Lock Progress Note` sits two buttons away from
    `View Progress Notes` on the schedule, and one click on it cannot be undone. This
@@ -155,7 +162,7 @@ vocabulary of clicking is not satisfied by finding a way to do it without clicki
    `browser_navigate` carries `browser_console` in the same toolset, and
    `browser_console` takes an `expression` and runs it in the page exactly like a
    DevTools console: full `document`, full `window`, full DOM. On this application it is
-   allowed for one purpose only, reading a value off an element that is already rendered:
+   allowed for reading and nothing else, and the shapes it may read are these:
 
    ```
    allowed : document.querySelector(sel).innerText
