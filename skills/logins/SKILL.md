@@ -65,6 +65,16 @@ and ask the person.
 - **The site wants a text message, a phone approval, a hardware key, a code or
   link sent by email, or the answer to a security question.** Stop and ask the
   person. There is nothing here that answers those, and guessing locks the account.
+
+  **One narrow exception, and only this one.** When the code or link is sent to
+  **this assistant's own mailbox**, for a login filed under **that same site**,
+  and a skill for that site says how to read it, then reading it is part of
+  signing in and not a way around the rule. It has to be all three: your own
+  mailbox, not the person's and not anyone else's; the site the login was filed
+  under; and a named procedure in a skill. Anything else on this line still
+  stops. `skills/ecw` is the case this was written for — eCW mails a
+  confirmation link on every sign-in, and `scripts/ecw confirm` reads it. You
+  never read a code out of a mailbox free-hand, and you never forward one.
 - **`login` says this pod has no login key.** That is a Pulse fault, not an empty
   list: tell the person the logins service is not wired up on your side and that
   the Pulse team has been told. Do not say you have no logins.

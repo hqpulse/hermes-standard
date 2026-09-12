@@ -2,6 +2,50 @@
 
 Earlier versions are in the git history (`git log --oneline v0.1.1..v0.2.2`).
 
+## 0.9.0
+
+- **`ecw` gets its own command, and the ban gets somewhere to send the assistant.**
+  `skills/ecw/scripts/ecw` ships in the pack the way `skills/logins/scripts/login`
+  does: standard library, run with the terminal tool, one reviewable file. Rules 5
+  and 6 stand exactly as they were -- no free-hand `browser_cdp`, no free-hand
+  Playwright, ever -- and this is now the one named exception, because four things
+  this door needs have no permitted road otherwise, and each was measured rather than
+  assumed. There is no isolated browser context, and the mailed confirmation link
+  fails when it is opened holding the pending sign-in's cookie. There is no wait, no
+  force-click and no settle, and the three entry dialogs need all three. `browser_type`
+  fires no key events at all -- 0 keydown, 0 keyup, against 13 and 13 for a real per-
+  character press -- so anything on an Angular `ng-keyup` never reacts to it. And no
+  tool reports the page's address after a click, which is the one thing this skill's
+  central recognition rule depends on. The command attaches to the SAME Chromium at
+  `BROWSER_CDP_URL` and drives the SAME page the `browser_*` tools are on, so it is not
+  a place to hide: the next snapshot sees what it did. Its refusals are compiled in
+  rather than remembered -- two paths on one configured host and no default host, a stop
+  on `SecurityImage.jsp` and on `changePasswordOnLogin.jsp`, never Verify, Save, a
+  picture or the do-not-show-again checkbox, never `logout.jsp`, never
+  `browser.close()`, and the two-attempt budget kept on disk so a fresh session cannot
+  spend a third. No secret passes through the model: the password comes from the logins
+  door and the mailbox token from the controller door, inside the script.
+- **The skill said this tenant has no second factor. It has one.** Corrected in place in
+  `references/login.md` §4 and §6: the verification countdown ran out, the account is
+  enrolled on email, and every sign-in now lands on `OTPVerification` and waits for a
+  mailed confirmation link. The old text would have read a login that was one click from
+  succeeding as "newLogin.jsp with some other error -> refused -> stop." The entry ladder,
+  the failure table and §0's viewport paragraph are updated with it.
+- **Rule 4's eval allowlist grows by four named reads, and by nothing else.**
+  `location.href`, because the rule "match on the query string, never on the page" had no
+  permitted way to run; and the three server-rendered login flags
+  (`newLogin_bBlocked`, `newLoginStep_isUserSoftLockOut`, `newLogin_bCaptcha`), which say
+  whether an account is locked out, blocked or behind a CAPTCHA before a credential is
+  spent finding out. All four are reads returning a primitive, each is on the list for a
+  named reason, and everything else on `window` and `location` stays refused.
+- **`logins` gets one narrow exception**, for the case that skill's "stop and ask the
+  person" line would otherwise have blocked outright: a code or link sent to **this
+  assistant's own mailbox**, for a login filed under **that same site**, with a named
+  procedure in a skill for it. All three, or it still stops.
+- **Authorization on the record:** Eli confirmed on 12 September 2026 that we have full
+  permission and expectation to connect to these accounts as the provider. The relaxation
+  above is that decision written down, not an oversight.
+
 ## 0.8.0
 
 - **eClinicalWorks.** A new skill, `ecw`, for the hosted V12.0.3 Web EMR: the two-screen
