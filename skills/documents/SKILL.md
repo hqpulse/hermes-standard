@@ -1,6 +1,6 @@
 ---
 name: documents
-description: Making and handing back files: Word, Excel, slides, PDF.
+description: "Making and handing back documents: Word, Excel, slides, PDF."
 ---
 
 # Documents

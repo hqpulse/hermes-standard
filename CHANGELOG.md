@@ -2,6 +2,25 @@
 
 Earlier versions are in the git history (`git log --oneline v0.1.1..v0.2.2`).
 
+## 0.7.6
+
+- **The pack has checks that run themselves, and every skill now says its own name in the one
+  line the model reads.** A GitHub Action runs all seven scripts under `tests/` on every push
+  and pull request, against the engine's own parsers at a pinned commit, so a green run means
+  what the `check_pack.py` docstring says a green run should mean rather than the quieter
+  fallback: schedules parsed, preset fields checked against the real cronjob schema. Two checks
+  are new. `check_skill_index.py` prints the skills index exactly as the engine builds it and
+  refuses a description whose visible part never says the skill's own name. The index cuts a
+  description at 60 characters (`SKILL_PROMPT_DESC_LIMIT`), so anything past that cannot be
+  matched on, and eight of the fourteen skills were in that state: a model looking for the mail
+  watch read "Deciding whether something that just arrived in the perso..." and had nothing to
+  go on. Those eight now lead with the name and read the same afterwards. `check_distribution.py`
+  covers the manifest's quiet ways of going wrong: a line listed twice, a symlink, a path git
+  does not track, and `scripts/` as well as `skills/`, which is where the mail watch's own
+  script lives. Quoting the eight descriptions also fixed two that were not valid YAML at all,
+  `documents` and `policy-keeper`, each carrying an unquoted colon and loading only because the
+  engine falls back to splitting a line on its first one.
+
 ## 0.7.5
 
 - **One emoji is a reply.** On a phone, a thanks or an OK from the person gets a reaction on

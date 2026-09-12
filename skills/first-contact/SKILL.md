@@ -1,6 +1,6 @@
 ---
 name: first-contact
-description: The first conversation with a person you have never spoken to, whatever they wrote first.
+description: "First contact: the first conversation with a person you have never spoken to, whatever they wrote first."
 ---
 
 # First contact

@@ -1,6 +1,6 @@
 ---
 name: policy-keeper
-description: How to keep Policy.md: what goes in it, the 12,000-character cap, how to turn a handbook, job description or message into rules without losing one, where the leftovers go, and which rules need a real switch.
+description: "Policy keeper: what goes in Policy.md, the 12,000-character cap, how to turn a handbook, job description or message into rules without losing one, where the leftovers go, and which rules need a real switch."
 ---
 
 # Keeping Policy.md
