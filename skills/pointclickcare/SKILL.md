@@ -64,10 +64,18 @@ In this application it may be handed only an expression that **reads a value out
 - property reads: `.innerText`, `.textContent`, `.value`, `.checked`, `.selected`, `.href`,
   `.src`, `.id`, `.className`, `.rows`, `.cells`, `.length`
 - the finders that get you to them: `document.querySelector`, `document.querySelectorAll`,
-  `document.getElementById`, `document.forms` read as a list, and `frames` /
+  `document.getElementById`, `document.forms` read as a list, the same two `querySelector`
+  finders called on an element you already found, and `frames` / `frames[i].document` /
   `contentDocument` for the dashboard panels
-- shaping the result for return: `Array.from(...).map(...)`, `.filter(...)`, `.trim()`, and
-  `JSON.stringify` of the strings, numbers and booleans you extracted
+- shaping the result for return: indexing into a list you just read (`rows[0]`, `frames[i]`,
+  the last entry of a `querySelectorAll`), `Array.from(...).map(...)`, `.filter(...)`,
+  `.trim()`, and `JSON.stringify` of the strings, numbers and booleans you extracted
+
+The scoped finders and the index are on the list because reads further down need them: the
+leaf-table rule filters tables on whether they contain a table, and the vitals grid, the
+dashboard frames and the results menu are addressed by position. Neither reaches an element a
+`document.` finder could not already reach, and neither returns anything that is not a
+property on the line above.
 
 And nothing else. Named, because "read only" is not self-evident in a language that writes:
 
@@ -124,9 +132,11 @@ it is a judgment call.
   that exist for these homes are titled for named nurse practitioners, so on most homes it is
   the refusal you will actually hit. What it means in practice: if the only login for this home
   is titled with a person's name, say so, name the home, say that the read needs a login that
-  belongs to us rather than to that clinician, and stop. Do not sign in and do not treat the
-  refusal as something to reason your way past. Every read on a borrowed account is written
-  into the vendor's audit log as that clinician's own.
+  belongs to us rather than to that clinician, and stop. The title is the weaker of the two
+  tests, because a borrowed credential filed under a neutral name passes it: read the username
+  the store gives you at the field and apply the same refusal to that. Do not sign in and do
+  not treat the refusal as something to reason your way past. Every read on a borrowed
+  account is written into the vendor's audit log as that clinician's own.
 - **Never use a login that was not named for the home you were sent to.**
 - **Never widen a search to every home as a way around a home you have no login for.** A
   search only ever sees the homes on the login it signed in with, so an empty result on the
@@ -248,9 +258,10 @@ one. Going back between tabs is not politeness. It is how the next token stays f
 
 ## Opening a chart
 
-After the click, wait for `#residentHeader`. Poll for it with an extraction expression rather
-than trusting one snapshot. **The application takes anywhere from three seconds to twenty to
-render a chart**, so wait for the header rather than sleeping a fixed amount: a sleep that is
+After the click, wait for `#residentHeader`. Poll for it with an extraction expression,
+`document.querySelectorAll('#residentHeader').length`, rather than trusting one snapshot.
+**The application takes anywhere from three seconds to twenty to render a chart**, so wait
+for the header rather than sleeping a fixed amount: a sleep that is
 usually long enough reports "no chart opened" on the day the application is slow. Then let it
 settle a few seconds more, because the header renders before the tab strip does and the tab
 links are simply missing until it has.
@@ -299,9 +310,11 @@ Three things, each learned the hard way:
   Results has been observed, and only it is a read.
 - **The wrapper stays in the DOM after use.** Taking the first one on the page re-opens the
   *previous* row's report, which is how two different lab reports once came back byte for byte
-  identical. Press Escape to dismiss what is open, then use the wrapper that is actually
-  visible, which is the last one. Which one is visible is a property read, not something the
-  snapshot tells you.
+  identical. Press Escape to dismiss what is open, then take the **last** `pccMenuWrapper` on
+  the page, by index off `document.querySelectorAll`. Do not test which one is on screen: the
+  properties that answer that are not on the allow-list above, and the last-one rule is what
+  stands in their place. Confirm the report you land on by its name and collection date, below,
+  before you read a word of it.
 
 Match the row on the report name **and** its collection date. Two reports of the same panel
 differ only by their date, and matching on the name alone opens the same one twice.
@@ -340,8 +353,9 @@ needs, because the obvious tool for most of them returns something that looks li
 - **Tables nest three deep.** Only **leaf** tables, meaning a table containing no other table,
   carry data. A naive walk over every row returns each row three times: as itself, again inside
   the wrapper, and once more as a single cell holding the whole grid's text. Selecting the leaf
-  tables is a `querySelectorAll('table')` filtered on containing no `table`, in an extraction
-  expression; the accessibility tree does not preserve the nesting.
+  tables is a `document.querySelectorAll('table')` filtered on each one's own
+  `querySelector('table')` being null, in an extraction expression; the accessibility tree
+  does not preserve the nesting.
 - Inside a leaf table, **a cell that already contains every other cell of its own row is the
   wrapper artifact.** Drop it.
 - **Note bodies and assessment bodies live in textareas.** Reading the page's text does not
