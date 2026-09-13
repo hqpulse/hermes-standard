@@ -29,10 +29,11 @@ from typing import Dict, List, Optional
 PULSE_AGENTS_CHAT = "-1004278712029"
 MAX_BULLETS = 8
 SHA = re.compile(r"\b(?=[0-9a-f]*\d)[0-9a-f]{7,40}\b")
+KEEP_SLASHED = {"24/7", "and/or", "read/write", "yes/no", "on/off"}   # words with a slash that are not paths
 
 
 def plain(text: str) -> str:
-    text = (text or "").replace("—", ", ").replace("–", ", ").replace(" -- ", ", ")
+    text = (text or "").replace("\u2014", ", ").replace("\u2013", ", ").replace(" -- ", ", ")
     text = re.sub(r"\s*,\s*,\s*", ", ", text)
     return re.sub(r"[ \t]+", " ", text).strip()
 
@@ -97,14 +98,12 @@ def for_a_person(text: str) -> str:
     text = text.replace("`", "")
     text = SHA.sub("", text)
     text = re.sub(r"\b(origin|upstream)/[\w./-]+", "", text)
-    text = re.sub(r"\S+/\S+", "", text)                      # paths
+    text = re.sub(r"\S+/\S+", lambda m: m.group(0) if m.group(0).lower() in KEEP_SLASHED else "", text)   # paths
     text = re.sub(r"\b[A-Z][A-Z0-9]*_[A-Z0-9_]+\b", "", text)   # ENV_NAMES
     text = re.sub(r"\s+([,.:;])", r"\1", text)
     text = re.sub(r"\(\s*\)", "", text)
     text = re.sub(r"\s{2,}", " ", text).strip(" ,;:")
     text = text[:1].upper() + text[1:] if text else text
-    if len(text) > 160:
-        text = text[:159].rsplit(" ", 1)[0].rstrip(" ,;:") + "."
     if text and text[-1] not in ".!?":
         text += "."
     return text
@@ -118,7 +117,7 @@ def telegram(changelog: str, version: str, release_url: str) -> str:
         if b and b not in bullets:
             bullets.append(b)
     bullets = bullets[:MAX_BULLETS]
-    parts = [f"Pack {v} is out." if not bullets else f"Pack {v} is out: {bullets[0][:1].lower() + bullets[0][1:]}"]
+    parts = [f"Pack {v} is out." if not bullets else f"Pack {v} is out: {bullets[0]}"]
     if len(bullets) > 1:
         parts.append("\n".join(f"- {b}" for b in bullets[1:]))
     parts.append("It becomes the standard for every company with the next fleet release, and that note says so. "
@@ -150,7 +149,7 @@ def send(chat: str, text: str) -> int:
     return 0
 
 
-SAMPLE = """# Changelog
+SAMPLE = u"""# Changelog
 
 ## 0.11.1
 
@@ -166,7 +165,7 @@ SAMPLE = """# Changelog
 
 ## 0.10.0
 
-- **The reach skill: who may reach the assistant, asked in her own chat.** Merged with 0.9.0's eCW command — the two entries below are the reach half.
+- **The reach skill: who may reach the assistant, asked in her own chat.** Merged with 0.9.0's eCW command \u2014 the two entries below are the reach half; on call 24/7 and/or by chat.
 - **A leave that did not happen is never reported as done.** The bridge now answers a refused
   group leave as a failure at skills/reach/scripts/reach; see d1da511.
 """
@@ -192,15 +191,17 @@ def self_test() -> int:
           items(section(SAMPLE, "0.10.0")) == ["The reach skill: who may reach the assistant, asked in her own chat.", "A leave that did not happen is never reported as done."])
     check("items: a plain item's first sentence, wrapped", items(section(SAMPLE, "0.11.1")) == ['ecw script: a page that is not on the practice host (about:blank after the browser sidecar restarts) is "elsewhere", never "in the app", so signin signs in instead of declining.'])
     tg = telegram(SAMPLE, "v0.11.0", "https://github.com/hqpulse/hermes-standard/releases/tag/v0.11.0")
-    check("telegram: headline is 'Pack vX.Y.Z is out: ...' with the first item", tg.startswith("Pack v0.11.0 is out: logins skill: a sibling keeper command."), tg)
+    check("telegram: headline is 'Pack vX.Y.Z is out: ...' with the first item", tg.startswith("Pack v0.11.0 is out: Logins skill: a sibling keeper command."), tg)
     check("telegram: the other items are bullets", "\n- Ecw script: reads the host and login title from the lane when the env is unset, so a plugin scribe signs in with nothing extra configured." in tg, tg)
     check("telegram: no backticks", "`" not in tg, tg)
     check("telegram: what happens next, and the link", "next fleet release" in tg and tg.rstrip().endswith("Release: https://github.com/hqpulse/hermes-standard/releases/tag/v0.11.0"), tg)
     check("telegram: a blank line between ideas", "\n\n" in tg and "\n\n\n" not in tg, tg)
     tg2 = telegram(SAMPLE, "0.10.0", "u")
-    check("telegram: no em dash, no path, no commit id", "—" not in tg2 and "skills/" not in tg2 and "d1da511" not in tg2, tg2)
+    check("telegram: no em dash, no path, no commit id", "\u2014" not in tg2 and "skills/" not in tg2 and "d1da511" not in tg2, tg2)
     tg3 = telegram(SAMPLE, "0.11.1", "u")
-    check("telegram: one item makes a headline and no list", tg3.count("\n- ") == 0 and tg3.startswith("Pack v0.11.1 is out: ecw script"), tg3)
+    check("telegram: one item makes a headline and no list", tg3.count("\n- ") == 0 and tg3.startswith("Pack v0.11.1 is out: Ecw script"), tg3)
+    check("telegram: a long sentence is never cut", "so signin signs in instead of declining." in tg3, tg3)
+    check("for_a_person: 24/7 and and/or are words, not paths", for_a_person("on call 24/7 and/or by chat") == "On call 24/7 and/or by chat.")
     many = "## 1.0.0\n\n" + "".join(f"- Change number {i}.\n" for i in range(12))
     check("telegram: never more than eight bullets", telegram(many, "1.0.0", "u").count("\n- ") == MAX_BULLETS - 1)
     if rc == 0:

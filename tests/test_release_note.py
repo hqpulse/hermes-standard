@@ -39,7 +39,7 @@ def main() -> int:
     if not rn.items(body):
         print(f"FAIL  the newest section ({newest}) has no '- ' items to make a message from"); rc = 1
     msg = rn.telegram(changelog, "v" + newest, "https://github.com/hqpulse/hermes-standard/releases/tag/v" + newest)
-    for bad, why in (("`", "a backtick"), ("—", "an em dash"), ("–", "an en dash")):
+    for bad, why in (("`", "a backtick"), ("\u2014", "an em dash"), ("\u2013", "an en dash")):
         if bad in msg:
             print(f"FAIL  the message for {newest} carries {why}:\n{msg}"); rc = 1
     if re.search(r"\b(?=[0-9a-f]*\d)[0-9a-f]{7,40}\b", msg.replace("https://", "")):
