@@ -86,3 +86,22 @@ and ask the person.
   in a loop.
 - **The site refuses the password.** Say so and stop. It is a changed password,
   not something to retry until the account locks.
+
+## Logins kept in Keeper
+
+Some companies keep their working logins in Keeper instead, one shared folder per
+provider. When the Pulse team has pointed this assistant at its provider's folder,
+those logins are reached the same way, through a sibling script:
+
+    /opt/data/profiles/hermes-standard/skills/logins/scripts/keeper list
+    /opt/data/profiles/hermes-standard/skills/logins/scripts/keeper show <title>
+    /opt/data/profiles/hermes-standard/skills/logins/scripts/keeper password <title>
+    /opt/data/profiles/hermes-standard/skills/logins/scripts/keeper otp <title>
+
+`list` adds the folder as a fourth column. Everything above applies word for word:
+one field at a time, at the moment the field is in front of you, never written
+down, never said out loud. This pod runs no Keeper software and holds no Keeper
+device; the controller signs in and hands back one field. A title in another
+provider's folder answers "no login with that title", the same as one that does
+not exist. `keeper` saying this assistant is not pointed at any Keeper folder is
+a setup fact for the Pulse team, not an empty list.

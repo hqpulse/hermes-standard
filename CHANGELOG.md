@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.11.0
+
+- `logins` skill: a sibling `keeper` command. Companies that keep their working logins in
+  Keeper (one shared folder per provider) get the same door as 1Password: the controller
+  holds the company's Keeper identity and signs in server side, the assistant is scoped to
+  its provider's folder, and the pod reads one field of one record at call time. No Keeper
+  software or device on the pod (hermes-fleet PLAN B9).
+- `ecw` script: reads the host and login title from the lane when the env is unset, so a
+  plugin scribe signs in with nothing extra configured.
+
 Earlier versions are in the git history (`git log --oneline v0.1.1..v0.2.2`).
 
 ## 0.10.0
