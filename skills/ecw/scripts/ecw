@@ -482,15 +482,15 @@ def replay_shot(page, label: str, op: str = "ecw.signin"):
     never a failed sign-in. Returns the path or None."""
     import fcntl
     import hashlib
-    if label in SECRET_LABELS:
+    if str(label).strip().lower() in SECRET_LABELS:
         return None
-    run = replay_dir()
-    if run is None:
-        return None
-    op = re.sub(r"[^A-Za-z0-9._-]+", "-", op).strip("-.")[:60] or "op"
-    lab = re.sub(r"[^A-Za-z0-9._-]+", "-", label).strip("-.")[:60] or "step"
-    index = run / "index.jsonl"
     try:
+        run = replay_dir()
+        if run is None:
+            return None
+        op = re.sub(r"[^A-Za-z0-9._-]+", "-", op).strip("-.")[:60] or "op"
+        lab = re.sub(r"[^A-Za-z0-9._-]+", "-", label).strip("-.")[:60] or "step"
+        index = run / "index.jsonl"
         with open(run / ".lock", "a+") as lock:
             os.chmod(run / ".lock", 0o600)
             fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
@@ -498,7 +498,7 @@ def replay_shot(page, label: str, op: str = "ecw.signin"):
             if index.is_file():
                 seq += sum(1 for l in index.read_text(encoding="utf-8").splitlines() if l.strip())
             path = run / f"{seq:02d}-{op}-{lab}.png"
-            page.screenshot(path=str(path), full_page=True)
+            page.screenshot(path=str(path), full_page=True, timeout=15000)
             os.chmod(path, 0o600)
             data = path.read_bytes()
             if not data:

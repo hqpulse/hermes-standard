@@ -534,7 +534,7 @@ class TheRunFolder(unittest.TestCase):
             self.blob = blob
             self.shots = 0
 
-        def screenshot(self, path, full_page=False):
+        def screenshot(self, path, full_page=False, timeout=None):
             self.shots += 1
             with open(path, "wb") as fh:
                 fh.write(self.blob)
@@ -621,7 +621,7 @@ class TheRunFolder(unittest.TestCase):
         os.environ["HERMES_REPLAY_DIR"] = self.dir
 
         class Broken:
-            def screenshot(self, path, full_page=False):
+            def screenshot(self, path, full_page=False, timeout=None):
                 raise RuntimeError("the page went away")
         self.assertIsNone(self.ecw.replay_shot(Broken(), "signed-in"))
 
