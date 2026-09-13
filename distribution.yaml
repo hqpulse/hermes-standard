@@ -1,5 +1,5 @@
 name: hermes-standard
-version: 0.11.1
+version: 0.11.2
 description: "HQ Pulse standard employee assistant: persona and skills"
 hermes_requires: ">=0.21.0"
 author: "HQ Pulse"
@@ -78,6 +78,7 @@ distribution_owned:
   - skills/own-whatsapp/own_whatsapp.py
   - skills/own-whatsapp/references/STORE.md
   - skills/first-contact/SKILL.md
+  - skills/recurring-work/SKILL.md
   - skills/logins/SKILL.md
   - skills/logins/scripts/login
   - skills/logins/scripts/keeper
