@@ -90,6 +90,9 @@ jobs:
       - name: test_own_whatsapp.py
         run: python tests/test_own_whatsapp.py
 
+      - name: test_release_note.py, the text a tag turns into
+        run: python tests/test_release_note.py
+
       - name: The index lint can still fail
         # A lint nobody has watched fail is indistinguishable from a lint that
         # returns zero on everything. Break one description in a copy of the

@@ -1,0 +1,77 @@
+name: release
+
+# A pushed tag vX.Y.Z becomes a GitHub release whose text is that version's
+# CHANGELOG section, and one plain-English message to the Pulse Agents
+# Telegram chat: "Pack vX.Y.Z is out: ..." (hermes-fleet PUL-103). The fleet
+# side says the rest: its release note says when this pack became the
+# standard, and a morning line says when every company is on it.
+#
+# A version with no CHANGELOG section fails here on purpose, with no release
+# and no message: add the section and tag the next patch. A tag is never
+# moved. Re-running a green job posts nothing again: the message goes out
+# only when this run created the release.
+#
+# Secrets and variables: TELEGRAM_BOT_TOKEN (repository secret, the shared
+# Pulse bot); PACK_NOTES_CHAT_ID (repository variable, optional) redirects the
+# message, for a trial.
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: pack release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: The script proves itself first
+        run: python .github/scripts/release_note.py --self-test
+
+      - name: This version's CHANGELOG section
+        run: |
+          set -euo pipefail
+          python .github/scripts/release_note.py section "$GITHUB_REF_NAME" > "$RUNNER_TEMP/section.md"
+          echo "--- release body ---"; cat "$RUNNER_TEMP/section.md"
+
+      - name: The GitHub release
+        id: rel
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "release $GITHUB_REF_NAME already exists; nothing posted again"
+            echo "created=0" >> "$GITHUB_OUTPUT"
+          else
+            gh release create "$GITHUB_REF_NAME" --verify-tag --title "Pack $GITHUB_REF_NAME" \
+              --notes-file "$RUNNER_TEMP/section.md"
+            echo "created=1" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Tell the Pulse Agents chat
+        if: steps.rel.outputs.created == '1'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          PACK_NOTES_CHAT_ID: ${{ vars.PACK_NOTES_CHAT_ID }}
+        run: |
+          set -euo pipefail
+          python .github/scripts/release_note.py telegram "$GITHUB_REF_NAME" \
+            --release-url "https://github.com/$GITHUB_REPOSITORY/releases/tag/$GITHUB_REF_NAME" \
+            > "$RUNNER_TEMP/message.txt"
+          echo "--- message ---"; cat "$RUNNER_TEMP/message.txt"
+          python .github/scripts/release_note.py send < "$RUNNER_TEMP/message.txt"
