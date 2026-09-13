@@ -53,10 +53,12 @@ And it is not a second browser. It attaches to the SAME Chromium at
 BROWSER_CDP_URL and drives the SAME page the `browser_*` tools are on, so the
 assistant's very next `browser_snapshot` sees what this did.
 
-CONFIGURATION, all from the environment, none with a default that reaches a host:
+CONFIGURATION, from the environment first, then the lane file for a plugin agent:
 
     ECW_BASE_URL          https://<this practice's own eCW host>   REQUIRED
+                          (falls back to the lane's ECW_WEB_BASE)
     ECW_LOGIN_TITLE       the title of the login in this assistant's vault
+                          (falls back to the lane's ECW_WEB_LOGIN_ITEM)
     BROWSER_CDP_URL       the Chromium beside this assistant
     AGENT_VENDOR_DIR      where the Playwright client was unpacked
     HERMES_LOGINS_TOKEN   this pod's own key for the controller doors
@@ -235,14 +237,56 @@ def login_password(title: str) -> str:
 
 # --- configuration ---------------------------------------------------------
 
+#: The Hermes lane file, mounted on every agent pod. This script reads its
+#: config from the environment first; when a value is not there it falls back
+#: to the lane, so a plugin agent whose eCW host and login title live on the
+#: lane (ECW_WEB_BASE / ECW_WEB_LOGIN_ITEM) needs nothing set in its shell for
+#: the pack skill to sign in. The env still wins, so a generic agent that sets
+#: ECW_BASE_URL directly is unchanged. Two paths for one release: /etc/hermes/lane
+#: is the re-rendered mount, /etc/ista-andrew is what older pods still carry.
+LANE_FILES = ("/etc/hermes/lane/lane.env", "/etc/ista-andrew/lane.env")
+
+
+def _lane_get(*keys: str) -> str:
+    """The first of `keys` found in the lane file, unquoted. '' if none."""
+    for path in LANE_FILES:
+        try:
+            with open(path, encoding="utf-8") as fh:
+                text = fh.read()
+        except OSError:
+            continue
+        found = {}
+        for line in text.splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, _, v = line.partition("=")
+            v = v.strip()
+            if len(v) >= 2 and v[0] == v[-1] and v[0] in "'\"":
+                v = v[1:-1]
+            found[k.strip()] = v
+        for key in keys:
+            if found.get(key, "").strip():
+                return found[key].strip()
+    return ""
+
+
 def base_url() -> str:
-    raw = os.environ.get("ECW_BASE_URL", "").strip().rstrip("/")
+    # The env name this script documents, then the lane's own spelling.
+    raw = (os.environ.get("ECW_BASE_URL", "").strip()
+           or _lane_get("ECW_BASE_URL", "ECW_WEB_BASE")).rstrip("/")
     if not raw:
         die(NO_BASE, 3)
     parts = urllib.parse.urlsplit(raw)
     if parts.scheme != "https" or not parts.netloc or parts.path:
         die(f"ECW_BASE_URL must be an https host and nothing else, not {raw!r}", 3)
     return raw
+
+
+def login_title() -> str:
+    """The vault title of the eCW login: env first, then the lane's own key."""
+    return (os.environ.get("ECW_LOGIN_TITLE", "").strip()
+            or _lane_get("ECW_LOGIN_TITLE", "ECW_WEB_LOGIN_ITEM"))
 
 
 def state_dir() -> Path:
@@ -731,7 +775,7 @@ def cmd_signin(argv: list) -> int:
     """The whole entry, with every refusal compiled in."""
     import contextlib
     import datetime
-    base, title = base_url(), os.environ.get("ECW_LOGIN_TITLE", "").strip()
+    base, title = base_url(), login_title()
     if not title:
         die(NO_TITLE, 3)
     clear, flags = preflight_state()
