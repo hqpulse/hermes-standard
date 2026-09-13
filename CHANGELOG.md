@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.11.3
+
+- `ecw` script: the sign-in keeps what it saw the way the medical-scribe plugin's doors do (PLAN B10,
+  B10-02). With `HERMES_REPLAY_DIR` set (the fleet renders it on every pod), `signin` writes a
+  full-page screenshot into `$HERMES_REPLAY_DIR/<run_id>/` at `signed-in`, at `dialog` for each entry
+  dialog before it is cleared, and at `confirm` on the mailed confirmation page, as
+  `NN-<op>-<label>.png` with one `index.jsonl` row each (seq, t, op, label, kind, file, sha256, bytes,
+  task_id). Unset means no screenshot anywhere. The credential form and a one-time code page are never
+  shot. A screenshot that cannot be written is a note, never a failed sign-in.
+
 ## 0.11.2
 
 - `recurring-work`: a new skill. A person asking for work on a clock (a Monday report, a daily

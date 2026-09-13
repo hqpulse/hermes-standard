@@ -36,6 +36,7 @@ is in the lane note, not in this file.
 Standard library only.
 """
 import ast
+import glob
 import http.server
 import shutil
 import ssl
@@ -523,6 +524,103 @@ class SmallThings(unittest.TestCase):
         short = self.ecw.short("https://x.example/a?error=6")
         self.assertTrue(short.endswith("error=6"))
         self.assertLessEqual(len(self.ecw.short("https://x.example/" + "a" * 500)), 120)
+
+
+class TheRunFolder(unittest.TestCase):
+    """The screenshots the sign-in keeps (PLAN B10, B10-02): where, named how, and never what."""
+
+    class Page:
+        def __init__(self, blob=b"\x89PNG stand-in"):
+            self.blob = blob
+            self.shots = 0
+
+        def screenshot(self, path, full_page=False):
+            self.shots += 1
+            with open(path, "wb") as fh:
+                fh.write(self.blob)
+
+    def setUp(self):
+        self.ecw = load()
+        self.dir = tempfile.mkdtemp()
+        self.saved = {k: os.environ.get(k) for k in ("HERMES_REPLAY_DIR", "ISTA_WORK_RUN", "ISTA_WORK_TASK")}
+        for k in self.saved:
+            os.environ.pop(k, None)
+
+    def tearDown(self):
+        for k, v in self.saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        shutil.rmtree(self.dir, ignore_errors=True)
+
+    def rows(self, run):
+        with open(os.path.join(run, "index.jsonl"), encoding="utf-8") as fh:
+            return [json.loads(l) for l in fh if l.strip()]
+
+    def test_no_dir_means_no_shot_anywhere(self):
+        page = self.Page()
+        self.assertIsNone(self.ecw.replay_shot(page, "signed-in"))
+        self.assertEqual(page.shots, 0)
+        self.assertEqual(os.listdir(self.dir), [])
+
+    def test_the_three_labels_land_in_the_run_folder_with_an_index(self):
+        os.environ["HERMES_REPLAY_DIR"] = self.dir
+        os.environ["ISTA_WORK_RUN"] = "boot-20260913T173000Z"
+        os.environ["ISTA_WORK_TASK"] = "task-1"
+        page = self.Page()
+        paths = [self.ecw.replay_shot(page, "signed-in"), self.ecw.replay_shot(page, "dialog"),
+                 self.ecw.replay_shot(page, "confirm", op="ecw.confirm")]
+        run = os.path.join(self.dir, "boot-20260913T173000Z")
+        self.assertEqual(oct(os.stat(run).st_mode)[-3:], "700")
+        self.assertEqual([os.path.basename(p) for p in paths],
+                         ["01-ecw.signin-signed-in.png", "02-ecw.signin-dialog.png", "03-ecw.confirm-confirm.png"])
+        for p in paths:
+            self.assertEqual(oct(os.stat(p).st_mode)[-3:], "600")
+        rows = self.rows(run)
+        self.assertEqual([r["seq"] for r in rows], [1, 2, 3])
+        self.assertEqual([r["label"] for r in rows], ["signed-in", "dialog", "confirm"])
+        for r in rows:
+            self.assertEqual(set(r), {"seq", "t", "op", "label", "kind", "file", "sha256", "bytes", "task_id", "bucket", "object", "uploaded_at"})
+            self.assertEqual(r["kind"], "frame")
+            self.assertEqual(r["task_id"], "task-1")
+            self.assertEqual(r["bytes"], len(page.blob))
+            self.assertEqual(len(r["sha256"]), 64)
+            self.assertIsNone(r["bucket"])
+
+    def test_the_counter_is_the_folders_so_a_second_run_never_overwrites(self):
+        os.environ["HERMES_REPLAY_DIR"] = self.dir
+        os.environ["ISTA_WORK_RUN"] = "boot-1"
+        self.ecw.replay_shot(self.Page(), "signed-in")
+        # a plugin door wrote two rows into the same folder in between
+        with open(os.path.join(self.dir, "boot-1", "index.jsonl"), "a", encoding="utf-8") as fh:
+            fh.write(json.dumps({"seq": 2, "file": "02-resident.prechart-resident-search.png"}) + "\n")
+            fh.write(json.dumps({"seq": 3, "file": "03-resident.prechart-prechart-page.png"}) + "\n")
+        p = self.ecw.replay_shot(self.Page(), "signed-in")
+        self.assertEqual(os.path.basename(p), "04-ecw.signin-signed-in.png")
+
+    def test_the_credential_form_and_the_code_page_are_never_shot(self):
+        os.environ["HERMES_REPLAY_DIR"] = self.dir
+        page = self.Page()
+        for label in ("login", "login-username", "login-password", "code-submitted", "2fa", "password"):
+            self.assertIsNone(self.ecw.replay_shot(page, label), label)
+        self.assertEqual(page.shots, 0)
+        self.assertFalse(glob.glob(os.path.join(self.dir, "*", "*.png")))
+
+    def test_a_shot_that_cannot_be_written_is_a_note_never_a_failure(self):
+        os.environ["HERMES_REPLAY_DIR"] = self.dir
+
+        class Broken:
+            def screenshot(self, path, full_page=False):
+                raise RuntimeError("the page went away")
+        self.assertIsNone(self.ecw.replay_shot(Broken(), "signed-in"))
+
+    def test_signin_dialogs_and_confirm_each_call_it(self):
+        """The three call sites, by reading the source: after the shell painted, before each
+        dialog control is pressed, and on the confirmation page before "Yes, it's me"."""
+        src = SCRIPT.read_text(encoding="utf-8")
+        for needle in ('replay_shot(page, "signed-in")', 'replay_shot(page, "dialog"', 'replay_shot(tab, "confirm"'):
+            self.assertIn(needle, src)
 
 
 if __name__ == "__main__":

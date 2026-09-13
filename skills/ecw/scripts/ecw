@@ -64,6 +64,13 @@ CONFIGURATION, from the environment first, then the lane file for a plugin agent
     HERMES_LOGINS_TOKEN   this pod's own key for the controller doors
     HERMES_FLEET_URL      the controller, default http://hermes-fleet:8787
     ECW_STATE_DIR         default /opt/data/state/ecw, on the retained disk
+    HERMES_REPLAY_DIR     where a step screenshot goes (PLAN B10, B10-02): the run
+                          folder $HERMES_REPLAY_DIR/<run_id>/ with an index.jsonl,
+                          the same shape the medical-scribe plugin's doors keep.
+                          Unset means no screenshot is written anywhere. signin
+                          shoots signed-in, each entry dialog before it is cleared,
+                          and the confirmation page; never the credential form or
+                          a one-time code page.
 
 Standard library, plus the Playwright client already on the pod. The pack ships
 no dependencies.
@@ -433,6 +440,81 @@ def attempts_clear() -> None:
     write_private(attempts_file(), "[]")
 
 
+# --- the run folder (PLAN B10, B10-02) --------------------------------------
+
+#: The credential form and the one-time code page are never shot, whatever a
+#: caller asks: a secrets rule, the same list the plugin's doors keep.
+SECRET_LABELS = frozenset({"login", "login-username", "login-password", "login-2fa", "2fa",
+                           "2fa-entered", "2fa-code", "code", "code-entered", "code-submitted",
+                           "credential-form", "credentials", "password", "username", "totp", "mfa", "otp"})
+
+
+def replay_dir():
+    """$HERMES_REPLAY_DIR/<run_id>/, made 0700 on first use; None when the variable is
+    unset (no dir, no shot). The run is ISTA_WORK_RUN when the caller names one (the
+    plugin's server per boot), else the day."""
+    import datetime
+    import re as _re
+    root = os.environ.get("HERMES_REPLAY_DIR", "").strip()
+    if not root:
+        return None
+    run = os.environ.get("ISTA_WORK_RUN", "").strip() or datetime.date.today().strftime("day-%Y-%m-%d")
+    run = _re.sub(r"[^A-Za-z0-9._-]+", "-", run).strip("-.")[:60] or "run"
+    d = Path(root) / run
+    try:
+        d.mkdir(parents=True, exist_ok=True, mode=0o700)
+        os.chmod(d, 0o700)
+    except OSError:
+        return None
+    return d
+
+
+def replay_shot(page, label: str, op: str = "ecw.signin"):
+    """One full-page screenshot at a fixed label into the run folder, with its index row
+    (seq, t, op, label, kind, file, sha256, bytes, task_id; bucket, object, uploaded_at for
+    the flush). The counter is the folder's (index rows so far), under a lock, so the
+    plugin's doors and this script never share a number. A failure is a note on stderr and
+    never a failed sign-in. Returns the path or None."""
+    import fcntl
+    import hashlib
+    import re as _re
+    if label in SECRET_LABELS:
+        return None
+    run = replay_dir()
+    if run is None:
+        return None
+    op = _re.sub(r"[^A-Za-z0-9._-]+", "-", op).strip("-.")[:60] or "op"
+    lab = _re.sub(r"[^A-Za-z0-9._-]+", "-", label).strip("-.")[:60] or "step"
+    index = run / "index.jsonl"
+    try:
+        with open(run / ".lock", "a+") as lock:
+            os.chmod(run / ".lock", 0o600)
+            fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+            seq = 1
+            if index.is_file():
+                seq += sum(1 for l in index.read_text(encoding="utf-8").splitlines() if l.strip())
+            path = run / f"{seq:02d}-{op}-{lab}.png"
+            page.screenshot(path=str(path), full_page=True)
+            os.chmod(path, 0o600)
+            data = path.read_bytes()
+            if not data:
+                path.unlink()
+                return None
+            row = {"seq": seq, "t": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "op": op,
+                   "label": lab, "kind": "frame", "file": path.name,
+                   "sha256": hashlib.sha256(data).hexdigest(), "bytes": len(data),
+                   "task_id": os.environ.get("ISTA_WORK_TASK", "").strip() or None,
+                   "bucket": None, "object": None, "uploaded_at": None}
+            fd = os.open(str(index), os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+            with os.fdopen(fd, "a", encoding="utf-8") as fh:
+                fh.write(json.dumps(row) + "\n")
+            fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
+        return path
+    except Exception as exc:  # noqa: BLE001
+        say(f"  (screenshot {lab} not kept: {exc.__class__.__name__})")
+        return None
+
+
 def write_private(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     tmp = path.with_suffix(path.suffix + ".tmp")
@@ -677,6 +759,7 @@ def clear_dialogs(page, rounds: int = 8) -> int:
                 page.wait_for_selector(VEIL, state="hidden", timeout=10000)
             except Exception:
                 pass
+            replay_shot(page, "dialog", op=os.environ.get("ISTA_DOOR_OP") or "ecw.signin")
             for force in (False, True):
                 try:
                     button.click(timeout=5000, force=force)
@@ -755,6 +838,7 @@ def confirm_link(browser, link: str) -> str:
                 break
         if button is None:
             die("the confirmation page had no \"Yes, it's me\" on it", 2)
+        replay_shot(tab, "confirm", op=os.environ.get("ISTA_DOOR_OP") or "ecw.confirm")
         button.click()
         tab.wait_for_timeout(4000)
         return "confirmed"
@@ -840,6 +924,7 @@ def cmd_signin(argv: list) -> int:
         if not in_the_shell(page):
             die("the shell did not finish painting: the Office Visits anchor is not there. "
                 "Do not read this as an empty practice", 2)
+        replay_shot(page, "signed-in")
         attempts_clear()
         print("in-the-app")
     return 0
