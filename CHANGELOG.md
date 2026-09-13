@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.11.1
+
+- `ecw` script: a page that is not on the practice host (about:blank after the browser sidecar
+  restarts) is "elsewhere", never "in the app", so `signin` signs in instead of declining.
+
 ## 0.11.0
 
 - `logins` skill: a sibling `keeper` command. Companies that keep their working logins in

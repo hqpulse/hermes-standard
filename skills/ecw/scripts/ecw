@@ -374,6 +374,12 @@ def classify(url: str) -> str:
     """
     parts = urllib.parse.urlsplit(url)
     path, query = parts.path, urllib.parse.parse_qs(parts.query)
+    # A page that is not on the practice host at all -- about:blank after the
+    # browser sidecar restarts, or some other site -- is nowhere, not "in the
+    # app". Without this, a fresh Chromium's only page (about:blank, path
+    # "blank") read as in-the-app and `signin` declined to sign in (13 Sep).
+    if parts.scheme not in ("http", "https") or not parts.netloc:
+        return "elsewhere"
     if "SecurityImage.jsp" in path:
         return "security-image"
     if "changePasswordOnLogin.jsp" in path:
@@ -395,6 +401,7 @@ WHAT_IT_MEANS = {
     "signed-in": "signed in. The plug-in nag bounced you onto a page with no error on it. "
                  "Do NOT retry the password. Go to the shell",
     "in-the-app": "already in the application",
+    "elsewhere": "the browser is not on the practice site at all; `ecw signin` takes it there",
     "refused": REFUSED,
 }
 
@@ -787,7 +794,8 @@ def cmd_signin(argv: list) -> int:
     with contextlib.ExitStack() as stack:
         browser = connect(stack)
         page = pick_page(browser, base, make=True)
-        if classify(page.url) == "in-the-app":
+        on_host = urllib.parse.urlsplit(page.url).netloc == urllib.parse.urlsplit(base).netloc
+        if on_host and classify(page.url) == "in-the-app":
             say("  already in the application; not signing in again")
             print("in-the-app")
             return 0
