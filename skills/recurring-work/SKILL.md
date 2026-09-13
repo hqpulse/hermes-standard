@@ -7,6 +7,8 @@ description: When a person asks for work on a clock (a report, a summary, a chec
 
 A person says "every Monday at 7, pull last week's admissions and discharges for all buildings and summarize them against budget." That is not a reminder. It is work you do on a clock, and it is filed in Pulse with the `recurring_work` tool, never with your own cron job tool. This skill is how you tell the two apart, how you say the job back before you file it, and what you say when a job cannot run on a clock.
 
+The preset jobs you came with (`preset-morning-brief`, `preset-meeting-prep`, `preset-open-commitments`) are not this. They are yours, they deliver to the person's phone, and keeping, changing or stopping one follows the Presets rules in the assistant-standard skill. "Stop the morning brief" or "move my brief to 7" is a preset request; this skill is for new work the person asks for.
+
 ## Run or reminder
 
 Ask one question of the request: before anything is said, does the job have to read, look up, count, compare or compute something?
@@ -20,14 +22,14 @@ Ask one question of the request: before anything is said, does the job have to r
 
 A run wakes on its clock, reads what the job says, and writes its answer into a conversation of its own on the agent's page, under Recurring work. The run has no memory of the chat it was made in: the one fixed prompt is all it knows. It only reads. It can look anything up that you can look up for them in a conversation; it cannot send mail or messages, post anywhere, save or file anything, book or change anything. It runs at most once an hour, and an agent carries at most five.
 
-When a person asks where the result goes, say that: on the agent's page under Recurring work, as a conversation of its own, and that you can read it to them when they ask.
+When a person asks where the result goes, say that: on the agent's page under Recurring work, as a conversation of its own. It does not come to their phone. Do not promise to read it back to them unless a tool of yours can find that conversation.
 
 ## How to file one
 
 1. **Read what they said before you ask anything.** The day, the time and what to produce are usually all there. Their time zone is the one you run on unless they name another. Ask at most one question, and only when the request truly cannot be filed without it. Never ask for something they already said.
 2. **Write the prompt as a complete instruction to a future run that knows nothing about this chat.** Name the buildings, the period, the comparison and the shape of the answer. "The report we discussed" is a prompt that fails at seven on Monday.
 3. **Call `recurring_work` with `action=add`, a short title, the schedule as five cron fields, the time zone, the prompt, and no confirm.** Nothing is filed. The tool hands back the one line to say: the schedule in words, the zone, and the prompt.
-4. **Say that line back to the person, in one line, and wait.** "Every Monday at 7:00 AM Eastern: pull last week's admissions and discharges for all buildings and summarize them against budget. Set it up?" If they change the time or the wording, say the new line back before you file.
+4. **Say that line back to the person, in one line, and wait.** "Every Monday at 7:00 AM Eastern: pull last week's admissions and discharges for all buildings and summarize them against budget. Set it up?" When their words were send me, text me or message me, the line says where it lands instead: "ready on your agent's page every Monday at 7:00 AM Eastern". If they change the time or the wording, say the new line back before you file.
 5. **On their yes, call again with the same arguments and `confirm=true`.** Their own direct instruction, once the line has been said back, is the yes. Then say it is set up and where it shows, in one line. Nothing is set up unless the tool said so and you saw the result.
 
 The cron line: minute, hour, day of month, month, weekday. The minute is a number, never a star, so nothing runs more than once an hour. `0 7 * * 1` is Mondays at 7:00. `0 7 * * 1-5` is weekdays at 7:00. `30 17 * * *` is every day at 5:30 PM. `0 8 * * 1,4` is Mondays and Thursdays at 8:00.
@@ -42,7 +44,7 @@ Never promise to send the result to anyone. Never file the job with the send lef
 
 "Stop the Monday report", "what do you run on your own", "cancel the daily summary":
 
-1. Call `recurring_work` with `action=list`. Each row says what it is, when it runs, whether it ran, and whether it can be removed from a chat.
+1. If the name they use is a preset (the brief, the pre-read, the open commitments pass), it is a preset request and the Presets rules apply; stop here. Otherwise call `recurring_work` with `action=list`. Each row says what it is, when it runs, whether it ran, and whether it can be removed from a chat.
 2. Name the one they mean, in one line, and ask: "Remove Monday census, Mondays 7:00 AM Eastern?" If two rows could be the one, name both and ask which; never guess, never remove both.
 3. On their yes, call again with `action=remove`, the row's name and `confirm=true`. Say it is removed only when the tool said so.
 
@@ -50,7 +52,7 @@ A row that says it was set up by hand cannot be removed from a chat. Say so in o
 
 ## What not to do
 
-- Never use your own cron job tool for work a person wants on a clock, even once, even for a test.
+- Never use your own cron job tool for new work a person wants on a clock, even once, even for a test. The preset jobs are the one exception, and they are handled by the Presets rules.
 - Never file without saying the line back and getting the yes. Never change a filed job's time or words without saying the new line back first.
 - Never say a job is set up, changed or stopped unless the tool said so and you saw the result.
 - Never describe a run as something that sends, posts or delivers to other people.
