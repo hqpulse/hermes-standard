@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.11.2
+
+- `recurring-work`: a new skill. A person asking for work on a clock (a Monday report, a daily
+  summary, a weekly check) gets it filed through Pulse's `recurring_work` tool as the same
+  read-only schedule the agent page's Recurring work card makes, never as a job the assistant
+  writes for itself. The skill tells a run from a reminder, says the schedule and the one fixed
+  prompt back in one line before filing, removes one on the same yes, and says in plain words
+  when a job would send or change something and so cannot run on a clock. assistant-standard
+  points at it from the reminders paragraph.
+
 ## 0.11.1
 
 - `ecw` script: a page that is not on the practice host (about:blank after the browser sidecar
