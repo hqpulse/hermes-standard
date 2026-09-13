@@ -607,6 +607,16 @@ class TheRunFolder(unittest.TestCase):
         self.assertEqual(page.shots, 0)
         self.assertFalse(glob.glob(os.path.join(self.dir, "*", "*.png")))
 
+    def test_without_a_run_name_the_folder_is_the_eastern_day(self):
+        """What a run from the assistant's terminal gets: no ISTA_WORK_RUN, so the day, and
+        the EASTERN day, the same fallback the plugin's recorder uses."""
+        import datetime
+        import zoneinfo
+        os.environ["HERMES_REPLAY_DIR"] = self.dir
+        p = self.ecw.replay_shot(self.Page(), "signed-in")
+        day = datetime.datetime.now(zoneinfo.ZoneInfo("America/New_York")).strftime("day-%Y-%m-%d")
+        self.assertEqual(os.path.basename(os.path.dirname(p)), day)
+
     def test_a_shot_that_cannot_be_written_is_a_note_never_a_failure(self):
         os.environ["HERMES_REPLAY_DIR"] = self.dir
 
@@ -621,6 +631,8 @@ class TheRunFolder(unittest.TestCase):
         src = SCRIPT.read_text(encoding="utf-8")
         for needle in ('replay_shot(page, "signed-in")', 'replay_shot(page, "dialog"', 'replay_shot(tab, "confirm"'):
             self.assertIn(needle, src)
+        # the dialog shot only inside the application (`ecw dialogs` runs on any page)
+        self.assertIn('if classify(page.url) == "in-the-app":\n                replay_shot(page, "dialog"', src)
 
 
 if __name__ == "__main__":

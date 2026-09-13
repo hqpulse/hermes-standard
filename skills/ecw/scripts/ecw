@@ -451,15 +451,20 @@ SECRET_LABELS = frozenset({"login", "login-username", "login-password", "login-2
 
 def replay_dir():
     """$HERMES_REPLAY_DIR/<run_id>/, made 0700 on first use; None when the variable is
-    unset (no dir, no shot). The run is ISTA_WORK_RUN when the caller names one (the
-    plugin's server per boot), else the day."""
+    unset (no dir, no shot). The run is ISTA_WORK_RUN when the caller names one, else the
+    Eastern day, the same fallback the plugin's recorder uses (its _work.run_id), so this
+    script and the doors agree on the folder whatever the pod's own TZ says. A run from the
+    assistant's terminal has no ISTA_WORK_RUN (the plugin's server sets it for its own
+    tools only), so it lands in the day's folder beside, not inside, the server's boot-*
+    folder; nothing overwrites anything either way."""
     import datetime
-    import re as _re
+    import zoneinfo
     root = os.environ.get("HERMES_REPLAY_DIR", "").strip()
     if not root:
         return None
-    run = os.environ.get("ISTA_WORK_RUN", "").strip() or datetime.date.today().strftime("day-%Y-%m-%d")
-    run = _re.sub(r"[^A-Za-z0-9._-]+", "-", run).strip("-.")[:60] or "run"
+    run = (os.environ.get("ISTA_WORK_RUN", "").strip()
+           or datetime.datetime.now(zoneinfo.ZoneInfo("America/New_York")).strftime("day-%Y-%m-%d"))
+    run = re.sub(r"[^A-Za-z0-9._-]+", "-", run).strip("-.")[:60] or "run"
     d = Path(root) / run
     try:
         d.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -477,14 +482,13 @@ def replay_shot(page, label: str, op: str = "ecw.signin"):
     never a failed sign-in. Returns the path or None."""
     import fcntl
     import hashlib
-    import re as _re
     if label in SECRET_LABELS:
         return None
     run = replay_dir()
     if run is None:
         return None
-    op = _re.sub(r"[^A-Za-z0-9._-]+", "-", op).strip("-.")[:60] or "op"
-    lab = _re.sub(r"[^A-Za-z0-9._-]+", "-", label).strip("-.")[:60] or "step"
+    op = re.sub(r"[^A-Za-z0-9._-]+", "-", op).strip("-.")[:60] or "op"
+    lab = re.sub(r"[^A-Za-z0-9._-]+", "-", label).strip("-.")[:60] or "step"
     index = run / "index.jsonl"
     try:
         with open(run / ".lock", "a+") as lock:
@@ -759,7 +763,10 @@ def clear_dialogs(page, rounds: int = 8) -> int:
                 page.wait_for_selector(VEIL, state="hidden", timeout=10000)
             except Exception:
                 pass
-            replay_shot(page, "dialog", op=os.environ.get("ISTA_DOOR_OP") or "ecw.signin")
+            # Only inside the application: `ecw dialogs` can be run on whatever page the
+            # assistant is on, and a bootbox on a sign-in screen is not a dialog to keep.
+            if classify(page.url) == "in-the-app":
+                replay_shot(page, "dialog", op=os.environ.get("ISTA_DOOR_OP") or "ecw.signin")
             for force in (False, True):
                 try:
                     button.click(timeout=5000, force=force)
