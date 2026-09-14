@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.15.0
+
+- **Quiet hours for everyone.** A person's evenings, weekends, days off and
+  personal hours, stated once in passing, are kept in a file by the new
+  quiet-windows skill and read by the same gate that already holds a scheduled
+  job shut for an observance calendar. Nothing unprompted reaches them inside
+  one; the mail watch stays shut too. Nothing is guessed: a person who states
+  no quiet hours is messaged on the ordinary rules.
+
 ## 0.14.0
 
 - **Memory is for the person; plumbing goes to notes.** How a data source is

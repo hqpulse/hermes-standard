@@ -51,6 +51,16 @@ Two consequences worth knowing before copying the pattern:
   reports a broken script to the person every half hour. `presets.CREATE_SCRIPT`
   stats `scripts/<name>` on the pod and refuses the create instead.
 
+## Quiet hours for everyone
+
+The same gate reads a second file, `<HERMES_HOME>/quiet/windows.json`: the
+evenings, weekends, days off and personal hours a person states out loud. The
+quiet-windows skill writes it (`quiet-windows add weekly mon-fri 19:00 08:00
+evenings`, `quiet-windows add dates 2026-11-26 2026-11-27 days off`) the moment
+the person says the rule, and `jewish_time.py` consults it before the calendar,
+so a preset with the gate is held shut inside either. The mail watch reads it
+too. No file means no quiet hours beyond the calendar; nothing is inferred.
+
 ## The quiet calendar, and why two presets with continuity run a script
 
 `morning-brief.json` and `meeting-prep.json` carry `"script": "jewish_time.py"`.
