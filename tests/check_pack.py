@@ -346,7 +346,7 @@ for phrase in ("must name a `deliver` target",
 # list", so a phone reply about a day became prose. These phrases are the fix.
 std = (ROOT / "skills/assistant-standard/SKILL.md").read_text()
 for phrase in ("## On a phone",
-               "Three or more things is a list, whatever the question was",
+               "Three or more things can sit in one sentence when each is a word or two",
                "No em dashes and no en dashes in anything you send",
                "A blank line between meetings once there are more than three"):
     if phrase not in std:
@@ -369,7 +369,7 @@ if "Never name the people behind you" not in soul:
     err("SOUL.md: lost the rule that nobody behind the assistant is ever named")
 if "Nobody behind you is ever named" not in std:
     err("assistant-standard/SKILL.md: lost the manners line that nobody behind the assistant is named")
-if "Most messages are two to four lines" not in std:
+if "Most replies are two to four sentences" not in std:
     err("assistant-standard/SKILL.md: lost the short-by-default rule")
 SAY_LINES = {
     "SOUL.md": ("If asked what you are",),
