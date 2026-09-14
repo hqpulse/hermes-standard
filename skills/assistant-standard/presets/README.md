@@ -1,6 +1,6 @@
 # Presets: the jobs every new assistant starts with
 
-Four cron job specs, one JSON file each, in the shape of the engine's `create_job`
+Five cron job specs, one JSON file each, in the shape of the engine's `create_job`
 payload. The controller applies them at provision, and again from a Presets tab
 for assistants that already exist. The pack does not ship a `cron/jobs.json`:
 that file is per person and a pack-owned copy would overwrite every person's
@@ -12,16 +12,21 @@ own jobs on update (the 3 Sep lesson).
 | `meeting-prep.json` | `preset-meeting-prep` | weekdays 07:30, held by the quiet calendar | `__HOME_CHANNEL__` | one pre-read per meeting; `[SILENT]` on a day with none | yes |
 | `open-commitments.json` | `preset-open-commitments` | nightly 23:00 | `__HOME_CHANNEL__` | `[SILENT]`; rewrites `Open commitments.md` in the vault | yes |
 | `mail-watch.json` | `preset-mail-watch` | every 30 min, 07:00-21:00, every day; the script stays shut through a quiet window and until 09:00 the next morning | `__HOME_CHANNEL__` | `[SILENT]` unless something in their mailbox needs them | opt in |
+| `delegation-scan.json` | `preset-delegation-scan` | Mondays 09:00, held by the quiet calendar | `__HOME_CHANNEL__` | three named things the assistant could take off their plate, one question; `[SILENT]` when there is nothing worth proposing | opt in |
 
 Everything below was read from the engine the fleet runs, at `v0.21.0` (2026.8.31).
 
-## The fourth one is different: it is opt in, and it runs a script first
+## Two are different: they are opt in, and the mail watch runs a script first
 
-`mail-watch.json` carries `"opt_in": true`, which no other preset does. A
+`mail-watch.json` and `delegation-scan.json` carry `"opt_in": true`, which the other three do not. A
 provision run OFFERS it instead of creating it, and it is created only when
 somebody names it (`POST /v1/assistants/<person>/presets` with
 `{"only": ["preset-mail-watch"]}`). The other three are what the assistant IS,
-and a person who gets an assistant gets them. A job that reads somebody's
+and a person who gets an assistant gets them. The delegation scan is opt in for
+the same reason: it reads a fortnight of somebody's mail and calendar on its
+first run, and the research behind it (people leave an assistant because they
+never knew what to hand it) does not license reading their mail unasked. It is
+the gate script's continuity shape, like the brief. A job that reads somebody's
 mailbox every half hour is a decision about that person, and a provision run
 must not make it on their behalf. The field is read by the controller and
 stripped before `create_job`, which has no such argument.

@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.17.0
+
+- **Three things I could take off your plate.** A fifth preset, opt in like
+  the mail watch: on Mondays the assistant reads the week's mail and calendar
+  and names three specific things it could do for the person, never the same
+  one twice, and asks which to start. It exists because the best-evidenced
+  reason people stop using an assistant is that they never knew what to hand
+  it. Nothing is read before the person says yes.
+
 ## 0.16.0
 
 - **The voice, three rules and a firewall.** Acknowledge in a clause what the
