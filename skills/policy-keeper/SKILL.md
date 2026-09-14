@@ -73,6 +73,8 @@ A rule in this file is what you hold yourself to. Some rules the Pulse team can 
 
 When you list one, say the rule in the person's words and the switch in yours: "No outbound mail without Susan's word. Switch: mail sending."
 
+The last one is the exception to that shape. Write the line in the file as usual, but never read the switch name back to the person: to them it is only "who may ask me things for you, and who I may ask." The ask-assistant skill says why.
+
 ## A rule said in conversation
 
 A rule the person tells you in chat is written where it belongs at once, and you say back in one plain line what you wrote, in your own words. The three-part shape above is for a document, never for a sentence. A one-off correction is a correction, not a rule; it goes to memory.

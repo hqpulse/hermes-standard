@@ -27,9 +27,16 @@
   and never who arranged it.
 - `policy-keeper`: "Who may ask you, and who you may ask (other assistants)" joins the rules
   that need a real switch, so it lands in **Needs a real switch** where a person can see it.
+- The company a name sits at is never said. The list Pulse returns carries one on every row,
+  and on the first pair it is a phrase from the list below, so the skill says plainly: name the
+  person, never where they work, in the list, in the report and in the week read back.
+- One precedence clause each way, because both sides sit under rules that would otherwise
+  cancel them: asking is rung 1 under ask-freely and rung 3 under check-first, and a name on
+  the list at another company is the one thing the never-touch-another-company rule makes room
+  for; on the answering side, how far the turn may go is the turn's own line, so a
+  take-a-message introduction is not answered as if it were a calendar one.
 - Words that never reach a person on any of this: Hermes, Pulse, the team, agent, relay,
-  tool, level, allowlist, setting, switch, session. `tests/test_ask_assistant.py` (89 checks)
-  greps every line either side would say for all of them, holds the six fixed lines and the
+  tool, level, allowlist, setting, switch, session. `tests/test_ask_assistant.py` greps every line either side would say for all of them, holds the six fixed lines and the
   decline prefix word for word, and runs in CI.
 
 ## 0.11.5

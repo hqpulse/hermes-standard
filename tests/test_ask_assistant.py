@@ -37,6 +37,18 @@ What is proven here:
     person on this path. A say-line is a double-quoted span, which is how
     this pack writes the lines it means literally.
 
+KNOWN GAPS, so a green here is not read as more than it is:
+
+  - DECLINE_PREFIX below is a hand-copied literal from ANOTHER repo. Nothing
+    fails here if hermes-fleet changes `relay.py:DECLINE_PREFIX`; this only
+    catches the pack drifting away from a constant that stood still.
+  - Prose is checked for the lines it must carry, never for whether a model
+    will follow them. The exam against a live shadow through the relay door
+    is what proves that, and it is not runnable in CI.
+  - `ask_assistant` and `my_introductions` do not exist on Pulse's lean door
+    yet (B2, PUL-114). The argument names asserted here are the ticket's, not
+    a registered schema.
+
 Standard library only.
 """
 import re
@@ -71,7 +83,7 @@ FIXED_LINES = (
     "I'm not able to ask Eli's assistant things yet. Want me to message Eli instead?",
     "Eli's assistant can't do that; you'd need to ask Eli.",
     "Eli's assistant didn't answer; want me to ask Eli directly?",
-    "Eli's assistant has had enough questions from me for now. Try later, or ask Eli.",
+    "Eli's assistant has had enough questions from me for now; try later or ask Eli.",
     "I'm answering something right now; ask me again in a minute.",
     "I'll keep checking with you for now.",
 )
@@ -89,11 +101,12 @@ def say_lines(text):
 
 
 def answering_region(text):
-    """The material this ticket added to assistant-standard: the answering
-    block and the mention that opens Speaking first, up to the next section
-    that was already there."""
+    """The material this ticket added to assistant-standard, and no more: the
+    answering block, plus the one mention that now opens Speaking first. It
+    stops at the sentence that already opened that section, so an unrelated
+    edit further down does not fail this ticket's test."""
     start = text.index("## Answering another assistant")
-    end = text.index("## Presets")
+    end = text.index("Unprompted messages come only from")
     return text[start:end]
 
 
@@ -123,11 +136,15 @@ class Manifest(unittest.TestCase):
         self.assertIn(f"version: {newest}\n", manifest,
                       "the pack version and the newest CHANGELOG section disagree")
 
-    def test_no_dashes_in_the_new_skill(self):
-        text = ASK.read_text()
-        for dash in ("\u2014", "\u2013"):
-            self.assertNotIn(dash, text,
-                             "a skill whose lines land on a phone cannot carry a dash")
+    def test_no_dashes_in_anything_this_added(self):
+        """Every line this ticket wrote, not only the new file: the answering
+        block lands on a phone through a relay reply."""
+        for where, text in (("ask-assistant/SKILL.md", ASK.read_text()),
+                            ("assistant-standard, the new material",
+                             answering_region(STD.read_text()))):
+            for dash in ("\u2014", "\u2013"):
+                self.assertNotIn(dash, text,
+                                 f"{where} carries a dash; these lines land on a phone")
 
 
 class AskingSide(unittest.TestCase):
@@ -209,7 +226,7 @@ class AskingSide(unittest.TestCase):
         self.assertIn("Never a password, a key, a code or an address", self.text)
 
     def test_the_never_say_list_is_written_down(self):
-        section = self.text[self.text.index("## Never"):]
+        section = self.text[self.text.rindex("\n## Never\n"):]
         for word in NEVER_SAID:
             self.assertRegex(section, r"(?i)\b" + word,
                              f"the never-say list has lost {word!r}")
@@ -235,7 +252,8 @@ class AnsweringSide(unittest.TestCase):
         self.assertIn("in one line", self.region)
 
     def test_the_four_rules_the_frame_cannot_enforce(self):
-        for phrase in ("Never quote or summarise mail",
+        for phrase in ("Some things are off whatever the turn allows",
+                       "Never quote them, never summarise them",
                        "Save nothing",
                        "Ask nobody anything for the length of that turn",
                        "Never say how the question reached you"):
@@ -263,6 +281,56 @@ class AnsweringSide(unittest.TestCase):
                       STD.read_text(),
                       "assistant-standard is loaded before the first words; without a "
                       "pointer the asking skill is only found by luck")
+
+
+class TheThingsAReviewCaught(unittest.TestCase):
+    """One test per blocking finding on PR #8, so none of them comes back."""
+
+    def test_the_other_company_is_never_said(self):
+        """The row Pulse returns carries a company name, and on the pilot that
+        name is two of the eleven words at once. Nothing but this rule stops it
+        being read straight back to the person."""
+        text = ASK.read_text()
+        self.assertIn("You never say that company to your person", text)
+        for where in ("with no company on any line", "Names only, no company"):
+            self.assertIn(where, text, f"the read-outs lost {where!r}")
+
+    def test_the_rung_ladder_has_a_precedence_clause(self):
+        """Rung 3 holds anything that leaves the person, and rung 4 forbids
+        touching another company. Without this clause ask-freely cannot happen
+        at all and a cross-company ask is refused by the assistant itself."""
+        text = ASK.read_text()
+        self.assertIn("Where this skill and the rung ladder disagree", text)
+        self.assertIn("rung 1 when your list says ask freely", text)
+        self.assertIn("never-touch-another-company rule makes room for", text)
+
+    def test_the_answering_scope_comes_from_the_turn(self):
+        """Hard-coding free-and-logistics kills the guest level, whose whole
+        job is taking a message and answering in general terms."""
+        region = answering_region(STD.read_text())
+        self.assertIn("How far you may go is the turn's own line", region)
+        self.assertIn("taking a message and answering in general terms", region)
+        self.assertIn("Some things are off whatever the turn allows", region)
+
+    def test_the_decline_prefix_is_not_emphasised(self):
+        """Pulse marks a decline on a prefix match. A model that copies the
+        asterisks emits '**I can't help with that.**' and the relay is filed
+        answered, so the asking side says the wrong fixed line."""
+        region = answering_region(STD.read_text())
+        self.assertNotIn(f"**{DECLINE_PREFIX}**", region)
+        self.assertIn("No emphasis on it", region)
+
+    def test_the_switch_name_is_never_read_back(self):
+        """policy-keeper tells the assistant to say 'Switch: <name>' when it
+        lists one. Two of the eleven words are in that shape."""
+        text = KEEPER.read_text()
+        self.assertIn("never read the switch name back to the person", text)
+
+    def test_a_refusal_with_no_fixed_line_still_has_one(self):
+        """writes_open, paused, and anything else the broker refuses with come
+        back as a sentence this skill never wrote. Improvising there is where a
+        forbidden word escapes."""
+        self.assertIn("Anything else that comes back", ASK.read_text())
 
 
 class PolicyKeeper(unittest.TestCase):

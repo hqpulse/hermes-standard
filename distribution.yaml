@@ -53,7 +53,6 @@ distribution_owned:
   - skills/assistant-standard/references/DOSSIER.md
   - skills/assistant-standard/references/TRAINING.md
   - skills/policy-keeper/SKILL.md
-  - skills/ask-assistant/SKILL.md
   - skills/policy-keeper/references/POLICY-TEMPLATE.md
   - skills/assistant-standard/presets/README.md
   - skills/assistant-standard/presets/morning-brief.json
@@ -84,6 +83,7 @@ distribution_owned:
   - skills/logins/scripts/login
   - skills/logins/scripts/keeper
   - skills/reach/SKILL.md
+  - skills/ask-assistant/SKILL.md
   - skills/reach/scripts/reach
   - skills/mail-watch/SKILL.md
   - skills/ecw/SKILL.md
