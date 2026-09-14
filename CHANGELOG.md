@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.14.0
+
+- **Memory is for the person; plumbing goes to notes.** How a data source is
+  wired, what a tool returns, which table holds what: an entity note or the
+  reading skill's notes, never memory. What is kept about the person is written
+  as the way to behave for them, and a nudge they ignored twice is a fact worth
+  one line, after which the nudge stops. With this, the fleet turns the engine's
+  own memory writer back on for every assistant.
+- The pack check names the phone rules by their current wording (sentences, not
+  lines); the suite had gone red on two stale phrases.
+
 ## 0.13.0
 
 - **A bar for speaking first, for every assistant.** Every item in a message a
