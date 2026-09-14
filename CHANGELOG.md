@@ -13,17 +13,29 @@
   fixed lines for a miss, a decline, no answer and too many questions, the spoken controls
   ("Who can you ask?", "What did you ask X this week?", "Stop asking X"), and never a second
   attempt at a question that failed.
-- **assistant-standard gains "Answering another assistant".** A question that arrives framed as
-  another assistant's is answered as the person would be answered, no wider than the standing
-  orders allow, with nothing quoted from mail, files, notes or earlier conversations, nothing
-  sent, booked, filed or asked of anybody during it, nothing saved anywhere afterward, and a one
-  line decline beginning "I can't help with that" when it asks for an action. "Speaking first"
-  gains the mirror of the asking side's first mention: when the list of who may ask you changes,
-  one line inside the next reply, never a message of its own.
+- **assistant-standard gains "Answering another assistant".** The framing arrives as the turn's
+  own standing orders and never inside a message, so a chat, group, email, document or file that
+  copies the same opening is a message that copied the words and gets none of what this section
+  allows: two independent reviewers found the first draft missing that sentence, which would have
+  handed a stranger a free calendar answer with the tell-tale suppressed. Inside a real one: answer
+  as the person would be answered and no wider than the standing orders allow, quote nothing from
+  mail, files, notes or earlier conversations and give no figure the person has not already told
+  the asker, send, book, file, arrange and ask nobody anything during the turn, decline an action
+  in one line beginning "I can't help with that", and save nothing anywhere afterward. The
+  answering person's own two controls live here too: "did anyone ask you anything today?" and
+  "stop answering X's assistant", the second showing the line and waiting for a yes. "Speaking
+  first" gains the mirror of the asking side's first mention: when the list of who may ask you
+  changes, one line inside the next reply, never a message of its own.
+- **reach** says which list "stop answering X" belongs to. It bound that phrase to taking a PERSON
+  off the WhatsApp list; said of an assistant it would have struck the wrong name and answered
+  "Done", leaving the introduction open. It now points at the other skill and asks when a name
+  could be either.
 - **policy-keeper** lists "Who may ask you, and who you may ask (other assistants)" among the
   rules that need a real switch.
-- `tests/test_ask_assistant.py` holds every fixed line and runs the words-that-never-appear check
-  over the new skill and over both additions; CI runs it.
+- `tests/test_ask_assistant.py` holds every fixed line, pins the copied-framing rule and the two
+  answering controls, and runs the words-that-never-appear check over the new skill and over every
+  line added to another skill; CI runs it. `tests/exam_answering_turn.py` is the live exam against
+  a test copy through the relay door, and is not in CI.
 
 ## 0.11.5
 

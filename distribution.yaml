@@ -83,8 +83,8 @@ distribution_owned:
   - skills/logins/scripts/login
   - skills/logins/scripts/keeper
   - skills/reach/SKILL.md
-  - skills/ask-assistant/SKILL.md
   - skills/reach/scripts/reach
+  - skills/ask-assistant/SKILL.md
   - skills/mail-watch/SKILL.md
   - skills/ecw/SKILL.md
   - skills/ecw/references/login.md
