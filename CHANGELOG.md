@@ -6,8 +6,8 @@
   assistants have been introduced, one can ask the other a question for the person it works for
   instead of interrupting that person. The skill carries the whole of the asking side: the list
   of who may be asked and that there is nothing else to search, one clear question with only as
-  much of the person's own matters as the question needs, never a command and never somebody
-  else's forwarded words, the show-it-first path (the exact question, a yes to that question, and
+  much of the person's own matters as the question needs, never somebody else's forwarded words
+  and never a request the person did not ask for, the show-it-first path (the exact question, a yes to that question, and
   the person's own direct instruction counting as the yes), the ask-freely path (one line naming
   who was asked, every time), the one-line first mention when the list gains a name, the four
   fixed lines for a miss, a decline, no answer and too many questions, the spoken controls
