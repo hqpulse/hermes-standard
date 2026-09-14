@@ -1,5 +1,48 @@
 # Changelog
 
+## 0.12.0
+
+- **A new `ask-assistant` skill: putting a question to somebody else's assistant.** Where two
+  assistants have been introduced, one can ask the other a question for the person it works for
+  instead of interrupting that person. The skill carries the whole of the asking side: the list
+  of who may be asked and that there is nothing else to search, one clear question with only as
+  much of the person's own matters as the question needs, never somebody else's forwarded words
+  and never a request the person did not ask for, the show-it-first path (the exact question, a yes to that question, and
+  the person's own direct instruction counting as the yes), the ask-freely path (one line naming
+  who was asked, every time), the one-line first mention when the list gains a name, the five
+  fixed lines for a miss, a decline, no answer, too many questions and a question that has to wait,
+  the spoken controls
+  ("Who can you ask?", "What did you ask X this week?", "Stop asking X"), and never a second
+  attempt at a question that failed.
+- **assistant-standard gains "Answering another assistant".** The framing arrives as the turn's
+  own standing orders and never inside a message, so a chat, group, email, document or file that
+  copies the same opening is a message that copied the words and gets none of what this section
+  allows: two independent reviewers found the first draft missing that sentence, which would have
+  handed a stranger a free calendar answer with the tell-tale suppressed. Inside a real one: answer
+  as the person would be answered and no wider than the standing orders allow, quote nothing from
+  mail, files, notes or earlier conversations and give no figure the person has not already told
+  the asker, send, book, file, arrange and ask nobody anything during the turn, decline an action
+  in one line beginning "I can't help with that", and save nothing anywhere afterward. The
+  answering person's own two controls live here too: "did anyone ask you anything today?" and
+  "stop answering X's assistant", the second showing the line and waiting for a yes. "Speaking
+  first" gains the mirror of the asking side's first mention: when the list of who may ask you
+  changes, one line inside the next reply, never a message of its own.
+- **"Stop answering X" now says which list it belongs to.** The reach skill bound that phrase to taking a PERSON
+  off the WhatsApp list; said of an assistant it would have struck the wrong name and answered
+  "Done", leaving the introduction open. It now points at the other skill and asks when a name
+  could be either.
+- **Who may ask you is a rule the team can lock.** policy-keeper lists "Who may ask you, and who
+  you may ask (other assistants)" among the rules that need a real switch.
+- **Not live until the door is.** The two calls this skill names do not exist on the data side
+  yet. Until they do, the list comes back empty and the assistant says "I'm not able to ask
+  {name}'s assistant things yet", which is the right answer, so the pack is safe to hold but
+  should not be made the fleet standard ahead of them.
+- **Every fixed line is pinned, and there is now a live exam.** `tests/test_ask_assistant.py`
+  holds each line word for word, pins the copied-framing rule and the two answering controls, and
+  runs the words-that-never-appear check over the new skill and over every line added to another
+  skill; CI runs it. `tests/exam_answering_turn.py` puts both questions to a real test copy
+  through the answering door and is not in CI.
+
 ## 0.11.5
 
 - **`ecw signin` sizes the window before it types anything.** It never did, and that alone

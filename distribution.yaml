@@ -1,5 +1,5 @@
 name: hermes-standard
-version: 0.11.5
+version: 0.12.0
 description: "HQ Pulse standard employee assistant: persona and skills"
 hermes_requires: ">=0.21.0"
 author: "HQ Pulse"
@@ -84,6 +84,7 @@ distribution_owned:
   - skills/logins/scripts/keeper
   - skills/reach/SKILL.md
   - skills/reach/scripts/reach
+  - skills/ask-assistant/SKILL.md
   - skills/mail-watch/SKILL.md
   - skills/ecw/SKILL.md
   - skills/ecw/references/login.md

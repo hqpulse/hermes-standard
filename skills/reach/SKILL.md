@@ -49,7 +49,10 @@ Her words, and what they mean:
 - "yes", "carry on", about someone who wrote back to what you sent for her: `reach allow person <ref>`, guest. "no", "leave it there": `reach deny person <ref>`.
 - "they can ask about my diary", "keep it to the calendar", "they can see my calendar": `reach allow person <ref> delegate`.
 - "no", "don't answer them", about a number: `reach deny person <ref>`.
-- "stop answering X", "X is done": `reach remove person <ref>`.
+- "stop answering X", "X is done": `reach remove person <ref>`. This is about a PERSON
+  who writes to you. "Stop answering X's assistant" is a different thing on a different
+  list, and the assistant-standard skill has it; when a name could be either, ask which
+  they mean in one line before you run anything.
 - "it's my family group", "my own people", "just us": `reach allow group <ref> inner`.
 - "anyone can be in there", "it's a public group": `reach allow group <ref> outside`.
 - "any group I add you to is fine", "you don't need to ask about groups": `reach auto groups on`.
