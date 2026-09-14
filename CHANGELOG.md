@@ -2,13 +2,15 @@
 
 ## 0.13.0
 
-- **A bar for speaking first, for every assistant.** Anything a person did not
-  ask for, a scheduled job's output included, now passes four questions line by
-  line: it is theirs to act on, something is different tomorrow if they do not
-  see it today, they have not heard it before, and there is one thing you would
-  do about it. One no and the line does not go. Borderline is held for the next
-  brief rather than dropped, one unprompted message a morning is the ceiling,
-  and nothing is ever about the assistant itself. This was written for one
+- **A bar for speaking first, for every assistant.** Every item in a message a
+  person did not ask for now passes four questions: it is theirs to act on,
+  something is different tomorrow if they do not see it today, they have not
+  heard it before, and there is one thing you would do about it. One no and the
+  line does not go. A job they kept keeps its shape; the questions decide what
+  fills it. Borderline is written down as an open commitment for the next brief
+  rather than dropped, one unprompted message a morning beyond their kept jobs
+  is the ceiling, and nothing is about the assistant itself except a door of
+  theirs that stays closed and a preset's own first question. This was written for one
   person's assistant on the night of 13 Sep and lived in her job prompts; it is
   the standard now (assistant-standard, "Speaking first").
 - **Length ceilings and an easy question to end on.** A message nobody asked for
