@@ -6,18 +6,22 @@
   bought from Pulse; the engine underneath is our supplier and no customer has
   a reason to be told its name. The persona has always said "never name a
   vendor", but a persona is one file and this pack lands sixty-odd others on
-  every pod, all of them text a model reads and then repeats. The four
-  sentences that named the engine (all in the presets reference) now say "the
-  engine".
+  every pod, all of them text a model reads and then repeats. The presets
+  reference named the engine in four sentences and quoted a fifth from its
+  source; all five now say "the engine" or say what the code does.
 - **A check that keeps it that way.** `tests/check_engine_name.py` reads every
-  file `distribution_owned` ships, removes the code, and fails on the engine's
-  name in what is left. Identifiers are allowed on purpose and only in the
-  forms code needs them: environment names, module and profile paths, the
-  `metadata.hermes` frontmatter key the engine parses the block by, a
-  namespace, a pod name. Renaming those is a coordinated rename across every
-  script and every live cluster object and is a separate decision. CI runs the
-  check and then runs it again against a deliberately leaky copy of the tree,
-  so a check that passed everything would itself go red.
+  file `distribution_owned` ships. In markdown prose the name in any case
+  fails, and only an ALL-CAPS environment name or a filesystem path may appear
+  bare; inside code spans and fences the name as a capitalized word still
+  fails, because a sample reply in a fence is a reply the model may copy.
+  Frontmatter values are prose. Python is tokenized, so every string is checked
+  and a `#` inside one hides nothing. YAML, Bases and JSON are read whole,
+  comments included, because the model reads them whole. Identifiers stay where
+  code needs them (renaming those is a separate decision). An independent
+  review of the first version found a dozen shapes it let through, among them a
+  nested bullet and "Hermes-based"; `--self-test` plants all of them, and CI
+  runs it and then a leaky copy of the tree that must fail naming the planted
+  line.
 
 ## 0.12.0
 

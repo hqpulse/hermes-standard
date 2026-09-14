@@ -88,15 +88,25 @@ jobs:
       - name: The engine-name check can still fail
         # Same reason as the index lint below: a check nobody has watched go
         # red is indistinguishable from one that returns zero on everything.
+        # --self-test plants every leak shape an independent review found the
+        # first version missing. The leaky copy then proves the real run fails
+        # FOR THE LEAK: a crash also exits non-zero, so the planted line has to
+        # be named in the output, not just a red exit.
         run: |
           set -euo pipefail
+          python tests/check_engine_name.py --self-test
           cp -r . "$RUNNER_TEMP/leakpack"
           printf '\nThe assistant runs on Hermes.\n' >> "$RUNNER_TEMP/leakpack/SOUL.md"
-          if (cd "$RUNNER_TEMP/leakpack" && python tests/check_engine_name.py); then
+          if out="$(cd "$RUNNER_TEMP/leakpack" && python tests/check_engine_name.py)"; then
             echo "::error::the engine-name check passed a persona that names the engine"
             exit 1
           fi
-          echo "ok: the check refused a persona that names the engine"
+          if ! grep -q "SOUL.md:.*The assistant runs on Hermes" <<<"$out"; then
+            echo "::error::the engine-name check went red, but not for the planted line"
+            echo "$out"
+            exit 1
+          fi
+          echo "ok: the check refused a persona that names the engine, and named the line"
 
       - name: check_entity_notes.py
         run: python tests/check_entity_notes.py

@@ -60,7 +60,7 @@ arguments of `cron.jobs.create_job`, with one exception noted.
 - `name`: the job's friendly name. The presets use a `preset-` prefix; the skill
   lets the assistant edit, pause or remove only jobs with that prefix.
 - `schedule`: cron syntax. Resolved in the profile's configured timezone
-  (`cron/jobs.py`, `anchor to the CONFIGURED Hermes timezone, not the server's local`), which the fleet render writes into each person's config as the
+  (`cron/jobs.py` anchors a schedule to the configured timezone, not the server's local one), which the fleet render writes into each person's config as the
   top-level `timezone:` key. `hermes_time.py` resolves that key, and
   `gateway/run.py` bridges it to `HERMES_TIMEZONE` at start. It is now PER
   PERSON: the value lives on the person's StatefulSet
