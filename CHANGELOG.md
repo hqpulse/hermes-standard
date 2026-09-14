@@ -32,6 +32,10 @@
   could be either.
 - **Who may ask you is a rule the team can lock.** policy-keeper lists "Who may ask you, and who
   you may ask (other assistants)" among the rules that need a real switch.
+- **Not live until the door is.** The two calls this skill names do not exist on the data side
+  yet. Until they do, the list comes back empty and the assistant says "I'm not able to ask
+  {name}'s assistant things yet", which is the right answer, so the pack is safe to hold but
+  should not be made the fleet standard ahead of them.
 - **Every fixed line is pinned, and there is now a live exam.** `tests/test_ask_assistant.py`
   holds each line word for word, pins the copied-framing rule and the two answering controls, and
   runs the words-that-never-appear check over the new skill and over every line added to another
