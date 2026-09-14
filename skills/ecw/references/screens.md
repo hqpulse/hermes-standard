@@ -52,7 +52,7 @@ an href, which makes them the most useful map on the screen.
 | P | `a#jellybean-panelLink13` | `jellybean/preRegistration/Patient_Pre-Registration.jsp` |
 | N | `a#jellybean-panelLink14` | `jellybean/transcriptions/NJellyBeanMain.jsp` |
 | E | `a#jellybean-panelLink19` | `jellybean/refillrequest/EJellyBean.jsp/Refill Requests/Success` |
-| **S** | `a#jellybean-panelLink22` | `jellybean/officevisit/officeVisits.jsp` |
+| **S** | `a#jellybean-panelLink22` | `jellybean/officevisit/officeVisits.jsp` (a TOGGLE: it opens a menu; see below) |
 | D | `a#jellybean-panelLink29` | `jellybean/reviewdocs/ReviewDocsWeb.jsp` |
 | R | `a#jellybean-panelLink33` | `jellybean/referral/referral.jsp/Outgoing` |
 | T | `a#jellybean-panelLink37` | `jellybean/telephoneencounter/JellyBeanT-Telephone-Encounter-ListView.jsp` |
@@ -63,6 +63,14 @@ All nine read `0` on the recorded account. The `panelLinkNN` numbers are assigne
 user layout: they held across four sessions on one account, but the durable form is the
 href, and the href form was derived from the recorded DOM rather than separately
 click-tested. Verify it on the first run and keep the number as the fallback.
+
+**The S bean is a toggle, not the screen** (measured live 2026-09-14, PUL-169). Clicking
+`a#jellybean-panelLink22` (text `S 0`, title `CTRL + ⇧ + S`) opens a small menu whose
+items are hidden until then: `Review Progress Notes` (`…panelLink23`), **`Office Visits`**
+(`…panelLink25`), `Resource Schedule` (`…panelLink26`), `Tracking Board` (`…panelLink28`).
+The `Office Visits` item carries the SAME href as the toggle, so a selector on the href
+matches the toggle first. Tell them apart by their words: the toggle says a letter and a
+count, the item says `Office Visits`. The road onto the grid is the toggle, then the item.
 
 ## The navigation
 
@@ -114,8 +122,13 @@ only. Never enumerate and click.**
 
 ## Office Visits, the day's schedule
 
-**Get there** `a#jellybean-panelLink22`, or Practice > `Office Visits` (CTRL+SHIFT+O)
-**Anchor** `table#officeVisitsTbl1`, plus the module title "Office Visits"
+**Get there** the S toggle `a#jellybean-panelLink22`, then the `Office Visits` item it
+reveals (`…panelLink25`); or Practice > `Office Visits` (CTRL+SHIFT+O)
+**Anchor** `table#this-tableOV` ON SCREEN with its cells interpolated and either data rows
+laid out or `Total Counts : 0` in the footer, plus the module title "Office Visits". The
+table is in the shell's markup, invisible, with an empty header row, before the screen is
+ever opened; its presence proves nothing, and this build renders the header cells with no
+text, so a header check proves nothing either.
 
 The date control at the top reads `< MM/DD/YYYY >` with a calendar picker, and it opens
 on today.

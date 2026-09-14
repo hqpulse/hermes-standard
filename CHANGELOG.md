@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.11.4
+
+- `ecw` script: the sign-in reports the application only when the application has finished
+  loading (PUL-169). The old gate was "the Office Visits anchor exists", which is true mid-paint,
+  and on 13 Sep `signin` printed in-the-app on a shell still saying "Building your user experience"
+  half an hour later; the schedule read behind it found nothing it could click. The gate is now
+  three facts read in one call (`shell_loaded`): a control carrying the Office Visits target ON
+  SCREEN, the splash gone, the loading veil down. `signin` waits up to two minutes for it, clearing
+  the entry dialogs as they come, and dies with the reason (exit 2) when it never comes; the
+  already-in short cut and `session restore` stand behind the same gate. It says out loud what the
+  first reading was, because that is the reading the old gate got wrong.
+- `references/screens.md`, `references/login.md`: `a#jellybean-panelLink22` is the "S" jellybean,
+  a toggle that opens a menu; the "Office Visits" item is inside it (`…panelLink25` on the recorded
+  layout, hidden until the toggle is open). Both carry the same href.
+
 ## 0.11.3
 
 - `ecw` script: the sign-in keeps what it saw the way the medical-scribe plugin's doors do (PLAN B10,

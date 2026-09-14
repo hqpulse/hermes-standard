@@ -210,7 +210,8 @@ selector seen live : a#jellybean-panelLink22
 its href           : #/mobiledoc/jsp/webemr/jellybean/officevisit/officeVisits.jsp
 its text           : "S 0"   (a letter, then the count of items waiting)
 its box            : x=1451 y=0 w=70 h=41  at 1920x1080
-why it counts      : clicking it opened the Office Visits grid
+why it counts      : it is on screen only once the shell is interactive; clicking it
+                     opens the menu that holds Office Visits (see caution 4)
 ```
 
 Two cautions:
@@ -222,6 +223,15 @@ Two cautions:
    `a[href$="jellybean/officevisit/officeVisits.jsp"]`. **That selector is derived from
    the recorded DOM and was not separately click-tested.** Verify it on the first run
    and keep the numeric id as the fallback.
+
+3. **Present is not loaded.** The anchor is in the markup mid-paint, while the
+   "Building your user experience" splash and the `div#load` veil are still up, and a
+   sign-in that reported the application on that page sent the schedule read at a control
+   it could not click (13 Sep). The gate is three facts: the anchor ON SCREEN (laid out with
+   a size, not display:none), the splash gone, the veil down. `ecw signin` waits up to two
+   minutes for all three and refuses with the reason when they never come.
+4. **`panelLink22` is the S toggle, not the screen.** It opens a menu; the `Office Visits`
+   item inside it (`…panelLink25`) carries the same href. See `screens.md`.
 
 A cheaper anchor for a snapshot-based tool: once the shell is up, the page title is
 `eCW (<Last>, <First> ) Production` and the body carries the module words

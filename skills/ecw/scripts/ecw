@@ -720,21 +720,96 @@ def cmd_keys(argv: list) -> int:
     return 0
 
 
+#: The control that proves the shell: every anchor carrying the Office Visits
+#: target (the "S" jellybean in the top bar and the Office Visits item in the
+#: menu it opens both do), and the recorded id of the jellybean as the fallback.
 SHELL_ANCHOR = 'a[href$="jellybean/officevisit/officeVisits.jsp"]'
 SHELL_ANCHOR_FALLBACK = "a#jellybean-panelLink22"
 
+#: How long the shell gets to finish loading after index.jsp, before the
+#: sign-in says it did not. A healthy shell is up in a few seconds; the one
+#: that false-greened on 13 Sep was still "Building your user experience"
+#: half an hour later, and that is what this bound is for.
+SHELL_WAIT_S = 120
 
-def in_the_shell(page):
-    """The assertion is a real control, never a status code and never the URL.
+#: The shell's three facts, read in one call. "Visible" the way a person means
+#: it: laid out with a size, not display:none, not visibility:hidden.
+#: (offsetParent alone is null on a position:fixed element, and the loading
+#: veil may well be one.) The RULE is shell_loaded(); this only gathers.
+JS_SHELL = (
+    "()=>{const vis=e=>{if(!e) return false; const s=getComputedStyle(e);"
+    " if(s.display==='none'||s.visibility==='hidden') return false;"
+    " const r=e.getBoundingClientRect(); return r.width>0&&r.height>0;};"
+    " const anchors=Array.from(document.querySelectorAll(" + json.dumps(SHELL_ANCHOR) + "));"
+    " const fallback=document.querySelector(" + json.dumps(SHELL_ANCHOR_FALLBACK) + ");"
+    # the splash: an element on screen whose OWN text says so (its children may be anything)
+    " const splash=Array.from(document.querySelectorAll('div,span,p,h1,h2,h3')).some(e=>vis(e)"
+    "  && Array.from(e.childNodes).some(n=>n.nodeType===3 && /Building your user experience/i.test(n.textContent||'')));"
+    " return {present: anchors.length>0 || !!fallback, anchor: anchors.some(vis) || vis(fallback),"
+    "         splash: splash, veil: vis(document.querySelector(" + json.dumps(VEIL) + "))};}")
 
+
+def shell_state(page) -> dict:
+    """The three facts, or the worst reading when the page cannot answer."""
+    try:
+        got = page.evaluate(JS_SHELL)
+    except Exception:
+        got = None
+    if not isinstance(got, dict):
+        return {"present": False, "anchor": False, "splash": False, "veil": False, "unanswered": True}
+    return {"present": bool(got.get("present")), "anchor": bool(got.get("anchor")),
+            "splash": bool(got.get("splash")), "veil": bool(got.get("veil")), "unanswered": False}
+
+
+def shell_loaded(state: dict) -> bool:
+    """The application has FINISHED loading, and not a moment before.
+
+    The assertion is a real control, never a status code and never the URL.
     A bounce, a 412, a modal and a loading frame all answer with something, so
     "no visits" has to come from a screen that proved it is the screen. The
     Office Visits jellybean is the one that also proves the page is
-    interactive. Its numeric id is assigned per user layout, so the href is the
-    durable form and the id is the fallback.
+    interactive. Its numeric id is assigned per user layout, so the href is
+    the durable form and the id is the fallback.
+
+    PRESENT is not enough. The anchor is in the markup mid-paint, while the
+    "Building your user experience" splash and the loading veil are still up,
+    and on 13 Sep a sign-in reported the application on exactly that page and
+    the schedule read behind it found nothing clickable. So: the anchor ON
+    SCREEN, the splash gone, the veil down. All three, or not loaded.
     """
-    return (page.query_selector(SHELL_ANCHOR)
-            or page.query_selector(SHELL_ANCHOR_FALLBACK)) is not None
+    s = state or {}
+    return bool(s.get("anchor")) and not s.get("splash") and not s.get("veil") and not s.get("unanswered")
+
+
+def shell_why(state: dict) -> str:
+    """One clause saying what is still not right, for the refusal."""
+    s = state or {}
+    if s.get("unanswered"):
+        return "the page did not answer (it was navigating, or it closed)"
+    if s.get("splash"):
+        return 'the "Building your user experience" splash is still up'
+    if s.get("veil"):
+        return "the loading veil is still up"
+    return "the Office Visits control is not on screen"
+
+
+def wait_for_shell(page, seconds: int = SHELL_WAIT_S) -> dict:
+    """Until shell_loaded(), clearing the entry dialogs as they come, for at
+    most `seconds`. Returns the last state read, loaded or not."""
+    first = state = shell_state(page)
+    started = time.monotonic()
+    deadline = started + max(1, seconds)
+    while not shell_loaded(state) and time.monotonic() < deadline:
+        page.wait_for_timeout(SETTLE_MS)
+        clear_dialogs(page, rounds=2)
+        state = shell_state(page)
+    # Said out loud, because this is the reading the old gate got wrong: the
+    # control in the markup (present) is not the application loaded.
+    say("  shell: first reading control present=%s loaded=%s (%s); %s after %ds" % (
+        "yes" if first.get("present") else "no", "yes" if shell_loaded(first) else "no",
+        "ready" if shell_loaded(first) else shell_why(first),
+        "loaded" if shell_loaded(state) else "still not loaded", int(time.monotonic() - started)))
+    return state
 
 
 def clear_dialogs(page, rounds: int = 8) -> int:
@@ -887,6 +962,15 @@ def cmd_signin(argv: list) -> int:
         page = pick_page(browser, base, make=True)
         on_host = urllib.parse.urlsplit(page.url).netloc == urllib.parse.urlsplit(base).netloc
         if on_host and classify(page.url) == "in-the-app":
+            # The address says the application; the gate is the shell itself.
+            # A page wedged on the loading splash is on this address too, and
+            # reporting it as the application sends the schedule read at a
+            # control it cannot click.
+            state = wait_for_shell(page, 60)
+            if not shell_loaded(state):
+                die(f"the browser is on the application but it has not finished loading: {shell_why(state)}. "
+                    "Not signing in again on top of it; the browser beside the assistant needs a "
+                    "restart, then a sign-in. Tell a person", 2)
             say("  already in the application; not signing in again")
             print("in-the-app")
             return 0
@@ -928,9 +1012,10 @@ def cmd_signin(argv: list) -> int:
         page.wait_for_timeout(6000)
         cleared = clear_dialogs(page)
         say(f"  {cleared} entry dialog(s) cleared")
-        if not in_the_shell(page):
-            die("the shell did not finish painting: the Office Visits anchor is not there. "
-                "Do not read this as an empty practice", 2)
+        state = wait_for_shell(page)
+        if not shell_loaded(state):
+            die(f"the shell did not finish loading: {shell_why(state)}. "
+                "Do not read this as being in the application, and not as an empty practice", 2)
         replay_shot(page, "signed-in")
         attempts_clear()
         print("in-the-app")
@@ -982,8 +1067,9 @@ def cmd_session(argv: list) -> int:
         clear_dialogs(page)
         # classify() alone is not enough here: every unknown address on this
         # host answers 302 to the login page, so a good verdict has to come
-        # from a control on the screen as well.
-        if classify(page.url) != "in-the-app" or not in_the_shell(page):
+        # from a control on the screen as well, and from a shell that has
+        # finished loading (the same gate the sign-in stands behind).
+        if classify(page.url) != "in-the-app" or not shell_loaded(wait_for_shell(page, 60)):
             print("signed-out")
             say("  the saved session is no longer good; a sign-in is needed")
             return 2

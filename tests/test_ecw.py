@@ -255,6 +255,107 @@ class Recognition(unittest.TestCase):
             self.assertTrue(self.ecw.WHAT_IT_MEANS[verdict].startswith("STOP."), verdict)
 
 
+class TheShellGate(unittest.TestCase):
+    """The sign-in reports the application only when the application has finished loading.
+
+    On 13 Sep it printed in-the-app on a shell that never finished: the Office Visits
+    anchor was in the markup mid-paint, under the "Building your user experience"
+    splash and the loading veil, and the schedule read behind it found nothing it
+    could click. The gate is three facts, and it needs all three."""
+
+    def setUp(self):
+        self.ecw = load()
+
+    def test_a_loaded_shell_is_the_anchor_on_screen_with_no_splash_and_no_veil(self):
+        self.assertTrue(self.ecw.shell_loaded({"anchor": True, "splash": False, "veil": False}))
+
+    def test_the_anchor_merely_present_is_not_enough(self):
+        """The mid-paint page of 13 Sep: anchor in the markup, not on screen."""
+        self.assertFalse(self.ecw.shell_loaded({"anchor": False, "splash": False, "veil": False}))
+
+    def test_the_splash_still_up_is_not_loaded_whatever_else_is_there(self):
+        self.assertFalse(self.ecw.shell_loaded({"anchor": True, "splash": True, "veil": False}))
+
+    def test_the_veil_still_up_is_not_loaded(self):
+        self.assertFalse(self.ecw.shell_loaded({"anchor": True, "splash": False, "veil": True}))
+
+    def test_no_answer_from_the_page_is_not_loaded(self):
+        self.assertFalse(self.ecw.shell_loaded({}))
+        self.assertFalse(self.ecw.shell_loaded(None))
+
+    def test_a_page_that_cannot_answer_is_not_loaded_and_says_so(self):
+        class Mute:
+            def evaluate(self, js):
+                raise RuntimeError("execution context was destroyed")
+        state = self.ecw.shell_state(Mute())
+        self.assertFalse(self.ecw.shell_loaded(state))
+        self.assertIn("did not answer", self.ecw.shell_why(state))
+
+    def test_the_reason_names_what_is_still_up(self):
+        self.assertIn("splash", self.ecw.shell_why({"anchor": True, "splash": True, "veil": True}))
+        self.assertIn("veil", self.ecw.shell_why({"anchor": True, "splash": False, "veil": True}))
+        self.assertIn("not on screen", self.ecw.shell_why({"anchor": False, "splash": False, "veil": False}))
+
+    def test_the_wait_polls_until_loaded_and_clears_dialogs_between_reads(self):
+        ecw = self.ecw
+        answers = [{"anchor": True, "splash": True, "veil": False},
+                   {"anchor": True, "splash": False, "veil": True},
+                   {"anchor": True, "splash": False, "veil": False}]
+
+        class Page:
+            url = "https://practice.example/mobiledoc/jsp/webemr/index.jsp"
+            waited = 0
+
+            def evaluate(self, js):
+                return answers.pop(0) if len(answers) > 1 else answers[0]
+
+            def wait_for_timeout(self, ms):
+                self.waited += 1
+
+            def query_selector(self, sel):
+                return None
+        page = Page()
+        state = ecw.wait_for_shell(page, seconds=30)
+        self.assertTrue(ecw.shell_loaded(state))
+        self.assertEqual(page.waited, 2, "one settle per reading that was not yet loaded")
+
+    def test_the_wait_gives_up_on_a_shell_that_never_loads(self):
+        ecw = self.ecw
+
+        class Page:
+            waited = 0
+
+            def evaluate(self, js):
+                return {"anchor": True, "splash": True, "veil": False}
+
+            def wait_for_timeout(self, ms):
+                self.waited += 1
+
+            def query_selector(self, sel):
+                return None
+        page = Page()
+        state = ecw.wait_for_shell(page, seconds=1)
+        self.assertFalse(ecw.shell_loaded(state))
+        self.assertGreaterEqual(page.waited, 1)
+
+    def test_the_shell_facts_are_visibility_not_presence(self):
+        """The JS reads a size and computed style, never a bare querySelector, and it
+        never trusts offsetParent alone (null on a position:fixed veil)."""
+        js = self.ecw.JS_SHELL
+        for needle in ("getComputedStyle", "getBoundingClientRect", "Building your user experience",
+                       "div#load", "officevisit/officeVisits.jsp"):
+            self.assertIn(needle, js)
+        self.assertNotIn("offsetParent", js)
+
+    def test_every_road_to_in_the_app_stands_behind_the_gate(self):
+        """Three places print in-the-app: the fresh sign-in, the already-in short cut,
+        and a restored session. Each waits for the shell and dies on its reason."""
+        src = SCRIPT.read_text(encoding="utf-8")
+        self.assertEqual(src.count("wait_for_shell(page") - src.count("def wait_for_shell("), 3, "one wait per road")
+        self.assertEqual(src.count('print("in-the-app")'), 3)
+        self.assertNotIn("in_the_shell", src, "the presence-only gate is gone")
+
+
 class Preflight(unittest.TestCase):
     """Credential-free, spends nothing, and it is the cheapest safeguard we own."""
 
