@@ -95,6 +95,29 @@ def main() -> int:
     check("a fast that runs into yom tov has a start and no end",
           bool(bechorot) and "begins" in bechorot[0] and "ends" not in bechorot[0], str(bechorot))
 
+    print("an answer that stops mid-window never claims the day it cannot close")
+    cut = {"items": [i for i in payload["items"] if str(i.get("date"))[:10] <= "2026-09-25"]}
+    short = jt.build_calendar(cut, date(2026, 9, 8), date(2026, 9, 25))
+    check("coverage ends the day before a window with no end",
+          short["covers"]["to"] == "2026-09-24", short["covers"])
+    check("and that half window is not written as a window",
+          not any(w["start"].startswith("2026-09-25") for w in short["windows"]))
+
+    print("Tisha B'Av moved to Sunday is still Tisha B'Av")
+    observed = {"items": [
+        {"title": "Rosh Chodesh Av", "date": "2029-07-14", "category": "roshchodesh"},
+        {"title": "Fast begins", "date": "2029-07-21T20:10:00-04:00", "category": "zmanim",
+         "subcat": "fast", "memo": "Erev Tish’a B’Av"},
+        {"title": "Tish’a B’Av (observed)", "date": "2029-07-22", "category": "holiday", "subcat": "major"},
+        {"title": "Fast ends", "date": "2029-07-22T20:50:00-04:00", "category": "zmanim",
+         "subcat": "fast", "memo": "Tish’a B’Av (observed)"}]}
+    moved = jt.build_calendar(observed, date(2029, 7, 1), date(2029, 7, 31))
+    kinds = {(d["date"], d["kind"]) for d in moved["days"]}
+    check("the observed day is marked", ("2029-07-22", "tisha_bav") in kinds, str(kinds))
+    check("the Nine Days are written", ("2029-07-21", "nine_days") in kinds)
+    check("the fast is one row with both ends",
+          len([d for d in moved["days"] if d["kind"] == "fast"]) == 1)
+
     with tempfile.TemporaryDirectory() as tmp:
         home = Path(tmp)
         (home / "jewish-time").mkdir()
@@ -151,6 +174,26 @@ def main() -> int:
         out = run(broken, "2026-09-16T08:00:00-04:00")
         check("an unreadable calendar midweek never crashes the job",
               last_line(out) == '{"wakeAgent": true}', out)
+
+        print("one bad row does not throw the calendar away")
+        damaged = dict(built, windows=built["windows"] + [{"start": "not a time", "end": "x"}])
+        spoiled = home / "spoiled"
+        (spoiled / "jewish-time").mkdir(parents=True)
+        (spoiled / "jewish-time" / "calendar.json").write_text(json.dumps(damaged), encoding="utf-8")
+        out = run(spoiled, "2026-09-21T07:30:00-04:00")
+        check("Yom Kippur is still held with a bad row elsewhere", out.strip() == '{"wakeAgent": false}', out)
+        out = run(spoiled, "2026-09-11T13:00:00-04:00")
+        check("and the careful Friday rule is laid over it", out.strip() == '{"wakeAgent": false}', out)
+
+        print("the staff check")
+        env = dict(os.environ, HERMES_HOME=str(spoiled))
+        done = subprocess.run([sys.executable, str(SCRIPT), "status"], env=env,
+                              capture_output=True, text=True, timeout=60)
+        check("status fails on an expired or damaged calendar", done.returncode == 1, done.stdout)
+        env = dict(os.environ, HERMES_HOME=str(home / "nobody-status"))
+        done = subprocess.run([sys.executable, str(SCRIPT), "status"], env=env,
+                              capture_output=True, text=True, timeout=60)
+        check("status passes for somebody with no calendar", done.returncode == 0, done.stdout)
 
         print("somebody who does not keep it")
         nobody = home / "nobody"

@@ -39,6 +39,7 @@ class _Door(BaseHTTPRequestHandler):
     results: list = []
     refused: str = ""
     refused_as_text: str = ""
+    honor_since: bool = False
     calls: list = []
 
     def log_message(self, *args):  # silence
@@ -60,7 +61,16 @@ class _Door(BaseHTTPRequestHandler):
             if _Door.refused:
                 payload = {"text": _Door.refused, "refused": True}
             else:
-                payload = {"mode": "recent", "results": _Door.results}
+                rows = _Door.results
+                since = (_Door.calls[-1].get("params", {}).get("arguments", {}).get("since")
+                         if _Door.calls else None)
+                if _Door.honor_since and since:
+                    # The real door returns only mail received on or after the
+                    # date it is given, so a watch that asks for too little
+                    # never sees what it skipped.
+                    rows = [r for r in rows if not r.get("received_at")
+                            or str(r["received_at"])[:10] >= since]
+                payload = {"mode": "recent", "results": rows}
             text = "scope=mine tool=search_my_messages\n" + json.dumps(payload)
         envelope = {"jsonrpc": "2.0", "id": 1,
                     "result": {"content": [{"type": "text", "text": text}]}}
@@ -237,8 +247,11 @@ def main() -> int:
         out = run(observant, url, "2026-09-18T12:00:00-04:00")
         check("a Friday morning seeds as usual", gate_closed(out))
         state_before = (observant / "mail-watch" / "state.json").read_text()
+        _Door.honor_since = True
         _Door.results.insert(0, message("shabbat-1", "Need your signature",
                                         received="2026-09-19T11:00:00Z"))
+        _Door.results.insert(0, message("friday-night-1", "Friday evening ask",
+                                        received="2026-09-18T23:00:00Z"))
         calls = len(_Door.calls)
         for stamp in ("2026-09-18T18:30:00-04:00", "2026-09-19T11:00:00-04:00",
                       "2026-09-19T20:30:00-04:00", "2026-09-20T08:30:00-04:00"):
@@ -251,13 +264,32 @@ def main() -> int:
         out = run(observant, url, "2026-09-20T09:30:00-04:00")
         check("the morning after, what arrived is judged once", gate_open(out)
               and "Need your signature" in out)
+        check("Friday evening's mail is still asked for on Sunday morning",
+              "Friday evening ask" in out, str(_Door.calls[-1].get("params", {}).get("arguments")))
+        _Door.honor_since = False
         out = run(observant, url, "2026-09-20T10:00:00-04:00")
         check("and never again", gate_closed(out))
 
-        print("a calendar the reader cannot load still keeps Shabbat")
+        print("a broken calendar file still keeps Shabbat")
         (observant / "jewish-time" / "calendar.json").write_text("{broken", encoding="utf-8")
         out = run(observant, url, "2026-09-19T11:00:00-04:00")
         check("an unreadable calendar holds a Saturday", gate_closed(out) and "MAIL WATCH" not in out)
+
+        print("a watch whose calendar reader is missing still keeps Shabbat")
+        lone = home / "lone"
+        (lone / "scripts").mkdir(parents=True)
+        (lone / "jewish-time").mkdir()
+        (lone / "jewish-time" / "calendar.json").write_text("{}", encoding="utf-8")
+        (lone / "config.yaml").write_text(f"mcp_servers:\n  pulse:\n    url: {url}\n", encoding="utf-8")
+        (lone / "scripts" / "mail-watch.py").write_text(SCRIPT.read_text(), encoding="utf-8")
+        env = dict(os.environ, HERMES_HOME=str(lone), MCP_PULSE_API_KEY="test-key",
+                   TZ="America/New_York", JEWISH_TIME_NOW="2026-09-19T11:00:00-04:00")
+        calls = len(_Door.calls)
+        done = subprocess.run([sys.executable, str(lone / "scripts" / "mail-watch.py")], env=env,
+                              capture_output=True, text=True, timeout=60)
+        check("with no reader beside it, a Saturday is held and the door is not called",
+              done.returncode == 0 and gate_closed(done.stdout) and len(_Door.calls) == calls,
+              done.stdout[-200:] + done.stderr[-200:])
 
     server.shutdown()
     if failures:

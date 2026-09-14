@@ -83,6 +83,9 @@ EXCERPT_CHARS = 400
 FAIL_CEILING = 4
 FAIL_REPEAT_HOURS = 24
 HTTP_TIMEOUT = 45
+#: The furthest back a read reaches after a gap. A four-day Pesach window plus
+#: the morning hold is five; anything older is the morning brief's, not a notice.
+MAX_LOOKBACK_DAYS = 6
 
 
 def _plain_reason(exc: Exception) -> str:
@@ -183,6 +186,9 @@ def _save_state(path: Path, state: dict) -> None:
 
 
 def _now() -> datetime:
+    # JEWISH_TIME_NOW pins the clock for the quiet calendar and this watch
+    # together, so a test (or a person asking "what would it have done at
+    # 18:30 on Friday") sees one consistent moment. Nothing on a pod sets it.
     pinned = (os.environ.get("JEWISH_TIME_NOW") or "").strip()
     if pinned:
         return datetime.fromisoformat(pinned).astimezone(timezone.utc)
@@ -383,8 +389,18 @@ def main() -> int:
     else:
         # The window is a whole day wider than a tick so that a message which
         # lands either side of midnight is still inside it; the message-id
-        # dedupe below, not this date, is what stops a repeat.
-        since = (now - timedelta(days=1)).date().isoformat()
+        # dedupe below, not this date, is what stops a repeat. After a gap (a
+        # quiet window held the watch shut, or the door was down) it reaches
+        # back to the day of the last good read, at most MAX_LOOKBACK_DAYS, so
+        # Friday evening's mail is still seen on Sunday morning.
+        since_day = (now - timedelta(days=1)).date()
+        try:
+            last_good = datetime.fromisoformat(str(state.get("last_ok")).replace("Z", "+00:00"))
+            since_day = min(since_day, max(last_good.date() - timedelta(days=1),
+                                           (now - timedelta(days=MAX_LOOKBACK_DAYS)).date()))
+        except ValueError:
+            pass
+        since = since_day.isoformat()
         try:
             payload = _call_door(url, key, {
                 "mode": "recent", "source": "mail",

@@ -12,8 +12,8 @@
   person's assistant on the night of 13 Sep and lived in her job prompts; it is
   the standard now (assistant-standard, "Speaking first").
 - **Length ceilings and an easy question to end on.** A message nobody asked for
-  is four lines, an answer two to four, the brief twelve with four meetings at
-  most. No hyphen bullets, which a phone prints as hyphens. The last line is a
+  is four lines, an answer two to four, the brief one screen (about fifteen
+  lines of text) with four meetings at most. No hyphen bullets, which a phone prints as hyphens. The last line is a
   question the person can finish in a word or three.
 - **The brief looks back to the last working day,** not a fixed day or two, so
   the first morning after a long weekend or a three-day yom tov reads three
@@ -27,13 +27,19 @@
   pre-read now run `scripts/jewish_time.py` first: inside a window the model is
   never woken, and outside one it is told what kind of day it is and how far
   back to look. Somebody with no calendar gets one neutral line and no change.
+  A build covers 24 months, and `jewish_time.py status` exits non-zero inside
+  60 days of the end, for whoever checks the fleet.
+  Jobs already on a pod, presets included, do not pick the gate up from an
+  upgrade: the controller never rewrites an existing job (see presets/README).
   The first hand version told three jobs to answer a word the engine does not
   treat as silence, which would have delivered that word to a phone every half
   hour of Shabbat.
 - **The mail watch no longer relies on its prompt to keep Shabbat.** The script
   checks the same calendar before it reads anything, and stays shut from the
   start of a quiet window until nine the next morning, so what arrived meanwhile
-  is judged once, when the person is back. The half-hourly schedule is
+  is judged once, when the person is back; after a gap the read reaches back to
+  the day of the last good one, up to six days, so Friday evening's mail is
+  still seen. The half-hourly schedule is
   unchanged, and costs nothing inside a window.
 
 ## 0.12.1

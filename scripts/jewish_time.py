@@ -4,8 +4,9 @@
     jewish_time.py                  the gate a scheduled job runs before its model
     jewish_time.py now              the same reading, for the assistant in chat
     jewish_time.py on YYYY-MM-DD    one day: quiet windows, fasts, chol hamoed
+    jewish_time.py status           for staff: the dates covered, and exit 1 inside 60 days of the end
     jewish_time.py build --zip Z [--tz TZ] [--start D] [--months N] [--out FILE]
-                                    fetch a person's calendar from hebcal.com
+                                    fetch a person's calendar from hebcal.com (24 months)
 
 WHY A SCRIPT. On 14 Sep 2026 one assistant's three scheduled jobs were taught
 to answer a single word inside Shabbat and yom tov, by a paragraph at the top
@@ -29,6 +30,11 @@ custom) and havdalah at a fixed number of minutes after sunset (72). A quiet
 window runs from 40 minutes before the first candle lighting to the havdalah
 that closes the run, so a yom tov that touches Shabbat is one window with no
 gap. Nobody on a pod computes a zman; the file is built once and read.
+
+A CALENDAR RUNS OUT. Past its last date nobody can know which weekday is yom
+tov, so ``build`` reaches 24 months and ``status`` exits non-zero inside
+EXPIRY_WARN_DAYS of the end, for whoever checks the fleet. The model is never
+the one told: it is instructed never to repeat any of this.
 
 IT NEVER FAILS A JOB. The engine reports a crashed script to the person as a
 broken job. Every path out of the gate prints something and exits 0. A calendar
@@ -62,6 +68,12 @@ HOLD_UNTIL_HOUR = 9
 #: How far back a build reaches, so the first morning after a long yom tov
 #: can still see where it began.
 BUILD_LOOKBACK_DAYS = 14
+#: How far ahead a build reaches by default, and how much further it asks
+#: hebcal for, so a window that opens on the last covered day still has its end.
+BUILD_MONTHS = 24
+FETCH_MARGIN_DAYS = 14
+#: ``status`` fails this many days before the calendar's last date.
+EXPIRY_WARN_DAYS = 60
 HEBCAL = "https://www.hebcal.com/hebcal"
 
 CALENDAR_VERSION = 1
@@ -78,7 +90,7 @@ NONE_KEPT = ("QUIET CALENDAR. None is kept for this person: nothing about their 
 DAY_NOTES = {
     "fast": ("A fast day, {what}, {span}. They have not eaten since before dawn: "
              "shorter than usual, nothing about food or coffee, nothing heavy in the "
-             "afternoon, and not a word about the fast."),
+             "afternoon, no voice note, and not a word about the fast."),
     "chol_hamoed": ("Chol hamoed {what}: a working day that is not one. Messages are "
                     "fine, but expect half days and people out, and ask for no big decision."),
     "chanukah": ("Chanukah: a normal working day, but the evening is family from "
@@ -89,7 +101,7 @@ DAY_NOTES = {
                     "messages stay silent; only something that truly cannot wait."),
     "tisha_bav": ("Tisha B'Av: not a yom tov, and the heaviest day of the year. Routine "
                   "scheduled messages stay silent; urgent only, and never a voice note."),
-    "nine_days": ("The Nine Days: subdued. No celebratory framing, and no music in a voice note."),
+    "nine_days": ("The Nine Days: subdued. No celebratory framing, and no voice note."),
 }
 #: Days on which a routine scheduled message stays silent although it is not
 #: a quiet window. A watch that only speaks for the urgent may still run.
@@ -122,13 +134,17 @@ class Calendar:
             self.tz = ZoneInfo("America/New_York") if ZoneInfo else timezone.utc
             self.problem = self.problem or f"unknown time zone {tz_name!r}"
         self.windows = []
+        self.bad_rows = 0
         for row in self.data.get("windows") or []:
             try:
                 self.windows.append({
                     "start": _parse(row["start"]), "end": _parse(row["end"]),
                     "what": str(row.get("what") or "Shabbat")})
             except (KeyError, TypeError, ValueError):
-                self.problem = self.problem or "a quiet window in the calendar could not be read"
+                # One bad row must not throw away every good one: the readable
+                # windows still hold, and the careful Friday-to-Saturday rule
+                # is laid over them in window_at.
+                self.bad_rows += 1
         self.windows.sort(key=lambda w: w["start"])
         self.days: dict[str, list[dict]] = {}
         for row in self.data.get("days") or []:
@@ -150,12 +166,16 @@ class Calendar:
 
         Past the calendar's last date, and whenever the calendar is unreadable,
         the careful stand-in answers instead: Friday noon to Saturday midnight.
+        A calendar with an unreadable row keeps its good windows and gets the
+        careful stand-in as well.
         """
         if not self.covers(moment.astimezone(self.tz).date()):
             return _careful_window(moment.astimezone(self.tz))
         for window in self.windows:
             if window["start"] <= moment < window["end"]:
                 return window
+        if self.bad_rows:
+            return _careful_window(moment.astimezone(self.tz))
         return None
 
     def last_window_before(self, moment: datetime) -> dict | None:
@@ -431,6 +451,11 @@ def build_calendar(payload: dict, start: date, end: date, *, zip_code: str = "",
         elif item["category"] == "havdalah" and open_at is not None:
             windows.append({"start": open_at, "candles": candles_at, "end": moment})
             open_at = candles_at = None
+    windows = [w for w in windows if w["start"].date() <= end]
+    if open_at is not None and open_at.date() <= end:
+        # A candle lighting with no havdalah after it: the answer stopped
+        # mid-window. The calendar must not claim a day it cannot close.
+        end = open_at.date() - timedelta(days=1)
 
     by_date: dict[str, list[dict]] = {}
     for item in items:
@@ -465,7 +490,7 @@ def build_calendar(payload: dict, start: date, end: date, *, zip_code: str = "",
     zmanim = sorted((i for i in items if i.get("category") == "zmanim" and i.get("subcat") == "fast"),
                     key=lambda i: str(i.get("date")))
     for item in zmanim:
-        name = _plain(item.get("memo")).replace("Erev ", "")
+        name = _plain(item.get("memo")).replace("Erev ", "").replace(" (observed)", "")
         if _plain(item["title"]).lower().startswith("fast begins"):
             entry = {"begins": item["date"]}
             open_fasts[name] = entry
@@ -497,7 +522,7 @@ def build_calendar(payload: dict, start: date, end: date, *, zip_code: str = "",
             days.append({"date": on, "kind": "purim", "what": title})
         elif title == "Erev Pesach":
             days.append({"date": on, "kind": "erev_pesach", "what": title})
-        elif title == "Tish'a B'Av":
+        elif title.startswith("Tish'a B'Av"):
             days.append({"date": on, "kind": "tisha_bav", "what": "Tisha B'Av"})
             if nine_days_from:
                 day = date.fromisoformat(nine_days_from)
@@ -529,7 +554,7 @@ def build_calendar(payload: dict, start: date, end: date, *, zip_code: str = "",
 
 
 def _build_main(args: list[str]) -> int:
-    opts = {"--zip": "", "--tz": "", "--start": "", "--months": "13", "--out": ""}
+    opts = {"--zip": "", "--tz": "", "--start": "", "--months": str(BUILD_MONTHS), "--out": ""}
     it = iter(args)
     for flag in it:
         if flag not in opts:
@@ -542,7 +567,7 @@ def _build_main(args: list[str]) -> int:
     today = datetime.now(timezone.utc).date()
     start = date.fromisoformat(opts["--start"]) if opts["--start"] else today - timedelta(days=BUILD_LOOKBACK_DAYS)
     end = start + timedelta(days=int(opts["--months"]) * 31)
-    payload = fetch_hebcal(opts["--zip"], start, end)
+    payload = fetch_hebcal(opts["--zip"], start, end + timedelta(days=FETCH_MARGIN_DAYS))
     calendar = build_calendar(payload, start, end, zip_code=opts["--zip"], tz=opts["--tz"])
     text = json.dumps(calendar, indent=1, ensure_ascii=False) + "\n"
     if opts["--out"]:
@@ -558,6 +583,22 @@ def _build_main(args: list[str]) -> int:
     return 0
 
 
+def _status_main() -> int:
+    """For staff and fleet checks, never for the person: what is covered, and
+    whether it is about to run out."""
+    cal = load_calendar()
+    if cal is None:
+        print("no calendar: this person does not keep one")
+        return 0
+    if cal.first is None or cal.problem:
+        print(f"calendar present but not usable: {cal.problem or 'no dates'}")
+        return 1
+    left = (cal.last - datetime.now(cal.tz).date()).days
+    note = f", {cal.bad_rows} unreadable window row(s)" if cal.bad_rows else ""
+    print(f"covers {cal.first} to {cal.last}, {left} days left, {len(cal.windows)} windows{note}")
+    return 1 if left < EXPIRY_WARN_DAYS or cal.bad_rows else 0
+
+
 def main(argv: list[str]) -> int:
     if not argv:
         print(gate())
@@ -565,6 +606,8 @@ def main(argv: list[str]) -> int:
     command, rest = argv[0], argv[1:]
     if command == "build":
         return _build_main(rest)
+    if command == "status":
+        return _status_main()
     try:
         cal = load_calendar()
         if command == "now":

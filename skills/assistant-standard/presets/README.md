@@ -73,9 +73,16 @@ continuity on a scripted preset for this script only. On the v2026.8.31 engine
 a gated day would make the next day's block a receipt, which costs one day's
 continuity and nothing else.
 
-A job the person made for themselves does not get the gate by upgrading the
-pack. To hold one of those, set its `script` to `jewish_time.py` (the job's
-prompt should then say what the QUIET CALENDAR block is for).
+**Nothing already on a pod gets the gate by upgrading the pack.** The controller
+never rewrites a preset job that already exists (`presets.plan` keeps it by
+name), so an existing `preset-morning-brief` or `preset-meeting-prep` keeps no
+script and its old prompt, and so does every job the person made for
+themselves. To hold one of those for a person with a calendar, back up
+`cron/jobs.json`, then set the job's `script` to `jewish_time.py` and add the
+QUIET CALENDAR sentence to its prompt, on a pod already on this pack (before
+it, the engine reports "Script not found" on every tick). A job that already
+has a script, like the mail watch, cannot take a second one; the mail watch
+checks the calendar itself.
 
 ## What the payload fields are
 
