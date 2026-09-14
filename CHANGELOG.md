@@ -14,8 +14,9 @@
   fails, and only an ALL-CAPS environment name or a filesystem path may appear
   bare; inside code spans and fences the name as a capitalized word still
   fails, because a sample reply in a fence is a reply the model may copy.
-  Frontmatter values are prose. Python is tokenized, so every string is checked
-  and a `#` inside one hides nothing. YAML, Bases and JSON are read whole,
+  Frontmatter values are prose. Python is parsed, so every string is checked
+  (docstrings and comments are developer text and are skipped) and a `#` inside
+  one hides nothing. YAML, Bases and JSON are read whole,
   comments included, because the model reads them whole. Identifiers stay where
   code needs them (renaming those is a separate decision). An independent
   review of the first version found a dozen shapes it let through, among them a

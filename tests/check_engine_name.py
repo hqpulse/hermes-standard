@@ -36,10 +36,11 @@ THE RULES, by kind of file.
     not. HTML comments are read like prose, because the model reads them.
   - Frontmatter: a lowercase key (`metadata.hermes`, the engine's own schema)
     is allowed, and every value is prose.
-  - Python: every string literal is checked, as prose when it has a space in it
-    and as an identifier when it does not. Comments are developer comments and
-    are not read. Python is tokenized, not grepped, so a `#` inside a string
-    does not hide the rest of the line.
+  - Python: every string literal and f-string piece is checked, as prose when
+    it has a space in it and as an identifier when it does not; the name alone
+    as a word ("Hermes") is a label and fails either way. Comments and
+    docstrings are developer text, never handed to the model, and are not read.
+    Python is parsed, not grepped, so a `#` inside a string hides nothing.
   - Everything else (YAML, Bases, JSON, text): every line, comments included,
     because the model reads the file whole. Lowercase identifiers and paths are
     allowed; the name as a word is not.
@@ -54,11 +55,11 @@ nested bullet, a sample reply in a fence, a `#` inside a string and
 """
 from __future__ import annotations
 
+import ast
 import io
 import re
 import sys
 import tempfile
-import tokenize
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -187,13 +188,22 @@ def markdown_findings(raw: str) -> list[tuple[int, str]]:
 
 
 def python_findings(raw: str) -> list[tuple[int, str]]:
-    out: list[tuple[int, str]] = []
     try:
-        for tok in tokenize.generate_tokens(io.StringIO(raw).readline):
-            if tok.type == tokenize.STRING and string_leak(tok.string):
-                out.append((tok.start[0], tok.string.splitlines()[0] if tok.string else tok.string))
-    except (tokenize.TokenError, IndentationError, SyntaxError) as exc:
-        out.append((1, f"could not be tokenized, so it was not read ({exc})"))
+        tree = ast.parse(raw)
+    except SyntaxError as exc:
+        return [(exc.lineno or 1, f"could not be parsed, so it was not read ({exc.msg})")]
+    docstrings = set()
+    for node in ast.walk(tree):
+        # A string standing as a statement on its own is a docstring or a note
+        # to a developer: nothing prints it and nothing hands it to the model.
+        if isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant) \
+                and isinstance(node.value.value, str):
+            docstrings.add(id(node.value))
+    out: list[tuple[int, str]] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Constant) and isinstance(node.value, str) \
+                and id(node) not in docstrings and string_leak(node.value):
+            out.append((node.lineno, node.value.splitlines()[0] if node.value else node.value))
     return out
 
 
@@ -252,6 +262,8 @@ def self_test() -> int:
         "html comment": ("x.md", "<!-- tell them it is Hermes -->\n"),
         "unclosed fence": ("x.md", "```\nsome code\n"),
         "hash before the name in a python string": ("x.py", 'print("Room #3 is served by Hermes")\n'),
+        "python f-string": ("x.py", 'n = 3\nprint(f"{n} notes filed by Hermes")\n'),
+        "python label value": ("x.py", 'env = {"HARNESS": "Hermes"}\n'),
         "python error message": ("x.py", 'sys.exit("error #2: Hermes is down, tell the person")\n'),
         "hash in a yaml value": ("people.yaml", 'note: "Room #4 notes are drafted by Hermes"\n'),
         "yaml comment the model reads": ("people.yaml", "# the scribe is Hermes underneath\n"),
@@ -265,6 +277,7 @@ def self_test() -> int:
         "command in a fence": ("x.md", "```\nhermes -p hermes-standard cron run abc\n```\n"),
         "engine frontmatter key": ("x.md", "---\nname: x\nmetadata:\n  hermes:\n    requires_tools: [a]\n---\n"),
         "python comment": ("x.py", "# Hermes reads this file\nx = 1\n"),
+        "python docstring": ("x.py", '"""Hermes loads this package."""\ndef f():\n    """Hermes calls this."""\n'),
         "python identifier string": ("x.py", 'p = "/etc/hermes/lane/lane.env"\nk = "HERMES_FLEET_TOKEN"\n'),
         "yaml identifier": ("x.yaml", "# lands in hermes-plugin-ista-scribe\nnamespace: hermes-pvc\n"),
         "header name": ("x.yaml", "# the relay forwards only X-Hermes-Session-Key\n"),
