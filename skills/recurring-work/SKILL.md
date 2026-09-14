@@ -1,6 +1,6 @@
 ---
 name: recurring-work
-description: When a person asks for work on a clock (a report, a summary, a check, every day or every week) or asks to stop one. Tells a run apart from a reminder and files it through Pulse.
+description: Recurring work: a person asks for work on a clock (a report, a summary, a check, every day or every week) or asks to stop one. Tells a run apart from a reminder and files it through Pulse.
 ---
 
 # Recurring work

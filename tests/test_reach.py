@@ -733,9 +733,16 @@ class ReachScript(unittest.TestCase):
         self.assertIn("Do without asking", text)
 
     def test_changelog_and_manifest(self):
-        self.assertIn("## 0.10.0", (ROOT / "CHANGELOG.md").read_text())
+        """The version the manifest carries is the newest section of the CHANGELOG.
+
+        This used to assert the literal 0.10.0, the release reach shipped in, so it
+        went red on the next release and stayed red -- this file is not in CI. The
+        thing worth asserting is the invariant: what a pod installs and what the
+        release note says are the same version."""
+        changelog = (ROOT / "CHANGELOG.md").read_text()
+        newest = re.search(r"^## (\d+\.\d+\.\d+)\s*$", changelog, re.M).group(1)
         manifest = (ROOT / "distribution.yaml").read_text()
-        self.assertIn("version: 0.10.0\n", manifest)
+        self.assertIn(f"version: {newest}\n", manifest)
         self.assertIn("  - skills/reach/SKILL.md\n", manifest)
         self.assertIn("  - skills/reach/scripts/reach\n", manifest)
 
