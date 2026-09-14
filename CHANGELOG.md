@@ -1,5 +1,38 @@
 # Changelog
 
+## 0.17.0
+
+- **Three things I could take off your plate.** A fifth preset, opt in like
+  the mail watch: on Mondays the assistant reads the week's mail and calendar
+  and names three specific things it could do for the person, never the same
+  one twice, and asks which to start. It exists because the best-evidenced
+  reason people stop using an assistant is that they never knew what to hand
+  it. Nothing is read before the person says yes.
+
+## 0.16.0
+
+- **The voice, three rules and a firewall.** Acknowledge in a clause what the
+  person is in the middle of, then answer; a caveat after the answer, one
+  sentence, only when it changes what they do; one question a message. Warmth
+  is how the person is treated, never agreement: a wrong figure is corrected
+  in the first sentence, kindly, and a position holds under pushback until
+  something new arrives.
+- **Speaking first, loosened and bounded.** The ceiling is three unprompted
+  messages a day, counted by the fleet's gate, in place of "most mornings
+  none". Inside it, one small line with nothing behind it is allowed once a
+  day when the hour and the person fit; a twice-ignored nudge stops. A
+  "keep an eye on this" becomes a bounded scheduled job, never one that runs
+  for ever.
+
+## 0.15.0
+
+- **Quiet hours for everyone.** A person's evenings, weekends, days off and
+  personal hours, stated once in passing, are kept in a file by the new
+  quiet-windows skill and read by the same gate that already holds a scheduled
+  job shut for an observance calendar. Nothing unprompted reaches them inside
+  one; the mail watch stays shut too. Nothing is guessed: a person who states
+  no quiet hours is messaged on the ordinary rules.
+
 ## 0.14.0
 
 - **Memory is for the person; plumbing goes to notes.** How a data source is

@@ -236,6 +236,36 @@ def load_calendar(home: Path | None = None) -> Calendar | None:
     return Calendar(data)
 
 
+def load_windows(home: Path | None = None):
+    """The person's stated quiet hours (evenings, weekends, days off), kept by
+    ``quiet_windows.py`` beside this file. None when they have stated none, or
+    when the keeper is not installed: the calendar alone then decides."""
+    try:
+        import importlib.util  # noqa: PLC0415
+        keeper = Path(__file__).resolve().parent / "quiet_windows.py"
+        spec = importlib.util.spec_from_file_location("quiet_windows", keeper)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)  # type: ignore[union-attr]
+        return module.load_windows(home or hermes_home())
+    except Exception:  # noqa: BLE001 - a broken keeper must not break the gate
+        return None
+
+
+def windows_lines(windows, moment: datetime) -> list[str]:
+    """The reading's lines about stated quiet hours; empty when there are none."""
+    if windows is None:
+        return []
+    try:
+        import importlib.util  # noqa: PLC0415
+        keeper = Path(__file__).resolve().parent / "quiet_windows.py"
+        spec = importlib.util.spec_from_file_location("quiet_windows", keeper)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)  # type: ignore[union-attr]
+        return module.lines_for(windows, moment)
+    except Exception:  # noqa: BLE001
+        return []
+
+
 def now() -> datetime:
     """The present moment. JEWISH_TIME_NOW pins it, for tests and for asking
     what a job would have done at a given minute."""
@@ -272,12 +302,21 @@ def held_after_window(cal: Calendar, moment: datetime) -> dict | None:
     return last if moment < release else None
 
 
-def quiet_reason(cal: Calendar | None, moment: datetime, *, routine: bool, hold: bool) -> str:
+def quiet_reason(cal: Calendar | None, moment: datetime, *, routine: bool, hold: bool,
+                 windows=None) -> str:
     """Why a scheduled job must stay silent right now, or "" when it may run.
 
     ``routine`` also silences the days a routine message never goes out on
     (erev Pesach, Tisha B'Av). ``hold`` keeps an interrupting watch shut from the
-    end of a window until the next morning."""
+    end of a window until the next morning. ``windows`` is the person's stated
+    quiet hours (``load_windows``); inside one, every scheduled job is silent."""
+    if windows is not None:
+        try:
+            stated = windows.window_at(moment)
+        except Exception:  # noqa: BLE001
+            stated = None
+        if stated is not None:
+            return f"inside the person's quiet hours ({stated['what']})"
     if cal is None:
         return ""
     window = cal.window_at(moment)
@@ -313,10 +352,19 @@ def describe_day(cal: Calendar, day: date) -> list[str]:
     return lines
 
 
-def reading(cal: Calendar | None, moment: datetime) -> list[str]:
+def reading(cal: Calendar | None, moment: datetime, windows=None) -> list[str]:
     """The lines a model reads: where the person is in their week, right now."""
     if cal is None:
-        return [NONE_KEPT]
+        extra = windows_lines(windows, moment)
+        if not extra:
+            return [NONE_KEPT]
+        return ["QUIET CALENDAR. This person keeps quiet hours. Read this before you write "
+                "anything, act on it, and never repeat any of it to them."] + extra
+    lines = _calendar_reading(cal, moment)
+    return lines + windows_lines(windows, moment)
+
+
+def _calendar_reading(cal: Calendar, moment: datetime) -> list[str]:
     local = moment.astimezone(cal.tz)
     today = local.date()
     lines = ["QUIET CALENDAR. This person keeps Shabbat and yom tov. Read this before you "
@@ -401,10 +449,11 @@ def gate(home: Path | None = None, moment: datetime | None = None) -> str:
     """What a scheduled job's script prints. Never raises."""
     try:
         cal = load_calendar(home)
+        windows = load_windows(home)
         moment = moment or now()
-        if quiet_reason(cal, moment, routine=True, hold=False):
+        if quiet_reason(cal, moment, routine=True, hold=False, windows=windows):
             return GATE_CLOSED
-        return "\n".join(reading(cal, moment) + [GATE_OPEN])
+        return "\n".join(reading(cal, moment, windows) + [GATE_OPEN])
     except Exception:  # noqa: BLE001 - a crashed gate reads as a broken job to the person
         return "\n".join([
             "QUIET CALENDAR. It could not be read this run, so timing is unknown: if today is "
@@ -611,7 +660,7 @@ def main(argv: list[str]) -> int:
     try:
         cal = load_calendar()
         if command == "now":
-            print("\n".join(reading(cal, now())))
+            print("\n".join(reading(cal, now(), load_windows())))
             return 0
         if command == "on" and rest:
             print("\n".join(day_reading(cal, date.fromisoformat(rest[0]))))

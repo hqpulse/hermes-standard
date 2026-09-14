@@ -407,7 +407,7 @@ for marker in ("=== CONTEXT SKILL ===", "=== USER.MD ===", "6,000", "240", "§")
 # Three invariants, each of which has a specific way of going wrong quietly.
 optional = [p.name for p in sorted(ROOT.glob("skills/assistant-standard/presets/*.json"))
             if json.loads(p.read_text()).get("opt_in")]
-if optional != ["mail-watch.json"]:
+if optional != ["delegation-scan.json", "mail-watch.json"]:
     err(f"opt_in presets are {optional}; a preset that reads a person's mail "
         f"waits to be asked for, and everything else is what the assistant IS")
 
