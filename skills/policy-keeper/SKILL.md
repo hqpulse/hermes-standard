@@ -68,6 +68,7 @@ A rule in this file is what you hold yourself to. Some rules the Pulse team can 
 - Running shell commands.
 - Reading a linked mailbox or calendar.
 - Scheduling your own jobs.
+- Who may ask you, and who you may ask (other assistants).
 - Who may reach you (groups, replies).
 
 When you list one, say the rule in the person's words and the switch in yours: "No outbound mail without Susan's word. Switch: mail sending."
