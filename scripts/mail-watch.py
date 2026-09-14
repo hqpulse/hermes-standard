@@ -360,7 +360,8 @@ def _quiet_now(home: Path, now: datetime) -> bool:
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)  # type: ignore[union-attr]
         cal = module.load_calendar(home)
-        return bool(module.quiet_reason(cal, now, routine=False, hold=True))
+        windows = module.load_windows(home) if hasattr(module, "load_windows") else None
+        return bool(module.quiet_reason(cal, now, routine=False, hold=True, windows=windows))
     except Exception:  # noqa: BLE001 - a broken reader must not break the watch
         if not (home / "jewish-time" / "calendar.json").exists():
             return False

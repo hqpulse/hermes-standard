@@ -1,0 +1,34 @@
+#!/usr/bin/env python3
+"""The quiet-windows skill's command: the person's own quiet hours, kept and read.
+
+    quiet-windows list
+    quiet-windows add weekly <days> <from> <to> [what ...]
+    quiet-windows add dates <from> <to> [what ...]
+    quiet-windows remove <id>
+    quiet-windows tz <zone>
+
+This is a doorway, not a second copy. The keeper is ``scripts/quiet_windows.py``
+at the root of the profile, the same file a scheduled job's gate reads, so what
+the assistant records in chat and what holds a job shut can never disagree. The
+profile is found from where this file sits
+(``<profile>/skills/quiet-windows/scripts/``), and HERMES_HOME is set to it
+before the keeper runs, because a terminal command is not guaranteed to inherit
+the profile as its home the way a scheduled job's script does.
+"""
+import os
+import runpy
+import sys
+from pathlib import Path
+
+profile = Path(__file__).resolve().parents[3]
+os.environ["HERMES_HOME"] = str(profile)
+keeper = profile / "scripts" / "quiet_windows.py"
+if not keeper.is_file():
+    print("The quiet-hours keeper is not installed on this assistant: keep the rule in memory, "
+          "say so in one line, and never message inside an hour the person named.")
+    sys.exit(0)
+if sys.argv[1:2] not in ([], ["list"], ["add"], ["remove"], ["tz"]):
+    print(__doc__.split("\n\n", 2)[1])
+    sys.exit(2)
+sys.argv = [str(keeper)] + sys.argv[1:]
+runpy.run_path(str(keeper), run_name="__main__")
