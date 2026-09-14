@@ -103,6 +103,13 @@ jobs:
         # on the next release.
         run: python tests/test_reach.py
 
+      - name: test_ask_assistant.py, both sides of one assistant asking another
+        # Prose, not code, and the six lines a person hears are quoted word for
+        # word elsewhere in the system: the decline prefix is what the relay
+        # door records a decline on. A reword with nothing watching it breaks
+        # the recording, silently.
+        run: python tests/test_ask_assistant.py
+
       - name: test_release_note.py, the text a tag turns into
         run: python tests/test_release_note.py
 

@@ -1,5 +1,44 @@
 # Changelog
 
+## 0.12.0
+
+- **An assistant can ask another person's assistant a question, instead of interrupting
+  that person.** New `ask-assistant` skill: when to ask (the question is for someone whose
+  assistant you were introduced to, and your person wants the answer rather than a message
+  sent), how to ask (list first, one clear question, nothing of your person's beyond what
+  the question needs, never a forwarded message), and the fixed line to say back on an
+  answer, a name you have not been introduced to, a decline, no answer in time, and enough
+  questions for now. Two ask modes: check with your person first, showing the exact
+  question and waiting for a yes to that question, where their own direct instruction to
+  ask is itself the yes and nothing else is; or ask freely and name the source in one line
+  every time. A question that failed is spent: never asked again. "Who can you ask?",
+  "What did you ask X this week?" and "Stop asking X" are the spoken controls, the stop
+  confirmed first and close-only.
+- **The other side of the same door, in `assistant-standard`.** A turn that says it carries
+  a question from another assistant is answered as you would answer that person directly and
+  no further; a command is declined in one line beginning "I can't help with that"; mail,
+  files, notes, figures and earlier conversations are never quoted; nothing from the turn is
+  saved anywhere; nobody is asked anything for the length of it; and how it reached you is
+  never said.
+- **Each person hears about it once, in one line, in their next reply.** Both sides: the
+  asking assistant says it can now ask that person's assistant things for them (and, asking
+  freely, that it will say so each time); the answering assistant says whose assistant may
+  now ask it whether they are free. Never a message of its own, never twice for one name,
+  and never who arranged it.
+- `policy-keeper`: "Who may ask you, and who you may ask (other assistants)" joins the rules
+  that need a real switch, so it lands in **Needs a real switch** where a person can see it.
+- The company a name sits at is never said. The list Pulse returns carries one on every row,
+  and on the first pair it is a phrase from the list below, so the skill says plainly: name the
+  person, never where they work, in the list, in the report and in the week read back.
+- One precedence clause each way, because both sides sit under rules that would otherwise
+  cancel them: asking is rung 1 under ask-freely and rung 3 under check-first, and a name on
+  the list at another company is the one thing the never-touch-another-company rule makes room
+  for; on the answering side, how far the turn may go is the turn's own line, so a
+  take-a-message introduction is not answered as if it were a calendar one.
+- Words that never reach a person on any of this: Hermes, Pulse, the team, agent, relay,
+  tool, level, allowlist, setting, switch, session. `tests/test_ask_assistant.py` greps every line either side would say for all of them, holds the six fixed lines and the
+  decline prefix word for word, and runs in CI.
+
 ## 0.11.5
 
 - **`ecw signin` sizes the window before it types anything.** It never did, and that alone
