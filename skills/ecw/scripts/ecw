@@ -542,7 +542,20 @@ def replay_shot(page, label: str, op: str = "ecw.signin"):
             if index.is_file():
                 seq += sum(1 for l in index.read_text(encoding="utf-8").splitlines() if l.strip())
             path = run / f"{seq:02d}-{op}-{lab}.png"
-            page.screenshot(path=str(path), full_page=True, timeout=15000)
+            # Viewport only, NOT full_page, and never fatal. Measured 2026-09-14: a
+            # full-page shot of the practice EMR's shell made headless Chromium's
+            # software GPU process exit, and three of those tripped Chromium's own
+            # FATAL and aborted the browser, taking an authenticated session with it.
+            # The browser image now runs with no separate GPU process, and this is the
+            # second lock on the same door: a diagnostic picture may never be the thing
+            # that ends a sign-in which cost a real attempt against a clinical account.
+            # A viewport shot is also the more useful evidence -- it is what the screen
+            # looked like, not a stitched image of a page nobody saw at once.
+            try:
+                page.screenshot(path=str(path), full_page=False, timeout=15000)
+            except Exception as exc:                       # noqa: BLE001
+                sys.stderr.write(f"  (screenshot skipped: {type(exc).__name__})\n")
+                return None
             os.chmod(path, 0o600)
             data = path.read_bytes()
             if not data:
