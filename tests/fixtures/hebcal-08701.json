@@ -1,0 +1,464 @@
+{
+"title": "hebcal.com answers for Lakewood NJ 08701, three ranges, trimmed to the fields the build reads",
+"location": {
+"title": "Lakewood, NJ 08701",
+"tzid": "America/New_York"
+},
+"items": [
+{
+"title": "Erev Rosh Hashana",
+"date": "2026-09-11",
+"category": "holiday",
+"subcat": "major",
+"memo": "The Jewish New Year. Also spelled Rosh Hashanah"
+},
+{
+"title": "Candle lighting: 6:54pm",
+"date": "2026-09-11T18:54:00-04:00",
+"category": "candles",
+"memo": "Erev Rosh Hashana"
+},
+{
+"title": "Rosh Hashana 5787",
+"date": "2026-09-12",
+"category": "holiday",
+"subcat": "major",
+"yomtov": true,
+"memo": "The Jewish New Year. Also spelled Rosh Hashanah"
+},
+{
+"title": "Candle lighting: 8:22pm",
+"date": "2026-09-12T20:22:00-04:00",
+"category": "candles",
+"memo": "Rosh Hashana 5787"
+},
+{
+"title": "Rosh Hashana II",
+"date": "2026-09-13",
+"category": "holiday",
+"subcat": "major",
+"yomtov": true,
+"memo": "The Jewish New Year. Also spelled Rosh Hashanah"
+},
+{
+"title": "Havdalah (72 min): 8:21pm",
+"date": "2026-09-13T20:21:00-04:00",
+"category": "havdalah",
+"memo": "Rosh Hashana II"
+},
+{
+"title": "Fast begins",
+"date": "2026-09-14T05:15:00-04:00",
+"category": "zmanim",
+"subcat": "fast",
+"memo": "Tzom Gedaliah"
+},
+{
+"title": "Tzom Gedaliah",
+"date": "2026-09-14",
+"category": "holiday",
+"subcat": "fast",
+"memo": "Fast of the Seventh Month. Commemorates the assassination of the Jewish governor of Judah"
+},
+{
+"title": "Fast ends",
+"date": "2026-09-14T19:40:00-04:00",
+"category": "zmanim",
+"subcat": "fast",
+"memo": "Tzom Gedaliah"
+},
+{
+"title": "Candle lighting: 6:42pm",
+"date": "2026-09-18T18:42:00-04:00",
+"category": "candles",
+"memo": "Parashat Ha’azinu"
+},
+{
+"title": "Parashat Ha’azinu",
+"date": "2026-09-19",
+"category": "parashat"
+},
+{
+"title": "Havdalah (72 min): 8:11pm",
+"date": "2026-09-19T20:11:00-04:00",
+"category": "havdalah"
+},
+{
+"title": "Erev Yom Kippur",
+"date": "2026-09-20",
+"category": "holiday",
+"subcat": "major",
+"memo": "Evening of Yom Kippur (Day of Atonement), which includes the Kol Nidre service. The Yom Kippur fast begins at sundown and continues for 25 hours"
+},
+{
+"title": "Candle lighting: 6:39pm",
+"date": "2026-09-20T18:39:00-04:00",
+"category": "candles",
+"memo": "Erev Yom Kippur"
+},
+{
+"title": "Yom Kippur",
+"date": "2026-09-21",
+"category": "holiday",
+"subcat": "major",
+"yomtov": true,
+"memo": "Day of Atonement. The holiest day of the year in Judaism, traditionally observed with a 25-hour period of fasting and intensive prayer"
+},
+{
+"title": "Havdalah (72 min): 8:07pm",
+"date": "2026-09-21T20:07:00-04:00",
+"category": "havdalah",
+"memo": "Yom Kippur"
+},
+{
+"title": "Erev Sukkot",
+"date": "2026-09-25",
+"category": "holiday",
+"subcat": "major",
+"memo": "Feast of Booths. Also called the Feast of Tabernacles, the seven-day holiday is one of the Three Pilgrimage Festivals (Hebrew: שלוש רגלים, shalosh regalim)"
+},
+{
+"title": "Candle lighting: 6:30pm",
+"date": "2026-09-25T18:30:00-04:00",
+"category": "candles",
+"memo": "Erev Sukkot"
+},
+{
+"title": "Sukkot I",
+"date": "2026-09-26",
+"category": "holiday",
+"subcat": "major",
+"yomtov": true,
+"memo": "Feast of Booths. Also called the Feast of Tabernacles, the seven-day holiday is one of the Three Pilgrimage Festivals (Hebrew: שלוש רגלים, shalosh regalim)"
+},
+{
+"title": "Candle lighting: 7:59pm",
+"date": "2026-09-26T19:59:00-04:00",
+"category": "candles",
+"memo": "Sukkot I"
+},
+{
+"title": "Sukkot II",
+"date": "2026-09-27",
+"category": "holiday",
+"subcat": "major",
+"yomtov": true,
+"memo": "Feast of Booths. Also called the Feast of Tabernacles, the seven-day holiday is one of the Three Pilgrimage Festivals (Hebrew: שלוש רגלים, shalosh regalim)"
+},
+{
+"title": "Havdalah (72 min): 7:58pm",
+"date": "2026-09-27T19:58:00-04:00",
+"category": "havdalah",
+"memo": "Sukkot II"
+},
+{
+"title": "Sukkot III (CH’’M)",
+"date": "2026-09-28",
+"category": "holiday",
+"subcat": "major",
+"memo": "Feast of Booths. Also called the Feast of Tabernacles, the seven-day holiday is one of the Three Pilgrimage Festivals (Hebrew: שלוש רגלים, shalosh regalim)"
+},
+{
+"title": "Sukkot IV (CH’’M)",
+"date": "2026-09-29",
+"category": "holiday",
+"subcat": "major",
+"memo": "Feast of Booths. Also called the Feast of Tabernacles, the seven-day holiday is one of the Three Pilgrimage Festivals (Hebrew: שלוש רגלים, shalosh regalim)"
+},
+{
+"title": "Sukkot V (CH’’M)",
+"date": "2026-09-30",
+"category": "holiday",
+"subcat": "major",
+"memo": "Feast of Booths. Also called the Feast of Tabernacles, the seven-day holiday is one of the Three Pilgrimage Festivals (Hebrew: שלוש רגלים, shalosh regalim)"
+},
+{
+"title": "Sukkot VI (CH’’M)",
+"date": "2026-10-01",
+"category": "holiday",
+"subcat": "major",
+"memo": "Feast of Booths. Also called the Feast of Tabernacles, the seven-day holiday is one of the Three Pilgrimage Festivals (Hebrew: שלוש רגלים, shalosh regalim)"
+},
+{
+"title": "Sukkot VII (Hoshana Raba)",
+"date": "2026-10-02",
+"category": "holiday",
+"subcat": "major",
+"memo": "Feast of Booths. Also called the Feast of Tabernacles, the seven-day holiday is one of the Three Pilgrimage Festivals (Hebrew: שלוש רגלים, shalosh regalim)"
+},
+{
+"title": "Candle lighting: 6:19pm",
+"date": "2026-10-02T18:19:00-04:00",
+"category": "candles",
+"memo": "Sukkot VII (Hoshana Raba)"
+},
+{
+"title": "Shmini Atzeret",
+"date": "2026-10-03",
+"category": "holiday",
+"subcat": "major",
+"yomtov": true,
+"memo": "Eighth Day of Assembly. Immediately following Sukkot, it is observed as a separate holiday in the Diaspora and is combined with Simchat Torah in Israel"
+},
+{
+"title": "Candle lighting: 7:48pm",
+"date": "2026-10-03T19:48:00-04:00",
+"category": "candles",
+"memo": "Shmini Atzeret"
+},
+{
+"title": "Simchat Torah",
+"date": "2026-10-04",
+"category": "holiday",
+"subcat": "major",
+"yomtov": true,
+"memo": "Day of Celebrating the Torah. Celebration marking the conclusion of the annual cycle of public Torah readings, and the beginning of a new cycle"
+},
+{
+"title": "Havdalah (72 min): 7:46pm",
+"date": "2026-10-04T19:46:00-04:00",
+"category": "havdalah",
+"memo": "Simchat Torah"
+},
+{
+"title": "Candle lighting: 7:18pm",
+"date": "2027-04-16T19:18:00-04:00",
+"category": "candles",
+"memo": "Parashat Metzora"
+},
+{
+"title": "Parashat Metzora",
+"date": "2027-04-17",
+"category": "parashat"
+},
+{
+"title": "Havdalah (72 min): 8:49pm",
+"date": "2027-04-17T20:49:00-04:00",
+"category": "havdalah"
+},
+{
+"title": "Fast begins",
+"date": "2027-04-21T04:43:00-04:00",
+"category": "zmanim",
+"subcat": "fast",
+"memo": "Ta’anit Bechorot"
+},
+{
+"title": "Ta’anit Bechorot",
+"date": "2027-04-21",
+"category": "holiday",
+"subcat": "fast",
+"memo": "Fast of the First Born"
+},
+{
+"title": "Finish eating chametz",
+"date": "2027-04-21T10:41:00-04:00",
+"category": "zmanim",
+"subcat": "achilasChametz",
+"memo": "Latest time of day to eat chametz on the day before Pesach"
+},
+{
+"title": "Biur Chametz",
+"date": "2027-04-21T11:48:00-04:00",
+"category": "zmanim",
+"subcat": "biurChametz",
+"memo": "Latest time of day to sell and burn chametz before Pesach"
+},
+{
+"title": "Erev Pesach",
+"date": "2027-04-21",
+"category": "holiday",
+"subcat": "major",
+"memo": "Passover, the Feast of Unleavened Bread. Also called Chag HaMatzot (the Festival of Matzah), it commemorates the Exodus and freedom of the Israelites from ancient Egypt"
+},
+{
+"title": "Candle lighting: 7:23pm",
+"date": "2027-04-21T19:23:00-04:00",
+"category": "candles",
+"memo": "Erev Pesach"
+},
+{
+"title": "Pesach I",
+"date": "2027-04-22",
+"category": "holiday",
+"subcat": "major",
+"yomtov": true,
+"memo": "Passover, the Feast of Unleavened Bread. Also called Chag HaMatzot (the Festival of Matzah), it commemorates the Exodus and freedom of the Israelites from ancient Egypt"
+},
+{
+"title": "Candle lighting: 8:54pm",
+"date": "2027-04-22T20:54:00-04:00",
+"category": "candles",
+"memo": "Pesach I"
+},
+{
+"title": "Pesach II",
+"date": "2027-04-23",
+"category": "holiday",
+"subcat": "major",
+"yomtov": true,
+"memo": "Passover, the Feast of Unleavened Bread. Also called Chag HaMatzot (the Festival of Matzah), it commemorates the Exodus and freedom of the Israelites from ancient Egypt"
+},
+{
+"title": "Candle lighting: 7:25pm",
+"date": "2027-04-23T19:25:00-04:00",
+"category": "candles",
+"memo": "Pesach II"
+},
+{
+"title": "Pesach III (CH’’M)",
+"date": "2027-04-24",
+"category": "holiday",
+"subcat": "major",
+"memo": "Passover, the Feast of Unleavened Bread. Also called Chag HaMatzot (the Festival of Matzah), it commemorates the Exodus and freedom of the Israelites from ancient Egypt"
+},
+{
+"title": "Havdalah (72 min): 8:56pm",
+"date": "2027-04-24T20:56:00-04:00",
+"category": "havdalah"
+},
+{
+"title": "Pesach IV (CH’’M)",
+"date": "2027-04-25",
+"category": "holiday",
+"subcat": "major",
+"memo": "Passover, the Feast of Unleavened Bread. Also called Chag HaMatzot (the Festival of Matzah), it commemorates the Exodus and freedom of the Israelites from ancient Egypt"
+},
+{
+"title": "Pesach V (CH’’M)",
+"date": "2027-04-26",
+"category": "holiday",
+"subcat": "major",
+"memo": "Passover, the Feast of Unleavened Bread. Also called Chag HaMatzot (the Festival of Matzah), it commemorates the Exodus and freedom of the Israelites from ancient Egypt"
+},
+{
+"title": "Pesach VI (CH’’M)",
+"date": "2027-04-27",
+"category": "holiday",
+"subcat": "major",
+"memo": "Passover, the Feast of Unleavened Bread. Also called Chag HaMatzot (the Festival of Matzah), it commemorates the Exodus and freedom of the Israelites from ancient Egypt"
+},
+{
+"title": "Candle lighting: 7:29pm",
+"date": "2027-04-27T19:29:00-04:00",
+"category": "candles",
+"memo": "Pesach VI (CH’’M)"
+},
+{
+"title": "Pesach VII",
+"date": "2027-04-28",
+"category": "holiday",
+"subcat": "major",
+"yomtov": true,
+"memo": "Passover, the Feast of Unleavened Bread. Also called Chag HaMatzot (the Festival of Matzah), it commemorates the Exodus and freedom of the Israelites from ancient Egypt"
+},
+{
+"title": "Candle lighting: 9:01pm",
+"date": "2027-04-28T21:01:00-04:00",
+"category": "candles",
+"memo": "Pesach VII"
+},
+{
+"title": "Pesach VIII",
+"date": "2027-04-29",
+"category": "holiday",
+"subcat": "major",
+"yomtov": true,
+"memo": "Passover, the Feast of Unleavened Bread. Also called Chag HaMatzot (the Festival of Matzah), it commemorates the Exodus and freedom of the Israelites from ancient Egypt"
+},
+{
+"title": "Havdalah (72 min): 9:02pm",
+"date": "2027-04-29T21:02:00-04:00",
+"category": "havdalah",
+"memo": "Pesach VIII"
+},
+{
+"title": "Candle lighting: 7:32pm",
+"date": "2027-04-30T19:32:00-04:00",
+"category": "candles",
+"memo": "Parashat Achrei Mot"
+},
+{
+"title": "Candle lighting: 7:54pm",
+"date": "2027-07-30T19:54:00-04:00",
+"category": "candles",
+"memo": "Parashat Matot-Masei"
+},
+{
+"title": "Parashat Matot-Masei",
+"date": "2027-07-31",
+"category": "parashat"
+},
+{
+"title": "Havdalah (72 min): 9:24pm",
+"date": "2027-07-31T21:24:00-04:00",
+"category": "havdalah"
+},
+{
+"title": "Rosh Chodesh Av",
+"date": "2027-08-04",
+"category": "roshchodesh",
+"memo": "Start of month of Av on the Hebrew calendar. Av (אָב) is the 11th month of the civil Hebrew year (12th on leap years) and the 5th month of the biblical Hebrew year. It has 30 days and corresponds to July or August on the Gregorian calendar. רֹאשׁ חוֹדֶשׁ, transliterated Rosh Chodesh or Rosh Hodesh, is a minor holiday that occurs at the beginning of every month in the Hebrew calendar. It is marked by the birth of a new moon"
+},
+{
+"title": "Candle lighting: 7:47pm",
+"date": "2027-08-06T19:47:00-04:00",
+"category": "candles",
+"memo": "Parashat Devarim"
+},
+{
+"title": "Parashat Devarim",
+"date": "2027-08-07",
+"category": "parashat"
+},
+{
+"title": "Havdalah (72 min): 9:16pm",
+"date": "2027-08-07T21:16:00-04:00",
+"category": "havdalah"
+},
+{
+"title": "Fast begins",
+"date": "2027-08-11T19:59:00-04:00",
+"category": "zmanim",
+"subcat": "fast",
+"memo": "Erev Tish’a B’Av"
+},
+{
+"title": "Erev Tish’a B’Av",
+"date": "2027-08-11",
+"category": "holiday",
+"subcat": "major",
+"memo": "The Ninth of Av. Fast commemorating the destruction of the two Temples"
+},
+{
+"title": "Tish’a B’Av",
+"date": "2027-08-12",
+"category": "holiday",
+"subcat": "major",
+"memo": "The Ninth of Av. Fast commemorating the destruction of the two Temples"
+},
+{
+"title": "Fast ends",
+"date": "2027-08-12T20:30:00-04:00",
+"category": "zmanim",
+"subcat": "fast",
+"memo": "Tish’a B’Av"
+},
+{
+"title": "Candle lighting: 7:38pm",
+"date": "2027-08-13T19:38:00-04:00",
+"category": "candles",
+"memo": "Parashat Vaetchanan"
+},
+{
+"title": "Parashat Vaetchanan",
+"date": "2027-08-14",
+"category": "parashat"
+},
+{
+"title": "Havdalah (72 min): 9:07pm",
+"date": "2027-08-14T21:07:00-04:00",
+"category": "havdalah"
+}
+]
+}

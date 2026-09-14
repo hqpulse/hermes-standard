@@ -1,5 +1,5 @@
 name: hermes-standard
-version: 0.12.1
+version: 0.13.0
 description: "HQ Pulse standard employee assistant: persona and skills"
 hermes_requires: ">=0.21.0"
 author: "HQ Pulse"
@@ -94,3 +94,6 @@ distribution_owned:
   - skills/ecw/scripts/ecw
   - skills/pointclickcare/SKILL.md
   - scripts/mail-watch.py
+  - scripts/jewish_time.py
+  - skills/jewish-time/SKILL.md
+  - skills/jewish-time/scripts/jewish-time

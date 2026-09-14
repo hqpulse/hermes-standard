@@ -1,5 +1,41 @@
 # Changelog
 
+## 0.13.0
+
+- **A bar for speaking first, for every assistant.** Anything a person did not
+  ask for, a scheduled job's output included, now passes four questions line by
+  line: it is theirs to act on, something is different tomorrow if they do not
+  see it today, they have not heard it before, and there is one thing you would
+  do about it. One no and the line does not go. Borderline is held for the next
+  brief rather than dropped, one unprompted message a morning is the ceiling,
+  and nothing is ever about the assistant itself. This was written for one
+  person's assistant on the night of 13 Sep and lived in her job prompts; it is
+  the standard now (assistant-standard, "Speaking first").
+- **Length ceilings and an easy question to end on.** A message nobody asked for
+  is four lines, an answer two to four, the brief twelve with four meetings at
+  most. No hyphen bullets, which a phone prints as hyphens. The last line is a
+  question the person can finish in a word or three.
+- **The brief looks back to the last working day,** not a fixed day or two, so
+  the first morning after a long weekend or a three-day yom tov reads three
+  days of mail and puts the oldest thing that is genuinely theirs first.
+- **A new `jewish-time` skill, and a calendar that holds jobs shut in code.**
+  For a person who keeps Shabbat and yom tov: the rules for quiet windows, fast
+  days, chol hamoed, erev Pesach and Tisha B'Av, going in and coming back. The
+  times are that person's own, built once from hebcal.com for where they live
+  (`scripts/jewish_time.py build`) into `jewish-time/calendar.json` beside
+  their profile, a path the pack never touches. The morning brief and the
+  pre-read now run `scripts/jewish_time.py` first: inside a window the model is
+  never woken, and outside one it is told what kind of day it is and how far
+  back to look. Somebody with no calendar gets one neutral line and no change.
+  The first hand version told three jobs to answer a word the engine does not
+  treat as silence, which would have delivered that word to a phone every half
+  hour of Shabbat.
+- **The mail watch no longer relies on its prompt to keep Shabbat.** The script
+  checks the same calendar before it reads anything, and stays shut from the
+  start of a quiet window until nine the next morning, so what arrived meanwhile
+  is judged once, when the person is back. The half-hourly schedule is
+  unchanged, and costs nothing inside a window.
+
 ## 0.12.1
 
 - **The pack no longer says which engine it is built on.** An assistant is

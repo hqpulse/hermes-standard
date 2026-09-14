@@ -39,6 +39,14 @@ would have been for are done properly instead: repeats are impossible because a
 message id is reported at most once ever, and the one-time hello rides a
 FIRST NOTICE marker this file prints until it has woken the model once.
 
+QUIET WINDOWS ARE CODE, NOT PROMPT. For a person who keeps Shabbat and yom tov
+(``jewish_time.py`` finds their calendar), nothing here runs inside a quiet
+window, nor from its end until the next morning: no door call, no state change,
+the gate closed. The half-hourly schedule stays one line for everybody, and the
+person who keeps it costs nothing on a Saturday. What arrived meanwhile is
+still unseen when the hold lifts, so the first run after it judges it once.
+Before 14 Sep 2026 this rested on a paragraph in the job's prompt.
+
 THE FAILURE CEILING. A watch that cannot read is silent, and silence from a
 watch reads as "nothing is happening" — the 10 Sep lesson, where an optimistic
 skip with no ceiling kept a dead channel looking healthy all day. So failures
@@ -175,6 +183,9 @@ def _save_state(path: Path, state: dict) -> None:
 
 
 def _now() -> datetime:
+    pinned = (os.environ.get("JEWISH_TIME_NOW") or "").strip()
+    if pinned:
+        return datetime.fromisoformat(pinned).astimezone(timezone.utc)
     return datetime.now(timezone.utc)
 
 
@@ -328,11 +339,37 @@ def _report_failure(state: dict, reason: str, now: datetime) -> bool:
     return True
 
 
+def _quiet_now(home: Path, now: datetime) -> bool:
+    """Whether this person's quiet calendar holds the watch shut right now.
+
+    The calendar and its reading belong to ``jewish_time.py`` beside this file.
+    If that cannot be loaded while a calendar exists, the careful answer is
+    Friday noon to the end of Saturday, local time: a silent Friday afternoon
+    costs an hour, a notice inside Shabbat is remembered.
+    """
+    try:
+        import importlib.util  # noqa: PLC0415
+        spec = importlib.util.spec_from_file_location(
+            "jewish_time", Path(__file__).resolve().parent / "jewish_time.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)  # type: ignore[union-attr]
+        cal = module.load_calendar(home)
+        return bool(module.quiet_reason(cal, now, routine=False, hold=True))
+    except Exception:  # noqa: BLE001 - a broken reader must not break the watch
+        if not (home / "jewish-time" / "calendar.json").exists():
+            return False
+        local = now.astimezone()
+        return (local.weekday() == 4 and local.hour >= 12) or local.weekday() == 5
+
+
 def main() -> int:
     home = _hermes_home()
+    now = _now()
+    if _quiet_now(home, now):
+        print('{"wakeAgent": false}')
+        return 0
     path = _state_path(home)
     state = _load_state(path)
-    now = _now()
 
     key = (os.environ.get("MCP_PULSE_API_KEY") or "").strip()
     url = _door_url(home)

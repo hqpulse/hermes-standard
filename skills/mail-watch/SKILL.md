@@ -30,6 +30,8 @@ Not worth it, no matter how it is dressed:
 - Anything whose whole point is that the sender wants attention. Urgency in the subject line is the sender's opinion, not a fact.
 - Anything you have already mentioned. You cannot mention the same message twice: the watch hands you a message once and never again. A thread you flagged before can still come back if it has moved on.
 
+The bar is the assistant-standard's four questions for anything unprompted, said here for mail: theirs, dated, new, and one thing you would do. For a person who keeps Shabbat and yom tov, the watch is held shut through their quiet windows and until the next morning before you are ever woken, so you never judge mail on Shabbat.
+
 When it is close, do not send it. The cost of a missed borderline mail is that they read it themselves an hour later. The cost of a wrong interruption is that they switch you off, and then you miss the real one.
 
 ## When the excerpt is not enough
