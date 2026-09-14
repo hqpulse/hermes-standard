@@ -136,9 +136,13 @@ So the skill ships one command instead of loosening rules 5 and 6:
     wait <selector|ms>     a deterministic wait
     gone <selector>        wait for something to go away (the loading veil)
     keys <sel> <text>      type with REAL key events, one per character
-    dialogs                clear the three entry dialogs, with force and settle
+    dialogs                clear the three entry dialogs, on a clock. When one will
+                           not clear it names what the application is showing
     confirm                the mailed confirmation link, in an isolated context
-    signin                 the whole entry, refusals compiled in
+    signin                 the whole entry, refusals compiled in. It raises the window
+                           itself, asks the application whether it works rather than
+                           reading the address bar, and spends an attempt only when a
+                           password is actually submitted
     session save|restore   keep a live session across a pod roll
 
 **Run it with the terminal tool, never with `execute_code`** — the same reason `logins`
@@ -156,6 +160,13 @@ do-not-show-again checkbox; it never navigates to `logout.jsp` and it never clos
 browser, only its own context; `keys` refuses anything that is not a field, so it cannot
 become a way to press a control; and **the two-attempt budget is kept on disk**, so a
 fresh session that has forgotten rule 7 still cannot spend a third.
+
+**An attempt is a password that was SUBMITTED**, and the ledger is written at that
+moment, not when the command is invoked. On 13 Sep both of a night's two attempts were
+spent by runs that never reached the password field at all — one refused on a bad guard,
+one died at the window-size wall — and the account was then out of budget having risked
+nothing. A run that stops before the password says so in its own output, and the budget
+of two, in a six-hour window, is exactly what it was.
 
 No secret passes through you: `signin` takes the password from the `logins` door and the
 mailbox token from the controller door **inside the script**, so neither is ever a tool
@@ -296,7 +307,7 @@ vocabulary of clicking is not satisfied by finding a way to do it without clicki
    around the two rules and it does not widen them: it is one named, reviewable file that
    does the four things this door needs and the tools cannot do, with every refusal above
    compiled into it. A script you write yourself is still refused, whatever it is for.
-7. **Two sign-in attempts per working session, across every cause, and then stop.** Not
+7. **Two submitted passwords per working session, across every cause, and then stop.** Not
    two per attempt, not two per reason, and not two each time the session drops. A
    refused password, an expired session bounce and a fresh start all spend from the same
    budget of two, because this practice's login page **renders no error box at all** and
@@ -344,3 +355,10 @@ If a control is present in the snapshot and reports visible but a click on it ti
 you are looking at a modal backdrop. Clear the dialogs (the entry sequence above and in
 `references/login.md`) and try again — by pressing their own OK controls, never by
 evaluating your way around them.
+
+**`scripts/ecw dialogs` is on a clock and it will tell you why it stopped.** When a dialog
+cannot be pressed it comes back with what the application is showing, in the application's
+own words — the one exception to the rule above, fenced to the three entry dialogs, cut
+short, and with any long number masked. Say the SENSE of it ("the application is showing a
+data loading error") rather than pasting the box. A sweep that clears nothing is a refusal,
+not a delay: pressing on through it reads a screen that is not there.

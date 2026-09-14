@@ -27,8 +27,14 @@ picks its own: measured at **780 x 441** on a Chromium launched with the sidecar
 flags, against a floor of 1600 x 1000. So this check fails by default, and a door that
 only knows how to stop here never types a character.
 
-**Run `scripts/ecw viewport`.** It reads the window and raises it to 1600 x 1000 if it is
-smaller, and it prints what it ended up with. That is a browser setting: it writes nothing
+**`scripts/ecw signin` raises it itself, before it touches screen one**, and again after
+anything that reattaches — the override belongs to a CDP session and dies with it, so it
+cannot be set once and relied on later. On 13 Sep the sign-in did not do this, the login
+page answered "Your screen resolution is 800 x 600" against its own 1600 x 900 floor,
+screen one never advanced, and no password was ever submitted.
+
+**`scripts/ecw viewport` is the same thing on its own.** It reads the window and raises it
+to 1600 x 1000 if it is smaller, and it prints what it ended up with. That is a browser setting: it writes nothing
 to the page and presses no control. `browser_cdp` would also do it and rule 5 still
 refuses `browser_cdp` free-hand. If the command cannot raise it, say so and stop — at that
 point the window size really is a configuration fact and a person sets it once, with one
@@ -448,7 +454,7 @@ Ranked by how likely it is to be misread as something else.
 | 8 | non-browser user agent | "Error/Under Maintenance" | HTTP 400 on a URL that answers 200 in Chrome | **not reachable from inside a session** — the user agent is the sidecar browser's, and rule 5 refuses `browser_cdp`. If you are seeing this you are not looking at the sidecar. It is why a `curl` check of "is eCW up" reports an outage that is not there. `scripts/ecw preflight` sends a desktop user agent for exactly this reason, so use it rather than a hand-written `curl`. |
 | 9 | session expired | a login page | back on a `/webemr/login/` path mid-read | **Not** a credential failure — but you cannot prove that, see below. Sign in again **only if the session budget of two attempts (SKILL.md rule 7) has not been spent.** It has no separate allowance: a bounce and a refusal are the same page. |
 | 10 | second concurrent session | UNRECORDED on a real practice | unknown | never force it. A live session may have a real person on the other end. |
-| 11 | window too narrow | a different, re-laid-out page | none. It silently renders differently. | the sidecar's default is **780 x 441**, so this is the state you START in. Run `scripts/ecw viewport`, which raises it to 1600 x 1000 and prints what it got. Only if that cannot raise it is it a configuration fact for a person (section 0). |
+| 11 | window too narrow | on the login page, "Your screen resolution is 800 x 600" and screen one never advances; inside, a different, re-laid-out page | on the login page it says so; inside, none — it silently renders differently. | the sidecar's default is **780 x 441**, so this is the state you START in. `scripts/ecw signin` now raises it before screen one; `scripts/ecw viewport` does it on its own. Only if that cannot raise it is it a configuration fact for a person (section 0). |
 | 11b | a confirmation link was mailed | a page that is not the application and is not the login page | the path or query carries **`OTPVerification`** | **the password was ACCEPTED.** Do not retry it, and do not read this as a refusal. `scripts/ecw confirm` (section 6). If no link arrives, say so and stop; do not sign in again to make one arrive. |
 | 12 | CAPTCHA misread | the change-password modal redisplays | the form does not advance | **you cannot be here.** Rule 10 forbids filling this form, so there is no CAPTCHA of yours to re-read. Stop and tell a person. A retry loop on this screen is the account-lockout path this skill exists to prevent. |
 
