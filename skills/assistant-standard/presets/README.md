@@ -1,6 +1,6 @@
 # Presets: the jobs every new assistant starts with
 
-Four cron job specs, one JSON file each, in the shape of a Hermes `create_job`
+Four cron job specs, one JSON file each, in the shape of the engine's `create_job`
 payload. The controller applies them at provision, and again from a Presets tab
 for assistants that already exist. The pack does not ship a `cron/jobs.json`:
 that file is per person and a pack-owned copy would overwrite every person's
@@ -13,7 +13,7 @@ own jobs on update (the 3 Sep lesson).
 | `open-commitments.json` | `preset-open-commitments` | nightly 23:00 | `__HOME_CHANNEL__` | `[SILENT]`; rewrites `Open commitments.md` in the vault | yes |
 | `mail-watch.json` | `preset-mail-watch` | every 30 min, 07:00-21:00, every day | `__HOME_CHANNEL__` | `[SILENT]` unless something in their mailbox needs them | opt in |
 
-Everything below was read from Hermes v0.21.0 (2026.8.31), the engine the fleet runs.
+Everything below was read from the engine the fleet runs, at `v0.21.0` (2026.8.31).
 
 ## The fourth one is different: it is opt in, and it runs a script first
 
@@ -60,8 +60,7 @@ arguments of `cron.jobs.create_job`, with one exception noted.
 - `name`: the job's friendly name. The presets use a `preset-` prefix; the skill
   lets the assistant edit, pause or remove only jobs with that prefix.
 - `schedule`: cron syntax. Resolved in the profile's configured timezone
-  (`cron/jobs.py`, "anchor to the CONFIGURED Hermes timezone, not the server's
-  local"), which the fleet render writes into each person's config as the
+  (`cron/jobs.py`, `anchor to the CONFIGURED Hermes timezone, not the server's local`), which the fleet render writes into each person's config as the
   top-level `timezone:` key. `hermes_time.py` resolves that key, and
   `gateway/run.py` bridges it to `HERMES_TIMEZONE` at start. It is now PER
   PERSON: the value lives on the person's StatefulSet
@@ -202,7 +201,7 @@ from its prompt. Both halves together mean the question is asked once.
    preset whose `deliver` still contains the literal `__HOME_CHANNEL__`.
 3. **Let the assistant manage preset jobs from chat.** The interactive agent
    already has the `cronjob` toolset: it is not in the rulebook's
-   `disabled_toolsets`. Hermes has no per-job ownership, so the restriction to
+   `disabled_toolsets`. The engine has no per-job ownership, so the restriction to
    `preset-` names is the skill's rule, not a mechanism. If the rulebook ever
    disables `cronjob`, the ask-once answer stops working. Verified 2026-09-07
    against the live org rulebook ConfigMaps: `hermes-venza` (14 disabled toolsets),

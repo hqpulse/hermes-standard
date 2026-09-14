@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.12.1
+
+- **The pack no longer says which engine it is built on.** An assistant is
+  bought from Pulse; the engine underneath is our supplier and no customer has
+  a reason to be told its name. The persona has always said "never name a
+  vendor", but a persona is one file and this pack lands sixty-odd others on
+  every pod, all of them text a model reads and then repeats. The four
+  sentences that named the engine (all in the presets reference) now say "the
+  engine".
+- **A check that keeps it that way.** `tests/check_engine_name.py` reads every
+  file `distribution_owned` ships, removes the code, and fails on the engine's
+  name in what is left. Identifiers are allowed on purpose and only in the
+  forms code needs them: environment names, module and profile paths, the
+  `metadata.hermes` frontmatter key the engine parses the block by, a
+  namespace, a pod name. Renaming those is a coordinated rename across every
+  script and every live cluster object and is a separate decision. CI runs the
+  check and then runs it again against a deliberately leaky copy of the tree,
+  so a check that passed everything would itself go red.
+
 ## 0.12.0
 
 - **A new `ask-assistant` skill: putting a question to somebody else's assistant.** Where two

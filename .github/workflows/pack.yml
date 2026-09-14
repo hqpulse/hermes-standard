@@ -79,6 +79,25 @@ jobs:
       - name: check_distribution.py, what reaches a pod
         run: python tests/check_distribution.py
 
+      - name: check_engine_name.py, the supplier a customer must never be told about
+        # A customer buys an assistant from Pulse. Which engine it is built on
+        # is our business and not theirs, and every file this pack ships is
+        # text a model reads and then repeats.
+        run: python tests/check_engine_name.py
+
+      - name: The engine-name check can still fail
+        # Same reason as the index lint below: a check nobody has watched go
+        # red is indistinguishable from one that returns zero on everything.
+        run: |
+          set -euo pipefail
+          cp -r . "$RUNNER_TEMP/leakpack"
+          printf '\nThe assistant runs on Hermes.\n' >> "$RUNNER_TEMP/leakpack/SOUL.md"
+          if (cd "$RUNNER_TEMP/leakpack" && python tests/check_engine_name.py); then
+            echo "::error::the engine-name check passed a persona that names the engine"
+            exit 1
+          fi
+          echo "ok: the check refused a persona that names the engine"
+
       - name: check_entity_notes.py
         run: python tests/check_entity_notes.py
 
