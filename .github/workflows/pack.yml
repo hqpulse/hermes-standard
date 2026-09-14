@@ -2,9 +2,9 @@ name: pack
 
 # hermes-standard had no CI at all: nine test scripts under tests/, every one
 # of them run by hand, on a repo that installs itself into every pod on the
-# fleet. This runs all nine, in a clean clone, on the interpreter their
+# fleet. This runs all ten, in a clean clone, on the interpreter their
 # docstrings ask for. (test_ecw and test_reach joined on 14 Sep: they were the
-# two nobody ran, and both had rotted.)
+# two nobody ran, and both had rotted. test_ask_assistant is the tenth.)
 #
 # push AND pull_request, so a branch is proven green before a pull request
 # exists and the pull request is proven again on its merge commit. A branch in
@@ -97,6 +97,13 @@ jobs:
         # the four defects fixed on 14 Sep went in. It needs openssl for its
         # loopback https stand-in, which ubuntu-latest has.
         run: python tests/test_ecw.py
+
+      - name: test_ask_assistant.py, the words a person never hears
+        # The skill this guards is the first one that reaches outside the
+        # person the assistant works for, and every rule in it is text a model
+        # reads. A forbidden word written into it is a forbidden word said out
+        # loud, and nothing else in the repo would notice.
+        run: python tests/test_ask_assistant.py
 
       - name: test_reach.py
         # Also never run here, and it had frozen a version number that went stale

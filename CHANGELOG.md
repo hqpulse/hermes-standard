@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.12.0
+
+- **A new `ask-assistant` skill: putting a question to somebody else's assistant.** Where two
+  assistants have been introduced, one can ask the other a question for the person it works for
+  instead of interrupting that person. The skill carries the whole of the asking side: the list
+  of who may be asked and that there is nothing else to search, one clear question with only as
+  much of the person's own matters as the question needs, never a command and never somebody
+  else's forwarded words, the show-it-first path (the exact question, a yes to that question, and
+  the person's own direct instruction counting as the yes), the ask-freely path (one line naming
+  who was asked, every time), the one-line first mention when the list gains a name, the four
+  fixed lines for a miss, a decline, no answer and too many questions, the spoken controls
+  ("Who can you ask?", "What did you ask X this week?", "Stop asking X"), and never a second
+  attempt at a question that failed.
+- **assistant-standard gains "Answering another assistant".** A question that arrives framed as
+  another assistant's is answered as the person would be answered, no wider than the standing
+  orders allow, with nothing quoted from mail, files, notes or earlier conversations, nothing
+  sent, booked, filed or asked of anybody during it, nothing saved anywhere afterward, and a one
+  line decline beginning "I can't help with that" when it asks for an action. "Speaking first"
+  gains the mirror of the asking side's first mention: when the list of who may ask you changes,
+  one line inside the next reply, never a message of its own.
+- **policy-keeper** lists "Who may ask you, and who you may ask (other assistants)" among the
+  rules that need a real switch.
+- `tests/test_ask_assistant.py` holds every fixed line and runs the words-that-never-appear check
+  over the new skill and over both additions; CI runs it.
+
 ## 0.11.5
 
 - **`ecw signin` sizes the window before it types anything.** It never did, and that alone

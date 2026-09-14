@@ -702,9 +702,13 @@ class ReachScript(unittest.TestCase):
         keeper = KEEPER_MD.read_text()
         self.assertIn(KEEPER_ADDITION + "\n", keeper)
         self.assertIsNone(FORBIDDEN.search(KEEPER_ADDITION))
-        # The bullet is the last of its list.
+        # The bullet is still inside its list, not stranded after the
+        # sentence that follows it. It stopped being the LAST one when
+        # ask-assistant added its own (0.12.0), so the test is "another
+        # bullet or the end of the list", never "the end of the list".
         i = keeper.index(KEEPER_ADDITION)
-        self.assertEqual(keeper[i + len(KEEPER_ADDITION):i + len(KEEPER_ADDITION) + 2], "\n\n")
+        after = keeper[i + len(KEEPER_ADDITION):i + len(KEEPER_ADDITION) + 3]
+        self.assertIn(after[:2], ("\n\n", "\n-"), after)
 
     def test_the_skill_names_every_command_and_every_after_line(self):
         text = SKILL_MD.read_text()
