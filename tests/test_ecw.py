@@ -449,7 +449,11 @@ class TheHostRule(unittest.TestCase):
 
 
 class TheBudget(unittest.TestCase):
-    """SKILL.md rule 7, on disk, because a fresh session does not remember."""
+    """SKILL.md rule 7, on disk, because a fresh session does not remember.
+
+    The number and the window are exactly what they were. What changed on
+    14 Sep is WHEN a row is written: checking costs nothing, and only a
+    submitted password is an attempt."""
 
     def setUp(self):
         self.dir = tempfile.mkdtemp()
@@ -458,32 +462,532 @@ class TheBudget(unittest.TestCase):
         self.ecw.attempts_clear()
 
     def test_two_then_a_refusal(self):
-        self.ecw.attempts_spend()
-        self.ecw.attempts_spend()
+        self.ecw.attempts_record()
+        self.ecw.attempts_check()   # one left, no raise
+        self.ecw.attempts_record()
         with self.assertRaises(SystemExit) as caught:
-            self.ecw.attempts_spend()
+            self.ecw.attempts_check()
         self.assertEqual(caught.exception.code, 2)
 
+    def test_the_check_reads_and_never_writes(self):
+        """The whole point of the split: a run that only asks whether it may go
+        must leave the ledger exactly as it found it, however many times it asks."""
+        for _ in range(5):
+            self.ecw.attempts_check()
+        self.assertEqual(self.ecw.attempts_read(), [])
+        self.assertEqual(self.ecw.attempts_left(), 2)
+
+    def test_the_budget_and_the_window_are_unchanged(self):
+        self.assertEqual(self.ecw.ATTEMPT_BUDGET, 2)
+        self.assertEqual(self.ecw.ATTEMPT_WINDOW_S, 6 * 3600)
+
     def test_a_successful_entry_clears_it(self):
-        self.ecw.attempts_spend()
-        self.ecw.attempts_spend()
+        self.ecw.attempts_record()
+        self.ecw.attempts_record()
         self.ecw.attempts_clear()
-        self.ecw.attempts_spend()   # no raise
+        self.ecw.attempts_check()   # no raise
 
     def test_an_attempt_older_than_the_window_no_longer_counts(self):
         old = time.time() - self.ecw.ATTEMPT_WINDOW_S - 60
         self.ecw.write_private(self.ecw.attempts_file(), json.dumps([old, old]))
         self.assertEqual(self.ecw.attempts_read(), [])
-        self.ecw.attempts_spend()   # no raise
+        self.ecw.attempts_check()   # no raise
 
     def test_a_junk_state_file_is_not_a_free_pass_and_not_a_crash(self):
         self.ecw.attempts_file().write_text("{not json")
         self.assertEqual(self.ecw.attempts_read(), [])
 
     def test_the_directory_is_0700_and_what_it_writes_is_0600(self):
-        self.ecw.attempts_spend()
+        self.ecw.attempts_record()
         self.assertEqual(oct(os.stat(self.dir).st_mode)[-3:], "700")
         self.assertEqual(oct(os.stat(self.ecw.attempts_file()).st_mode)[-3:], "600")
+
+    def test_the_note_says_which_way_it_went(self):
+        self.assertIn("untouched", self.ecw.ledger_note(False))
+        self.assertIn("2 of 2", self.ecw.ledger_note(False))
+        self.ecw.attempts_record()
+        self.assertIn("one attempt is on the ledger", self.ecw.ledger_note(True))
+        self.assertIn("1 of 2", self.ecw.ledger_note(True))
+
+
+BASE = "https://practice.example"
+SHELL_URL = BASE + "/mobiledoc/jsp/webemr/index.jsp"
+LOGIN_URL = BASE + "/mobiledoc/jsp/webemr/login/newLogin.jsp"
+READY = {"present": True, "anchor": True, "splash": False, "veil": False, "login": False}
+
+
+class FakePage:
+    """The one page the sign-in drives, with a log of what was done to it in order.
+
+    No browser and no network: it answers the handful of calls the flow makes and
+    records them, so a test can assert not only WHAT happened but WHEN -- that the
+    window was raised before screen one, that no password was submitted, which
+    control was pressed. Waits pass no real time unless a test asks them to.
+    """
+
+    def __init__(self, url="about:blank", width=780, height=441, shell=None,
+                 floor=(1600, 1000), after_login=SHELL_URL, dialogs=(),
+                 viewport_raises=False, mute=False, wait_real=False):
+        self.url = url
+        self.width, self.height = width, height
+        self.shell = dict(READY) if shell is None else dict(shell)
+        self.floor = floor              # below it, screen one never advances
+        self.after_login = after_login
+        self.dialogs = dict(dialogs)    # visible root -> its own text; none can be clicked
+        self.viewport_raises = viewport_raises
+        self.mute = mute                # evaluate() throws: the page cannot answer
+        self.wait_real = wait_real      # waits burn the timeout they are given
+        self.log = []
+        self.filled = {}
+        self.context = FakeContext(self)
+
+    # what the flow calls -------------------------------------------------
+    def evaluate(self, js, arg=None):
+        if "window.innerWidth" in js:
+            return [self.width, self.height]
+        if self.mute:
+            raise RuntimeError("execution context was destroyed")
+        if "Building your user experience" in js:
+            return dict(self.shell)
+        if "innerText" in js:
+            return [self.dialogs.get(root, "") for root in (arg or [])]
+        return None
+
+    def set_viewport_size(self, size):
+        if self.viewport_raises:
+            raise RuntimeError("this page was not created by Playwright")
+        self.log.append(("viewport", size["width"], size["height"]))
+        self.width, self.height = size["width"], size["height"]
+
+    def goto(self, url, **kw):
+        self.log.append(("goto", url))
+        self.url = url
+
+    def wait_for_selector(self, selector, state=None, timeout=None):
+        self.log.append(("wait", selector))
+        if self.wait_real and timeout:
+            time.sleep(timeout / 1000.0)
+        if selector == "input#passwordField:visible" and self.width < self.floor[0]:
+            # The measured wall: eCW answers "Your screen resolution is 800 x 600"
+            # against its own floor and screen one never advances.
+            raise RuntimeError("screen one never advanced")
+        return None if state == "hidden" else object()
+
+    def fill(self, selector, value):
+        self.log.append(("fill", selector))
+        self.filled[selector] = value
+
+    def click(self, selector, **kw):
+        self.log.append(("click", selector))
+        if selector == "input#Login":
+            self.url = self.after_login
+            self.shell = dict(READY)    # the login form is gone once you are in
+
+    def wait_for_timeout(self, ms):
+        if self.wait_real and ms:
+            time.sleep(ms / 1000.0)
+
+    def query_selector(self, selector):
+        for root in self.dialogs:
+            if selector == root or selector.startswith(root + " "):
+                return FakeControl(self, timeout_ok=False)
+        return None
+
+    def screenshot(self, path, full_page=False, timeout=None):
+        with open(path, "wb") as fh:
+            fh.write(b"\x89PNG stand-in")
+
+    # helpers for the tests ------------------------------------------------
+    def did(self, *entry):
+        return entry in self.log
+
+    def at(self, kind, name=None):
+        for i, row in enumerate(self.log):
+            if row[0] == kind and (name is None or (len(row) > 1 and row[1] == name)):
+                return i
+        return -1
+
+
+class FakeControl:
+    """A dialog control that is on screen and will not be pressed, the way an
+    unclickable modal behaves when the application's own JavaScript is dead."""
+
+    def __init__(self, page, timeout_ok=False):
+        self.page, self.timeout_ok = page, timeout_ok
+
+    def is_visible(self):
+        return True
+
+    def click(self, timeout=None, force=False):
+        if self.page.wait_real and timeout:
+            time.sleep(timeout / 1000.0)
+        if not self.timeout_ok:
+            raise RuntimeError("element is not clickable: another element intercepts")
+
+
+class FakeContext:
+    def __init__(self, page):
+        self.page = page
+
+    def new_cdp_session(self, page):
+        return FakeCDP(self.page)
+
+
+class FakeCDP:
+    def __init__(self, page):
+        self.page = page
+
+    def send(self, method, params):
+        assert method == "Emulation.setDeviceMetricsOverride"
+        self.page.log.append(("viewport", params["width"], params["height"]))
+        self.page.width, self.page.height = params["width"], params["height"]
+
+
+class FlowCase(unittest.TestCase):
+    """A sign-in driven against FakePage, with the doors and the browser stubbed."""
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+        self.saved = {k: os.environ.get(k) for k in
+                      ("ECW_STATE_DIR", "ECW_BASE_URL", "ECW_LOGIN_TITLE", "HERMES_REPLAY_DIR")}
+        os.environ["ECW_STATE_DIR"] = self.dir
+        os.environ["ECW_BASE_URL"] = BASE
+        os.environ["ECW_LOGIN_TITLE"] = "a login title, not a credential"
+        os.environ.pop("HERMES_REPLAY_DIR", None)
+        self.ecw = load()
+        self.ecw.attempts_clear()
+
+    def tearDown(self):
+        for k, v in self.saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        shutil.rmtree(self.dir, ignore_errors=True)
+
+    def signin(self, page, preflight=(True, {})):
+        """cmd_signin against this page. Returns (exit code, what it said)."""
+        import contextlib
+        import io
+        ecw = self.ecw
+        ecw.connect = lambda stack: object()
+        ecw.pick_page = lambda browser, base, make=False: page
+        ecw.preflight_state = lambda: preflight
+        ecw.login_username = lambda title: "a-username"
+        ecw.login_password = lambda title: "a-password-that-is-not-real"
+        said = io.StringIO()
+        with contextlib.redirect_stderr(said), contextlib.redirect_stdout(io.StringIO()) as out:
+            try:
+                code = ecw.cmd_signin([])
+            except SystemExit as exit_:
+                code = exit_.code
+        return code, said.getvalue() + "\n[stdout] " + out.getvalue()
+
+    def rows(self):
+        return self.ecw.attempts_read()
+
+
+class TheWindowBeforeScreenOne(FlowCase):
+    """Defect 1, measured on 13 Sep: signin never set the viewport, so eCW's login
+    page rendered "Your screen resolution is 800 x 600" against its own floor and
+    screen one never advanced. The username went in correctly and no password was
+    ever submitted. cmd_viewport already existed and already documented the hazard;
+    the sign-in simply never called it."""
+
+    def test_the_window_is_raised_before_screen_one_is_driven(self):
+        page = FakePage(width=780, height=441)
+        code, said = self.signin(page)
+        self.assertEqual(code, 0, said)
+        raised, login_page = page.at("viewport"), page.at("goto", LOGIN_URL)
+        self.assertNotEqual(raised, -1, "the sign-in never raised the window")
+        self.assertLess(raised, login_page, "the window was raised after the login page loaded")
+        self.assertGreaterEqual(page.width, self.ecw.MIN_W)
+        self.assertGreaterEqual(page.height, self.ecw.MIN_H)
+
+    def test_at_the_sidecars_own_size_the_sign_in_would_not_have_got_past_screen_one(self):
+        """The regression itself: with the raise taken out, this same page stops
+        exactly where the real one stopped, with no password submitted."""
+        page = FakePage(width=780, height=441)
+        self.ecw.raise_viewport = lambda p, w=None, h=None: (p.width, p.height, False)
+        code, said = self.signin(page)
+        self.assertEqual(code, 2)
+        self.assertNotIn(("fill", "input#passwordField"), page.log)
+        self.assertEqual(self.rows(), [], "an attempt was charged for a wall it never got past")
+
+    def test_a_window_that_will_not_rise_stops_before_the_login_page(self):
+        page = FakePage(width=780, height=441)
+        self.ecw.raise_viewport = lambda p, w=None, h=None: (780, 441, False)
+        code, said = self.signin(page)
+        self.assertEqual(code, 2)
+        self.assertIn("--window-size=1920,1200", said, "it must name the one-line fix")
+        self.assertNotIn(("goto", LOGIN_URL), page.log)
+
+    def test_the_raise_falls_back_to_the_browser_setting_one_level_down(self):
+        page = FakePage(width=780, height=441, viewport_raises=True)
+        w, h, ok = self.ecw.raise_viewport(page)
+        self.assertTrue(ok)
+        self.assertEqual((w, h), (self.ecw.MIN_W, self.ecw.MIN_H))
+
+    def test_a_window_already_over_the_floor_is_left_alone(self):
+        page = FakePage(width=1920, height=1113)
+        w, h, ok = self.ecw.raise_viewport(page)
+        self.assertTrue(ok)
+        self.assertEqual(page.log, [], "it re-set a window that was already big enough")
+
+    def test_it_is_raised_again_at_the_shell_because_the_override_dies_with_a_session(self):
+        """The override belongs to a CDP session and dies when a client detaches, so
+        every leg of the flow asks for it again rather than assuming the first one held."""
+        page = FakePage(width=780, height=441)
+        asked = []
+        real = self.ecw.raise_viewport
+        self.ecw.raise_viewport = lambda p, w=None, h=None: (asked.append(len(p.log)) or
+                                                             real(p, w or self.ecw.MIN_W, h or self.ecw.MIN_H))
+        code, said = self.signin(page)
+        self.assertEqual(code, 0, said)
+        shell = page.at("goto", SHELL_URL)
+        self.assertGreaterEqual(len(asked), 2, "the window was raised once and never again")
+        self.assertTrue(any(at >= shell for at in asked),
+                        "nothing raised the window again after the shell was loaded")
+
+    def test_the_confirmation_road_re_raises_too(self):
+        """The confirmation opens and closes a context of its own; the source is the
+        proof here, because reaching that branch needs a mailbox."""
+        src = SCRIPT.read_text(encoding="utf-8")
+        self.assertIn('size_the_window("after the confirmation")', src)
+
+
+class TheInApplicationGuard(FlowCase):
+    """Defect 2: the guard read the address bar. A shell that is signed out sits on
+    index.jsp exactly like a working one, and on 13 Sep signin declined to sign in
+    on one of those, printing that it was already in the application."""
+
+    def test_a_signed_out_shell_on_index_jsp_is_not_in_the_application(self):
+        wedged = dict(READY, login=True)
+        self.assertFalse(self.ecw.shell_loaded(wedged))
+        self.assertIn("signed out", self.ecw.shell_why(wedged))
+
+    def test_the_sign_in_runs_on_a_signed_out_shell_instead_of_refusing(self):
+        page = FakePage(url=SHELL_URL, shell=dict(READY, login=True))
+        code, said = self.signin(page)
+        self.assertEqual(code, 0, said)
+        self.assertIn(("fill", "input#passwordField"), page.log,
+                      "it declined to sign in on a shell that was signed out")
+        self.assertEqual(len(self.rows()), 0, "cleared on the way out of a good sign-in")
+
+    def test_a_working_shell_is_still_a_short_cut_and_spends_nothing(self):
+        page = FakePage(url=SHELL_URL, shell=dict(READY))
+        code, said = self.signin(page)
+        self.assertEqual(code, 0, said)
+        self.assertNotIn(("goto", LOGIN_URL), page.log, "it signed in on top of a working shell")
+        self.assertIn("already in the application", said)
+        self.assertIn("untouched", said)
+        self.assertEqual(self.rows(), [])
+
+    def test_a_page_that_cannot_answer_says_it_cannot_tell_and_claims_nothing(self):
+        page = FakePage(url=SHELL_URL, mute=True)
+        self.ecw.IN_APP_WAIT_S = 1      # the grace a mid-paint shell gets, cut for the test
+        code, said = self.signin(page)
+        self.assertEqual(code, 2)
+        self.assertIn("cannot be told apart", said)
+        self.assertNotIn("already in the application", said)
+        self.assertEqual(self.rows(), [], "it charged an attempt for a page it could not read")
+
+    def test_the_guard_is_one_read_not_a_wait(self):
+        """Keep it fast: a shell that answers straight away is judged on that one
+        answer, with no polling loop behind it."""
+        reads = []
+        page = FakePage(url=SHELL_URL, shell=dict(READY))
+        real = page.evaluate
+
+        def counted(js, arg=None):
+            if "Building your user experience" in js:
+                reads.append(js)
+            return real(js, arg)
+        page.evaluate = counted
+        code, said = self.signin(page)
+        self.assertEqual(code, 0, said)
+        self.assertEqual(len(reads), 1, "the healthy short cut read the shell more than once")
+
+    def test_the_facts_include_a_visible_login_field(self):
+        js = self.ecw.JS_SHELL
+        for needle in ("input#doctorID", "input#passwordField", "login"):
+            self.assertIn(needle, js)
+        # visible, because screen one renders a HIDDEN password field of its own
+        self.assertIn("getComputedStyle", js)
+
+    def test_where_says_the_address_but_not_that_it_works(self):
+        """`ecw where` prints what the ADDRESS means, and that word does not change.
+        What changes is that it no longer answers 0 on a shell that is not working."""
+        import contextlib
+        import io
+        page = FakePage(url=SHELL_URL, shell=dict(READY, login=True))
+        self.ecw.connect = lambda stack: object()
+        self.ecw.pick_page = lambda browser, base, make=False: page
+        said, out = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stderr(said), contextlib.redirect_stdout(out):
+            code = self.ecw.cmd_where([])
+        self.assertEqual(out.getvalue().strip(), "in-the-app")
+        self.assertEqual(code, 2)
+        self.assertIn("not working", said.getvalue())
+
+
+class TheDialogSweep(FlowCase):
+    """Defect 3: on 13 Sep `ecw dialogs` ran 180 seconds against two stacked modals
+    that could not be pressed, was killed at the tool's timeout, and had cleared
+    nothing. A hang with no reason attached is the worst answer available; the real
+    one was the application's own "data loading error"."""
+
+    DEAD = (("div.bootbox",
+             "The system encountered a data loading error. Please try to refresh this window."),
+            ("div#showCPTCopyRightModal",
+             "CPT copyright 2024 American Medical Association. All rights reserved."))
+
+    def test_a_dialog_that_will_not_clear_comes_back_named_inside_the_deadline(self):
+        page = FakePage(url=SHELL_URL, dialogs=self.DEAD, wait_real=True)
+        started = time.monotonic()
+        cleared, stuck = self.ecw.clear_dialogs(page, budget_s=2)
+        took = time.monotonic() - started
+        self.assertEqual(cleared, 0)
+        self.assertLess(took, 6, f"the sweep ran {took:.1f}s against a 2s budget")
+        self.assertIn("data loading error", stuck)
+
+    def test_the_named_refusal_is_what_the_command_exits_on(self):
+        import contextlib
+        import io
+        page = FakePage(url=SHELL_URL, dialogs=self.DEAD)
+        self.ecw.connect = lambda stack: object()
+        self.ecw.pick_page = lambda browser, base, make=False: page
+        said = io.StringIO()
+        with contextlib.redirect_stderr(said), contextlib.redirect_stdout(io.StringIO()):
+            code = self.ecw.cmd_dialogs([])
+        self.assertEqual(code, 2, "a sweep that cleared nothing reported success")
+        self.assertIn("data loading error", said.getvalue())
+
+    def test_the_whole_sweep_is_bounded_by_its_own_clock(self):
+        """Every wait inside takes its timeout from what is LEFT, so the ceiling is
+        the budget however many dialogs are stacked up."""
+        page = FakePage(url=SHELL_URL, dialogs=self.DEAD, wait_real=True)
+        started = time.monotonic()
+        self.ecw.clear_dialogs(page, rounds=8, budget_s=3)
+        self.assertLess(time.monotonic() - started, 8)
+
+    def test_the_defaults_are_seconds_not_minutes(self):
+        self.assertLessEqual(self.ecw.DIALOG_STEP_S, 10)
+        self.assertLessEqual(self.ecw.DIALOG_TOTAL_S, 30)
+        self.assertLessEqual(self.ecw.DIALOG_POLL_S, self.ecw.DIALOG_TOTAL_S)
+
+    def test_no_wait_in_the_sweep_is_a_fixed_ten_seconds_any_more(self):
+        src = SCRIPT.read_text(encoding="utf-8")
+        body = src.split("def clear_dialogs(")[1].split("\ndef ")[0]
+        self.assertNotIn("timeout=10000", body)
+        self.assertNotIn("timeout=5000", body)
+        self.assertIn("left_ms", body)
+
+    def test_a_dialog_that_does_clear_reports_no_refusal(self):
+        page = FakePage(url=SHELL_URL, dialogs=self.DEAD)
+        page.query_selector = lambda sel: (FakeControl(page, timeout_ok=True)
+                                           if any(sel.startswith(r) for r, _ in self.DEAD) else None)
+        page.dialogs = {}       # they went away when they were pressed
+        cleared, stuck = self.ecw.clear_dialogs(page, rounds=1)
+        self.assertGreater(cleared, 0)
+        self.assertEqual(stuck, "")
+
+    def test_a_long_number_never_rides_out_on_the_quote(self):
+        """SKILL.md: this application's error boxes carry an account number and a
+        session id. The named refusal is the narrow exception to not quoting them,
+        so it is fenced: three roots, cut short, and no long number."""
+        page = FakePage(url=SHELL_URL, dialogs=(
+            ("div.bootbox", "Data loading error on account 100244871, session 8f2 id 993310221."),))
+        text = self.ecw.dialogs_on_screen(page)
+        self.assertIn("Data loading error", text)
+        self.assertNotIn("100244871", text)
+        self.assertNotIn("993310221", text)
+        self.assertIn("[number]", text)
+
+    def test_only_the_three_known_roots_can_ever_be_quoted(self):
+        """What it may put in a message is bounded to the entry dialogs. It is not
+        a way to lift text off a chart."""
+        page = FakePage(url=SHELL_URL, dialogs=(("div.bootbox", "x" * 400),))
+        asked = {}
+        real = page.evaluate
+
+        def spy(js, arg=None):
+            if "innerText" in js:
+                asked["roots"] = arg
+            return real(js, arg)
+        page.evaluate = spy
+        text = self.ecw.dialogs_on_screen(page)
+        self.assertEqual(asked["roots"], [root for root, _ in self.ecw.DIALOGS])
+        self.assertLessEqual(len(text), 320, "the quote is trimmed")
+
+
+class TheLedgerCountsSubmissions(FlowCase):
+    """Defect 4: both of 13 Sep's two attempts were spent and NEITHER submitted a
+    password -- the first refused on the bad guard, the second died at the
+    resolution wall. Only a submitted password can lock a clinician out, so only a
+    submitted password is an attempt."""
+
+    def test_a_run_that_never_reaches_the_password_leaves_the_ledger_alone(self):
+        page = FakePage(width=780, height=441)
+        self.ecw.raise_viewport = lambda p, w=None, h=None: (p.width, p.height, False)
+        code, said = self.signin(page)
+        self.assertEqual(code, 2)
+        self.assertEqual(self.rows(), [])
+        self.assertIn("no password was submitted", said)
+        self.assertIn("untouched", said)
+
+    def test_a_preflight_refusal_costs_nothing_and_says_so(self):
+        page = FakePage()
+        code, said = self.signin(page, preflight=(False, {"newLogin_bBlocked": "true"}))
+        self.assertEqual(code, 2)
+        self.assertEqual(self.rows(), [])
+        self.assertIn("untouched", said)
+
+    def test_a_submitted_password_is_exactly_one_row(self):
+        page = FakePage(after_login=LOGIN_URL)     # bounced with no error=6: refused
+        code, said = self.signin(page)
+        self.assertEqual(code, 2)
+        self.assertEqual(len(self.rows()), 1, "a submitted password was not counted once")
+        self.assertIn("one attempt is on the ledger", said)
+
+    def test_the_row_is_on_disk_before_the_control_is_pressed(self):
+        """If the click goes through and this process then dies, the attempt must
+        still be there: counting one that did not quite land is the safe direction."""
+        page = FakePage(after_login=LOGIN_URL)
+        seen = {}
+        real = page.click
+
+        def watch(selector, **kw):
+            if selector == "input#Login":
+                seen["rows"] = len(self.rows())
+            return real(selector, **kw)
+        page.click = watch
+        self.signin(page)
+        self.assertEqual(seen.get("rows"), 1)
+
+    def test_two_submissions_and_then_it_refuses(self):
+        page = FakePage(after_login=LOGIN_URL)
+        self.signin(page)
+        self.signin(FakePage(after_login=LOGIN_URL))
+        code, said = self.signin(FakePage(after_login=LOGIN_URL))
+        self.assertEqual(code, 2)
+        self.assertIn("budget of two attempts", said)
+        self.assertEqual(len(self.rows()), 2, "the refusal itself wrote a row")
+
+    def test_the_refusal_lands_before_anything_is_opened(self):
+        self.ecw.attempts_record()
+        self.ecw.attempts_record()
+        page = FakePage()
+        code, said = self.signin(page)
+        self.assertEqual(code, 2)
+        self.assertEqual(page.log, [], "it drove the browser on a budget that was spent")
+
+    def test_a_good_sign_in_clears_the_ledger_and_says_so(self):
+        page = FakePage()
+        code, said = self.signin(page)
+        self.assertEqual(code, 0, said)
+        self.assertEqual(self.rows(), [])
+        self.assertIn("the sign-in went through", said)
 
 
 class TheDoor(unittest.TestCase):

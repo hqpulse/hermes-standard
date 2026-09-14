@@ -8,9 +8,13 @@
     ecw wait <selector|ms>        a deterministic wait, no snapshot poll
     ecw gone <selector>           wait for something to go away (a spinner)
     ecw keys <selector> <text>    type with REAL key events, one per character
-    ecw dialogs                   clear the three entry dialogs, with force and settle
+    ecw dialogs                   clear the three entry dialogs, on a clock; when one
+                                  will not clear it says WHAT is on screen
     ecw confirm                   the mailed confirmation link, in an ISOLATED context
-    ecw signin                    the whole entry, refusals compiled in
+    ecw signin                    the whole entry, refusals compiled in. It sizes the
+                                  window itself, tests the application rather than the
+                                  address, and only counts an attempt once a password
+                                  has actually been submitted
     ecw session save|restore      keep a live session across a pod roll
 
 WHY THIS FILE EXISTS
@@ -132,6 +136,18 @@ DEFAULT_STATE_DIR = "/opt/data/state/ecw"
 MIN_W, MIN_H = 1600, 1000
 HTTP_TIMEOUT_S = 40
 SETTLE_MS = 2000
+
+#: The dialog sweep is on a clock. One dialog gets DIALOG_STEP_S for any single
+#: wait or press, and the whole sweep gets DIALOG_TOTAL_S however many dialogs
+#: it finds. When the application's own JavaScript is dead the modals stack and
+#: none of them can be pressed, and on 13 Sep that ran the sweep for 180 seconds
+#: before it was killed, having cleared nothing. A refusal that NAMES what is on
+#: screen is worth more than any amount of further waiting.
+DIALOG_STEP_S = 5
+DIALOG_TOTAL_S = 20
+#: What the sweep gets when it is only being run between two readings of the
+#: shell, where the caller is already inside its own wait.
+DIALOG_POLL_S = 6
 
 # --- refusals, as plain lines a person can be told -------------------------
 
@@ -428,16 +444,44 @@ def attempts_read() -> list:
     return [t for t in rows if isinstance(t, (int, float)) and now - t < ATTEMPT_WINDOW_S]
 
 
-def attempts_spend() -> None:
-    rows = attempts_read()
-    if len(rows) >= ATTEMPT_BUDGET:
+def attempts_left() -> int:
+    return max(0, ATTEMPT_BUDGET - len(attempts_read()))
+
+
+def attempts_check() -> None:
+    """Is there an attempt left at all? This READS the ledger and writes nothing.
+
+    Checking and recording are two separate things on purpose. The budget is
+    there to stop a real clinician being locked out of their own day, and the
+    only thing that can lock an account is a password that was actually
+    SUBMITTED. On 13 Sep both of the night's two attempts were spent by a
+    command that was merely invoked: the first refused on a bad guard, the
+    second died at the resolution wall, and neither ever reached the password
+    field. The budget was then spent with nothing to show for it.
+    """
+    if attempts_left() <= 0:
         die(BUDGET_SPENT, 2)
+
+
+def attempts_record() -> None:
+    """One attempt on the ledger, at the moment the password is submitted."""
+    rows = attempts_read()
     rows.append(time.time())
     write_private(attempts_file(), json.dumps(rows))
 
 
 def attempts_clear() -> None:
     write_private(attempts_file(), "[]")
+
+
+def ledger_note(recorded: bool) -> str:
+    """What this run did to the ledger, in one clause, always said out loud."""
+    hours = ATTEMPT_WINDOW_S // 3600
+    if recorded:
+        return (f"one attempt is on the ledger, {attempts_left()} of {ATTEMPT_BUDGET} "
+                f"left in this {hours}-hour window")
+    return (f"no password was submitted, so the attempt ledger is untouched: "
+            f"{attempts_left()} of {ATTEMPT_BUDGET} still there")
 
 
 # --- the run folder (PLAN B10, B10-02) --------------------------------------
@@ -580,27 +624,85 @@ def cmd_url(argv: list) -> int:
 
 
 def cmd_where(argv: list) -> int:
-    """The address, and in one word what it MEANS."""
+    """The address, and in one word what it MEANS.
+
+    The word is what the ADDRESS means and it stays that. But "in-the-app" is a
+    claim about the application, not about the address bar, so when the address
+    says that, the application is asked as well -- one read, no waiting. A shell
+    that is signed out or wedged sits on this very address, and answering 0 on
+    it sends the next read at a screen that is not there.
+    """
     import contextlib
     base = base_url()
     with contextlib.ExitStack() as stack:
         page = pick_page(connect(stack), base)
         verdict = classify(page.url)
+        state = shell_state(page) if verdict == "in-the-app" else None
     print(verdict)
     say("  " + WHAT_IT_MEANS[verdict])
+    if state is not None and not shell_loaded(state):
+        say(f"  but the application is not working on it: {shell_why(state)}. "
+            "This is the address, not a working screen")
+        return 2
     return 0 if verdict in ("signed-in", "in-the-app") else 2
 
 
-def cmd_viewport(argv: list) -> int:
-    """Read it, and raise it if it is under the floor the application needs.
+def window_size(page) -> tuple:
+    """(width, height) as the page itself measures it, (0, 0) if it cannot say."""
+    try:
+        size = page.evaluate("[window.innerWidth, window.innerHeight]")
+        return int(size[0]), int(size[1])
+    except Exception:
+        return 0, 0
+
+
+def raise_viewport(page, want_w: int = MIN_W, want_h: int = MIN_H) -> tuple:
+    """Put the window over the floor the application needs. (width, height, ok).
 
     The sidecar gets no --window-size, so Chromium picks its own and the last
     measurement was 780 x 440 against a floor of 1600 x 1000. Below the floor
     the application silently re-lays out, and a door reading a different page
-    reads a different answer. The real fix is one flag on the browser image;
-    this is the belt-and-braces second answer, and it is a browser setting, not
-    a page write.
+    reads a different answer. The login page is harsher than that: it renders
+    "Your screen resolution is 800 x 600" against its own 1600 x 900 floor and
+    screen one never advances, so a sign-in below the floor cannot happen at
+    all -- measured on 13 Sep, with the username filled correctly and no
+    password ever submitted.
+
+    THE OVERRIDE IS PER CDP SESSION. It is dropped the moment the client that
+    set it detaches, and every run of this script is its own client. So it
+    cannot be set once, by hand or by an earlier command, and relied on later:
+    whoever is about to drive the application raises it, and raises it again
+    after anything that reattaches. The durable fix is one flag on the browser
+    image (references/login.md section 0); this is the second answer, and it is
+    a browser setting -- it writes nothing to the page and presses no control.
     """
+    w, h = window_size(page)
+    if w >= want_w and h >= want_h:
+        return w, h, True
+    try:
+        page.set_viewport_size({"width": want_w, "height": want_h})
+    except Exception:
+        # A page Playwright did not create can refuse the high-level call.
+        # This is the same request one level down.
+        try:
+            session = page.context.new_cdp_session(page)
+            session.send("Emulation.setDeviceMetricsOverride",
+                         {"width": want_w, "height": want_h,
+                          "deviceScaleFactor": 1, "mobile": False})
+        except Exception:
+            return w, h, False
+    w, h = window_size(page)
+    return w, h, w >= want_w and h >= want_h
+
+
+#: What a person does once, on the browser image, so no run has to do this.
+WINDOW_FIX = ("one line on the browser image sets it for good: --window-size=1920,1200 "
+              "on the Chromium the sidecar launches (not 1920,1080 -- that measures "
+              "1920 x 993 inside, under the floor)")
+
+
+def cmd_viewport(argv: list) -> int:
+    """Read it, and raise it if it is under the floor the application needs."""
     import contextlib
     want_w, want_h = MIN_W, MIN_H
     if len(argv) == 2:
@@ -613,24 +715,15 @@ def cmd_viewport(argv: list) -> int:
     base = base_url()
     with contextlib.ExitStack() as stack:
         page = pick_page(connect(stack), base)
-        size = page.evaluate("[window.innerWidth, window.innerHeight]")
-        if size[0] >= want_w and size[1] >= want_h:
-            print(f"{size[0]}x{size[1]}")
-            return 0
-        say(f"  {size[0]}x{size[1]} is under {want_w}x{want_h}; raising it")
-        try:
-            page.set_viewport_size({"width": want_w, "height": want_h})
-        except Exception:
-            # A page Playwright did not create can refuse the high-level call.
-            # This is the same request one level down, and it is a BROWSER
-            # setting: it writes nothing to the page and presses no control.
-            session = page.context.new_cdp_session(page)
-            session.send("Emulation.setDeviceMetricsOverride",
-                         {"width": want_w, "height": want_h,
-                          "deviceScaleFactor": 1, "mobile": False})
-        size = page.evaluate("[window.innerWidth, window.innerHeight]")
-        print(f"{size[0]}x{size[1]}")
-        return 0 if size[0] >= want_w and size[1] >= want_h else 2
+        was_w, was_h = window_size(page)
+        if was_w < want_w or was_h < want_h:
+            say(f"  {was_w}x{was_h} is under {want_w}x{want_h}; raising it")
+        w, h, ok = raise_viewport(page, want_w, want_h)
+        print(f"{w}x{h}")
+        if not ok:
+            say(f"  it would not go over {want_w}x{want_h}. That is a configuration "
+                f"fact now, not something to retry: {WINDOW_FIX}")
+        return 0 if ok else 2
 
 
 def cmd_wait(argv: list) -> int:
@@ -732,10 +825,23 @@ SHELL_ANCHOR_FALLBACK = "a#jellybean-panelLink22"
 #: half an hour later, and that is what this bound is for.
 SHELL_WAIT_S = 120
 
-#: The shell's three facts, read in one call. "Visible" the way a person means
-#: it: laid out with a size, not display:none, not visibility:hidden.
-#: (offsetParent alone is null on a position:fixed element, and the loading
-#: veil may well be one.) The RULE is shell_loaded(); this only gathers.
+#: The same grace for a page that ALREADY claims to be the application: enough
+#: for a mid-paint shell to finish, short enough that a wedged one is named
+#: rather than waited on.
+IN_APP_WAIT_S = 60
+
+#: The login form, on a page whose address says the application. A shell whose
+#: session has gone answers the address with the login form and stays there, so
+#: this fact is what tells a signed-out shell from a working one. It must be
+#: VISIBLE: screen one renders a hidden password field of its own.
+JS_LOGIN_FIELDS = ("input#doctorID", "input#passwordField", "input#Login",
+                   'input[type="password"]')
+
+#: The shell's facts, read in ONE call: cheap enough to be the guard on every
+#: road. "Visible" the way a person means it: laid out with a size, not
+#: display:none, not visibility:hidden. (offsetParent alone is null on a
+#: position:fixed element, and the loading veil may well be one.) The RULE is
+#: shell_loaded(); this only gathers.
 JS_SHELL = (
     "()=>{const vis=e=>{if(!e) return false; const s=getComputedStyle(e);"
     " if(s.display==='none'||s.visibility==='hidden') return false;"
@@ -745,24 +851,29 @@ JS_SHELL = (
     # the splash: an element on screen whose OWN text says so (its children may be anything)
     " const splash=Array.from(document.querySelectorAll('div,span,p,h1,h2,h3')).some(e=>vis(e)"
     "  && Array.from(e.childNodes).some(n=>n.nodeType===3 && /Building your user experience/i.test(n.textContent||'')));"
+    " const login=" + json.dumps(list(JS_LOGIN_FIELDS)) +
+    "  .some(s=>Array.from(document.querySelectorAll(s)).some(vis));"
     " return {present: anchors.length>0 || !!fallback, anchor: anchors.some(vis) || vis(fallback),"
-    "         splash: splash, veil: vis(document.querySelector(" + json.dumps(VEIL) + "))};}")
+    "         splash: splash, login: login,"
+    "         veil: vis(document.querySelector(" + json.dumps(VEIL) + "))};}")
 
 
 def shell_state(page) -> dict:
-    """The three facts, or the worst reading when the page cannot answer."""
+    """The facts, or the worst reading when the page cannot answer."""
     try:
         got = page.evaluate(JS_SHELL)
     except Exception:
         got = None
     if not isinstance(got, dict):
-        return {"present": False, "anchor": False, "splash": False, "veil": False, "unanswered": True}
+        return {"present": False, "anchor": False, "splash": False, "veil": False,
+                "login": False, "unanswered": True}
     return {"present": bool(got.get("present")), "anchor": bool(got.get("anchor")),
-            "splash": bool(got.get("splash")), "veil": bool(got.get("veil")), "unanswered": False}
+            "splash": bool(got.get("splash")), "veil": bool(got.get("veil")),
+            "login": bool(got.get("login")), "unanswered": False}
 
 
 def shell_loaded(state: dict) -> bool:
-    """The application has FINISHED loading, and not a moment before.
+    """The application is WORKING, and not a moment before.
 
     The assertion is a real control, never a status code and never the URL.
     A bounce, a 412, a modal and a loading frame all answer with something, so
@@ -774,11 +885,18 @@ def shell_loaded(state: dict) -> bool:
     PRESENT is not enough. The anchor is in the markup mid-paint, while the
     "Building your user experience" splash and the loading veil are still up,
     and on 13 Sep a sign-in reported the application on exactly that page and
-    the schedule read behind it found nothing clickable. So: the anchor ON
-    SCREEN, the splash gone, the veil down. All three, or not loaded.
+    the schedule read behind it found nothing clickable.
+
+    NOR IS THE ADDRESS. A shell whose session has gone renders the login form
+    on the application's own address, and the same night a `signin` declined to
+    run at all because the address said it was already in. So: the anchor ON
+    SCREEN, the splash gone, the veil down, no login field on the page. All
+    four, or not loaded -- and a page that cannot answer is not loaded either,
+    because "I cannot tell" must never be reported as health.
     """
     s = state or {}
-    return bool(s.get("anchor")) and not s.get("splash") and not s.get("veil") and not s.get("unanswered")
+    return (bool(s.get("anchor")) and not s.get("splash") and not s.get("veil")
+            and not s.get("login") and not s.get("unanswered"))
 
 
 def shell_why(state: dict) -> str:
@@ -786,6 +904,8 @@ def shell_why(state: dict) -> str:
     s = state or {}
     if s.get("unanswered"):
         return "the page did not answer (it was navigating, or it closed)"
+    if s.get("login"):
+        return "the login form is on the page, so this shell is signed out"
     if s.get("splash"):
         return 'the "Building your user experience" splash is still up'
     if s.get("veil"):
@@ -801,7 +921,10 @@ def wait_for_shell(page, seconds: int = SHELL_WAIT_S) -> dict:
     deadline = started + max(1, seconds)
     while not shell_loaded(state) and time.monotonic() < deadline:
         page.wait_for_timeout(SETTLE_MS)
-        clear_dialogs(page, rounds=2)
+        # A short sweep, because this caller is already inside its own wait: a
+        # full one on every poll is how a two-minute wait becomes a ten-minute
+        # one on a shell whose dialogs cannot be pressed at all.
+        clear_dialogs(page, rounds=2, budget_s=min(DIALOG_POLL_S, deadline - time.monotonic()))
         state = shell_state(page)
     # Said out loud, because this is the reading the old gate got wrong: the
     # control in the markup (present) is not the application loaded.
@@ -812,8 +935,38 @@ def wait_for_shell(page, seconds: int = SHELL_WAIT_S) -> dict:
     return state
 
 
-def clear_dialogs(page, rounds: int = 8) -> int:
-    """The three stacked entry dialogs, top of the stack first.
+def dialogs_on_screen(page) -> str:
+    """What is still up, in the dialog's OWN words, trimmed. '' when nothing is.
+
+    A sweep that gives up has to say WHAT it gave up on. On 13 Sep the dialogs
+    would not clear because eCW itself was showing "The system encountered a
+    data loading error. Please try to refresh this window." -- and the caller
+    was told only that something timed out, which is the one answer nobody can
+    act on.
+
+    SKILL.md's "when you are stuck" rule says not to quote this application's
+    error text back at anybody, because its error boxes carry a patient's name,
+    an account number and a session id. This is the narrow exception and it is
+    fenced to stay narrow: only the THREE named entry-dialog roots are read,
+    never the page; each is cut to 160 characters and the whole line to 320;
+    and any run of four or more digits is masked, so an account number or a
+    session id cannot ride out on it. What is left is the sentence that says
+    why the sweep stopped.
+    """
+    js = ("roots=>roots.map(s=>{const e=document.querySelector(s); if(!e) return '';"
+          " const st=getComputedStyle(e); if(st.display==='none'||st.visibility==='hidden') return '';"
+          " const r=e.getBoundingClientRect(); if(!(r.width>0&&r.height>0)) return '';"
+          " return (e.innerText||'').replace(/\\s+/g,' ').trim().slice(0,160);})")
+    try:
+        texts = page.evaluate(js, [root for root, _ in DIALOGS])
+    except Exception:
+        return ""
+    seen = [t.strip() for t in (texts or []) if isinstance(t, str) and t.strip()]
+    return re.sub(r"\d{4,}", "[number]", " | ".join(seen))[:320]
+
+
+def clear_dialogs(page, rounds: int = 8, budget_s: float = DIALOG_TOTAL_S) -> tuple:
+    """The three stacked entry dialogs, top of the stack first. (cleared, stuck).
 
     Only the top of the stack is ever clickable, so this re-reads between every
     press rather than clicking three refs from one snapshot. It waits for the
@@ -823,11 +976,26 @@ def clear_dialogs(page, rounds: int = 8) -> int:
     It presses the three named OK controls and nothing else. It does not touch
     the do-not-show-again checkbox (a setting), Verify (mails a code) or Save
     (writes a profile setting).
+
+    EVERY WAIT IN HERE IS ON A CLOCK. When the application's own JavaScript is
+    dead the modals stack and none of them is clickable, and the old version
+    answered that by waiting: ten seconds for the veil plus two clicks of five,
+    per dialog, eight rounds deep. On 13 Sep `ecw dialogs` ran for 180 seconds,
+    was killed, and had cleared nothing -- a hang with no reason attached, which
+    is the worst possible answer. So the whole sweep gets `budget_s`, nothing
+    inside it may outlive that, and what it could not clear comes back NAMED.
     """
     cleared = 0
+    deadline = time.monotonic() + max(1.0, budget_s)
+
+    def left_ms(cap_s: float = DIALOG_STEP_S) -> int:
+        return int(max(0.0, min(cap_s, deadline - time.monotonic())) * 1000)
+
     for _ in range(rounds):
         did = False
         for root, control in DIALOGS:
+            if left_ms() <= 0:
+                break
             box = page.query_selector(root)
             if box is None or not box.is_visible():
                 continue
@@ -835,7 +1003,7 @@ def clear_dialogs(page, rounds: int = 8) -> int:
             if button is None or not button.is_visible():
                 continue
             try:
-                page.wait_for_selector(VEIL, state="hidden", timeout=10000)
+                page.wait_for_selector(VEIL, state="hidden", timeout=max(200, left_ms()))
             except Exception:
                 pass
             # Only inside the application: `ecw dialogs` can be run on whatever page the
@@ -843,24 +1011,34 @@ def clear_dialogs(page, rounds: int = 8) -> int:
             if classify(page.url) == "in-the-app":
                 replay_shot(page, "dialog", op=os.environ.get("ISTA_DOOR_OP") or "ecw.signin")
             for force in (False, True):
+                if left_ms() <= 0:
+                    break
                 try:
-                    button.click(timeout=5000, force=force)
+                    button.click(timeout=max(200, left_ms()), force=force)
                     did, cleared = True, cleared + 1
                     break
                 except Exception:
                     continue
-            page.wait_for_timeout(SETTLE_MS)
-        if not did:
+            page.wait_for_timeout(min(SETTLE_MS, left_ms(SETTLE_MS / 1000.0)))
+        if not did or left_ms() <= 0:
             break
-    return cleared
+    return cleared, dialogs_on_screen(page)
 
 
 def cmd_dialogs(argv: list) -> int:
+    cleared, stuck = 0, ""
     import contextlib
     base = base_url()
     with contextlib.ExitStack() as stack:
         page = pick_page(connect(stack), base)
-        print(clear_dialogs(page))
+        cleared, stuck = clear_dialogs(page)
+    print(cleared)
+    if stuck:
+        say("  a dialog would not clear inside "
+            f"{int(DIALOG_TOTAL_S)}s. The application is showing: {stuck}")
+        say("  Say that, in those words. It is the application's own message, not a "
+            "timeout: pressing on through it reads a screen that is not there")
+        return 2
     return 0
 
 
@@ -945,12 +1123,27 @@ def cmd_confirm(argv: list) -> int:
 
 
 def cmd_signin(argv: list) -> int:
-    """The whole entry, with every refusal compiled in."""
+    """The whole entry, with every refusal compiled in.
+
+    Every road out of here says what it did to the attempt ledger, because the
+    ledger is what stands between a bad night and a locked-out clinician, and a
+    run that never got as far as submitting a password has spent nothing.
+    """
+    submitted = []      # one entry the moment the password is actually submitted
+    try:
+        return signin_flow(argv, submitted)
+    finally:
+        if not submitted:
+            say("  " + ledger_note(False))
+
+
+def signin_flow(argv: list, submitted: list) -> int:
     import contextlib
     import datetime
     base, title = base_url(), login_title()
     if not title:
         die(NO_TITLE, 3)
+    attempts_check()        # reads the ledger; records nothing
     clear, flags = preflight_state()
     if not clear:
         die("the login page says this account is locked out, blocked, or behind a CAPTCHA "
@@ -960,21 +1153,50 @@ def cmd_signin(argv: list) -> int:
     with contextlib.ExitStack() as stack:
         browser = connect(stack)
         page = pick_page(browser, base, make=True)
+
+        def size_the_window(when: str, hard: bool = False) -> None:
+            """The floor, raised here and re-raised after anything that reattaches:
+            the override belongs to a CDP session and dies with it."""
+            w, h, ok = raise_viewport(page)
+            if ok:
+                say(f"  window {w}x{h} ({when})")
+                return
+            message = (f"the window is {w}x{h} and would not go over {MIN_W}x{MIN_H} ({when}). "
+                       f"The login page refuses to advance below its own floor -- it renders "
+                       f"\"Your screen resolution is\" and screen one stays put -- so this is a "
+                       f"configuration fact, not something to retry: {WINDOW_FIX}")
+            if hard:
+                die(message, 2)
+            say("  " + message)
+
         on_host = urllib.parse.urlsplit(page.url).netloc == urllib.parse.urlsplit(base).netloc
         if on_host and classify(page.url) == "in-the-app":
-            # The address says the application; the gate is the shell itself.
-            # A page wedged on the loading splash is on this address too, and
-            # reporting it as the application sends the schedule read at a
-            # control it cannot click.
-            state = wait_for_shell(page, 60)
-            if not shell_loaded(state):
-                die(f"the browser is on the application but it has not finished loading: {shell_why(state)}. "
-                    "Not signing in again on top of it; the browser beside the assistant needs a "
-                    "restart, then a sign-in. Tell a person", 2)
-            say("  already in the application; not signing in again")
-            print("in-the-app")
-            return 0
-        attempts_spend()
+            # THE ADDRESS IS NOT THE APPLICATION. A logged-out shell bounces to
+            # the login form and stays on this address; a wedged one sits on the
+            # splash for ever on this address. Both read as healthy to a guard
+            # that only looks at the URL, and on 13 Sep that is exactly what
+            # refused to sign in on a shell that was signed out. So the guard is
+            # the application itself: one read, no waiting.
+            state = shell_state(page)
+            if not shell_loaded(state) and not state.get("login"):
+                # Mid-paint is a real state and it clears on its own; give it
+                # the same grace the fresh sign-in gets before judging it.
+                state = wait_for_shell(page, IN_APP_WAIT_S)
+            if shell_loaded(state):
+                size_the_window("already in")
+                say("  already in the application; not signing in again")
+                print("in-the-app")
+                return 0
+            if state.get("login"):
+                say("  the address says the application but the login form is on the page: "
+                    "this shell is signed out. Signing in")
+            else:
+                die("the browser is on the application's address but the application is not "
+                    f"answering as a working one: {shell_why(state)}. That cannot be told apart "
+                    "from a wedged shell from here, so it is not being reported as being in the "
+                    "application. The browser beside the assistant needs a restart, then a "
+                    "sign-in. Tell a person", 2)
+        size_the_window("before screen one", hard=True)
         page.goto(base + LOGIN_PATH, wait_until="domcontentloaded", timeout=60000)
         page.wait_for_selector("input#doctorID", timeout=30000)
         page.fill("input#doctorID", login_username(title))
@@ -984,11 +1206,21 @@ def cmd_signin(argv: list) -> int:
         try:
             page.wait_for_selector("input#passwordField:visible", timeout=40000)
         except Exception:
-            die("screen one never advanced, so the username was not recognized. No password "
-                "was submitted. One check, then a person -- this is not a probe to repeat", 2)
+            w, h = window_size(page)
+            die("screen one never advanced, so the username was not recognized (the window "
+                f"was {w}x{h}). No password was submitted. One check, then a person -- this "
+                "is not a probe to repeat", 2)
         since_iso = (datetime.datetime.now(datetime.timezone.utc)
                      .isoformat().replace("+00:00", "Z"))
         page.fill("input#passwordField", login_password(title))
+        # THE ATTEMPT IS THIS LINE, and it is on disk before the control is
+        # pressed, never after: if the click goes through and this process then
+        # dies, the attempt must still be there. Counting one that did not quite
+        # land is the safe direction; missing one that did is the direction that
+        # locks a clinician out of their own day.
+        attempts_record()
+        submitted.append(time.time())
+        say("  the password is going in now: " + ledger_note(True))
         page.click("input#Login")
         page.wait_for_timeout(8000)
         verdict = classify(page.url)
@@ -1001,6 +1233,9 @@ def cmd_signin(argv: list) -> int:
                 die(NO_LINK, 2)
             say(f"  link sent {at}")
             confirm_link(browser, link)
+            # The confirmation opens and closes a context of its own, so the
+            # window override may have gone with it.
+            size_the_window("after the confirmation")
             say("  confirmed; waiting for the pending sign-in to move on")
             for _ in range(20):
                 page.wait_for_timeout(3000)
@@ -1009,15 +1244,21 @@ def cmd_signin(argv: list) -> int:
             else:
                 die("the confirmation went through but the sign-in did not move on", 2)
         page.goto(base + SHELL_PATH, wait_until="domcontentloaded", timeout=60000)
+        size_the_window("at the shell")
         page.wait_for_timeout(6000)
-        cleared = clear_dialogs(page)
+        cleared, stuck = clear_dialogs(page)
         say(f"  {cleared} entry dialog(s) cleared")
+        if stuck:
+            say(f"  a dialog would not clear; the application is showing: {stuck}")
         state = wait_for_shell(page)
         if not shell_loaded(state):
-            die(f"the shell did not finish loading: {shell_why(state)}. "
-                "Do not read this as being in the application, and not as an empty practice", 2)
+            die(f"the shell did not finish loading: {shell_why(state)}."
+                + (f" The application is showing: {stuck}" if stuck else "") +
+                " Do not read this as being in the application, and not as an empty practice", 2)
         replay_shot(page, "signed-in")
         attempts_clear()
+        say("  the sign-in went through, so the attempt ledger is back to "
+            f"{ATTEMPT_BUDGET} of {ATTEMPT_BUDGET}")
         print("in-the-app")
     return 0
 
@@ -1063,15 +1304,18 @@ def cmd_session(argv: list) -> int:
         page.evaluate("kv => { for (const k in kv) if (kv[k] !== null) localStorage.setItem(k, kv[k]); }",
                       saved.get("storage") or {})
         page.goto(base + SHELL_PATH, wait_until="domcontentloaded", timeout=60000)
+        raise_viewport(page)
         page.wait_for_timeout(4000)
-        clear_dialogs(page)
+        _, stuck = clear_dialogs(page)
         # classify() alone is not enough here: every unknown address on this
         # host answers 302 to the login page, so a good verdict has to come
         # from a control on the screen as well, and from a shell that has
         # finished loading (the same gate the sign-in stands behind).
-        if classify(page.url) != "in-the-app" or not shell_loaded(wait_for_shell(page, 60)):
+        if classify(page.url) != "in-the-app" or not shell_loaded(wait_for_shell(page, IN_APP_WAIT_S)):
             print("signed-out")
             say("  the saved session is no longer good; a sign-in is needed")
+            if stuck:
+                say(f"  the application is showing: {stuck}")
             return 2
         print("in-the-app")
     return 0
