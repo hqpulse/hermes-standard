@@ -55,7 +55,7 @@ Three or four short lines, and a blank line between them so it reads on a phone.
 
 > Sruly at Emerald needs your signature on a W-9 for Renvera, came in around half nine tonight, and he says a scan is fine.
 >
-> Want me to draft the two-line reply to Sruly so you can sign off on it, or is Anna already on it?
+> Want me to draft the two-line reply to Sruly so you can sign off on it?
 
 > Two things.
 >
