@@ -23,6 +23,10 @@
   nested bullet and "Hermes-based"; `--self-test` plants all of them, and CI
   runs it and then a leaky copy of the tree that must fail naming the planted
   line.
+  A second review tightened it again: inside code, only lowercase commands,
+  paths and identifiers are allowed, so a sample reply saying "Hermes-based"
+  fails; the shipped list is read with a YAML parser, and a run that reads no
+  files fails instead of passing.
 
 ## 0.12.0
 

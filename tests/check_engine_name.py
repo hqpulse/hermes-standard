@@ -20,8 +20,9 @@ WHAT IS READ.
     new client's folder is built from. Not `docs/`: the `references` tool opens
     nothing outside the knowledge folder (`tools/scribe/references.sh`), so the
     build playbook and runbooks are developer documents that ride in the image.
-    Not `tools/`, `scripts/`, `contracts/`: programs the scribe runs, not text
-    it reads for instruction.
+    `tools/` and `bin/` too: the server hands a tool's output, and its errors,
+    straight back to the model, so what those programs print is read. Not
+    `scripts/` or `contracts/`.
 
 THE RULES, by kind of file.
   - Markdown prose: the name in any case is a leak. Allowed bare in running
@@ -30,10 +31,10 @@ THE RULES, by kind of file.
     is how an indented command listing reads. Every other identifier -- a
     package, a namespace, a pod name -- belongs in a code span.
   - Markdown code (fenced blocks and inline spans): a model reads these too,
-    and a sample reply in a fence is a reply it may copy. So the name as a
-    capitalized word on its own (`I run on Hermes`) is still a leak; lowercase
-    commands, paths and identifiers (`hermes -p hermes-standard cron run`) are
-    not. HTML comments are read like prose, because the model reads them.
+    and a sample reply in a fence is a reply it may copy. Lowercase commands,
+    paths and identifiers (`hermes -p hermes-standard cron run`) are fine; the
+    name in any other form (`I run on Hermes`, `Hermes-based`, `POWERED BY
+    HERMES`, `running on hermes`) is a leak. HTML comments are read like prose, because the model reads them.
   - Frontmatter: a lowercase key (`metadata.hermes`, the engine's own schema)
     is allowed, and every value is prose.
   - Python: every string literal and f-string piece is checked, as prose when
@@ -76,11 +77,11 @@ LOWER_IDENT = re.compile(
     r"|\.hermes\b"                      # ~/.hermes
     r"|\bhermes[-_][a-z0-9][\w.-]*"    # hermes-standard, hermes_fleet, hermes-pvc
     r"|\bX-Hermes-[A-Za-z-]+"          # the session header
-    r"|\bhermes(?=\s+-)"               # the command, with a flag after it
-    r"|\bhermes(?=\s+(?:doctor|cron|chat|gateway|config|skills|plugins|tools|update|version)\b)"
+    r"|\bhermes(?=\s+-{1,2}[a-z])"      # the command, with a flag after it
 )
-# In code, the name as a word on its own, capitalized: a sentence someone wrote.
-CAPITAL_WORD = re.compile(r"(?<![\w/.-])Hermes(?![\w-])")
+# In code only: the command with a subcommand (`hermes cron run <id>`). In a
+# sentence "hermes chat is down" is prose, so data files do not get this one.
+COMMAND = re.compile(r"\bhermes(?=\s+(?:doctor|cron|chat|gateway|config|skills|plugins|tools|update|version)\b)")
 
 FENCE = re.compile(r"^\s*(```|~~~)")
 INLINE_CODE = re.compile(r"`[^`\n]+`")
@@ -89,6 +90,12 @@ LOWER_KEY = re.compile(r"^(\s*-?\s*[a-z_][a-z0-9_.-]*\s*:)(.*)$")
 
 def pack_files() -> list[Path]:
     text = (ROOT / "distribution.yaml").read_text(encoding="utf-8")
+    try:
+        import yaml  # the pack's CI installs it; a bare interpreter falls back below
+        owned = (yaml.safe_load(text) or {}).get("distribution_owned") or []
+        return [ROOT / str(rel) for rel in owned]
+    except ImportError:
+        pass
     body = text.split("distribution_owned:", 1)
     if len(body) != 2:
         raise SystemExit("distribution.yaml has no distribution_owned: list")
@@ -103,7 +110,7 @@ def pack_files() -> list[Path]:
     return out
 
 
-PLUGIN_READS = ["plugin.json", "mcp.json", "skills", "knowledge", "bases", "server",
+PLUGIN_READS = ["plugin.json", "mcp.json", "skills", "knowledge", "bases", "server", "tools", "bin",
                 "docs/templates/knowledge", "persona/persona.template.md"]
 
 
@@ -134,7 +141,8 @@ def prose_leak(text: str) -> bool:
 
 
 def code_leak(text: str) -> bool:
-    return bool(CAPITAL_WORD.search(ENV_NAME.sub(" ", text)))
+    """Code a model reads: identifiers and commands are fine, a sentence is not."""
+    return bool(ENGINE.search(COMMAND.sub(" ", LOWER_IDENT.sub(" ", ENV_NAME.sub(" ", text)))))
 
 
 def data_leak(text: str) -> bool:
@@ -150,6 +158,19 @@ def string_leak(text: str) -> bool:
     if not re.search(r"\s", text.strip()):
         return False  # one token: a path, a key, an id
     return data_leak(text)
+
+
+BINARY = {".wav", ".mp3", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".pdf", ".gz", ".zip", ".pyc", ".ico", ".woff", ".woff2"}
+
+
+def is_shell(path: Path, raw: str) -> bool:
+    return path.suffix == ".sh" or raw.startswith(("#!/usr/bin/env bash", "#!/bin/bash", "#!/bin/sh", "#!/usr/bin/env sh"))
+
+
+def shell_findings(raw: str) -> list[tuple[int, str]]:
+    """What a shell script prints is read; its whole-line comments are developer notes."""
+    return [(n, line) for n, line in enumerate(raw.splitlines(), 1)
+            if not line.lstrip().startswith("#") and code_leak(line)]
 
 
 def is_python(path: Path, raw: str) -> bool:
@@ -212,21 +233,29 @@ def data_findings(raw: str) -> list[tuple[int, str]]:
 
 
 def findings_for(path: Path) -> list[tuple[int, str]]:
+    if path.suffix.lower() in BINARY:
+        return []
     try:
         raw = path.read_text(encoding="utf-8")
     except UnicodeDecodeError:
-        return []  # a binary: a font, an image, an audio fixture
+        return [(1, "is not UTF-8, so it could not be read; save it as UTF-8 or list its suffix as binary")]
     if path.suffix.lower() == ".md":
         return markdown_findings(raw)
     if is_python(path, raw):
         return python_findings(raw)
+    if is_shell(path, raw):
+        return shell_findings(raw)
     return data_findings(raw)
 
 
 def run() -> int:
     findings: list[str] = []
     checked = 0
-    for path in files_to_check():
+    files = files_to_check()
+    if not files:
+        print("read nothing: the list of files a model reads came back empty, so this proves nothing")
+        return 1
+    for path in files:
         if not path.exists():
             findings.append(f"{path.relative_to(ROOT)}: listed as shipped, not on disk")
             continue
@@ -269,6 +298,13 @@ def self_test() -> int:
         "yaml comment the model reads": ("people.yaml", "# the scribe is Hermes underneath\n"),
         "bases display name": ("x.base", 'displayName: "Owner #1 via Hermes"\n'),
         "json value": ("x.json", '{"prompt": "Built on Hermes"}\n'),
+        "hyphenated in a fence": ("x.md", "```\nHi, I am a Hermes-based assistant.\n```\n"),
+        "shouted in a fence": ("x.md", "~~~\nPOWERED BY HERMES\n~~~\n"),
+        "lowercase sentence in a fence": ("x.md", "```\nI am running on hermes today\n```\n"),
+        "hyphenated in a code span": ("x.md", "Say `I am Hermes-based` and stop.\n"),
+        "subcommand-looking sentence in data": ("x.yaml", "prompt: you run on hermes chat tonight\n"),
+        "shell message": ("x.sh", '#!/usr/bin/env bash\necho "Hermes has no transcription module" >&2\n'),
+        "not utf-8": ("x.md", None),
     }
     clean = {
         "env name in prose": ("x.md", "Set HERMES_HOME before the engine starts.\n"),
@@ -277,6 +313,7 @@ def self_test() -> int:
         "command in a fence": ("x.md", "```\nhermes -p hermes-standard cron run abc\n```\n"),
         "engine frontmatter key": ("x.md", "---\nname: x\nmetadata:\n  hermes:\n    requires_tools: [a]\n---\n"),
         "python comment": ("x.py", "# Hermes reads this file\nx = 1\n"),
+        "shell comment": ("x.sh", "#!/usr/bin/env bash\n# Hermes calls this\nexit 0\n"),
         "python docstring": ("x.py", '"""Hermes loads this package."""\ndef f():\n    """Hermes calls this."""\n'),
         "python identifier string": ("x.py", 'p = "/etc/hermes/lane/lane.env"\nk = "HERMES_FLEET_TOKEN"\n'),
         "yaml identifier": ("x.yaml", "# lands in hermes-plugin-ista-scribe\nnamespace: hermes-pvc\n"),
@@ -287,7 +324,10 @@ def self_test() -> int:
         for label, (name, body) in {**leaks, **clean}.items():
             path = Path(tmp) / label.replace(" ", "_") / name
             path.parent.mkdir(parents=True)
-            path.write_text(body, encoding="utf-8")
+            if body is None:
+                path.write_bytes("Built on Hermes \u2013 caf\u00e9\n".encode("cp1252"))
+            else:
+                path.write_text(body, encoding="utf-8")
             got = findings_for(path)
             if label in leaks and not got:
                 failures.append(f"missed a leak: {label}")
