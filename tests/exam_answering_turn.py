@@ -299,7 +299,8 @@ def main() -> int:
         return 1
     print("ok: the question about the day came back answered and short with nothing leaked, the "
           "command came back declined in one line beginning with the fixed prefix, and neither "
-          "turn called anything that writes, sends, files or asks somebody else.")
+          f"turn called any of the {len(FORBIDDEN_CALLS)} names in FORBIDDEN_CALLS. Read the "
+          "door list above for what a turn could still have reached.")
     return 0
 
 

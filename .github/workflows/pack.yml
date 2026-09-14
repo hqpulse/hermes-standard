@@ -4,7 +4,7 @@ name: pack
 # of them run by hand, on a repo that installs itself into every pod on the
 # fleet. This runs all eleven, in a clean clone, on the interpreter their
 # docstrings ask for. (test_ecw and test_reach joined on 14 Sep: they were the
-# two nobody ran, and both had rotted. test_ask_assistant is the tenth.)
+# two nobody ran, and both had rotted. test_ask_assistant joined on 14 Sep.)
 #
 # push AND pull_request, so a branch is proven green before a pull request
 # exists and the pull request is proven again on its merge commit. A branch in

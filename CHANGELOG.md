@@ -26,16 +26,17 @@
   "stop answering X's assistant", the second showing the line and waiting for a yes. "Speaking
   first" gains the mirror of the asking side's first mention: when the list of who may ask you
   changes, one line inside the next reply, never a message of its own.
-- **reach** says which list "stop answering X" belongs to. It bound that phrase to taking a PERSON
+- **"Stop answering X" now says which list it belongs to.** The reach skill bound that phrase to taking a PERSON
   off the WhatsApp list; said of an assistant it would have struck the wrong name and answered
   "Done", leaving the introduction open. It now points at the other skill and asks when a name
   could be either.
-- **policy-keeper** lists "Who may ask you, and who you may ask (other assistants)" among the
-  rules that need a real switch.
-- `tests/test_ask_assistant.py` holds every fixed line, pins the copied-framing rule and the two
-  answering controls, and runs the words-that-never-appear check over the new skill and over every
-  line added to another skill; CI runs it. `tests/exam_answering_turn.py` is the live exam against
-  a test copy through the relay door, and is not in CI.
+- **Who may ask you is a rule the team can lock.** policy-keeper lists "Who may ask you, and who
+  you may ask (other assistants)" among the rules that need a real switch.
+- **Every fixed line is pinned, and there is now a live exam.** `tests/test_ask_assistant.py`
+  holds each line word for word, pins the copied-framing rule and the two answering controls, and
+  runs the words-that-never-appear check over the new skill and over every line added to another
+  skill; CI runs it. `tests/exam_answering_turn.py` puts both questions to a real test copy
+  through the answering door and is not in CI.
 
 ## 0.11.5
 
