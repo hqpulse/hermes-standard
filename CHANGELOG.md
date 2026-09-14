@@ -1,5 +1,38 @@
 # Changelog
 
+## 0.11.5
+
+- **`ecw signin` sizes the window before it types anything.** It never did, and that alone
+  made a sign-in impossible: eCW's login page answered "Your screen resolution is 800 x 600"
+  against its own 1600 x 900 floor, screen one never advanced, and the two attempts a night
+  allows were spent with no password ever submitted (13 Sep). The window override belongs to
+  a CDP session and dies when that client detaches, so it cannot be set once elsewhere: the
+  sign-in raises it itself before screen one, and again after the confirmation link and at
+  the shell. It refuses, naming the one-line fix on the browser image, rather than driving a
+  page it knows cannot advance.
+- **"Already in the application" now asks the application, not the address bar.** The guard
+  read the URL, so a shell that had been signed out, sitting on index.jsp exactly like a
+  working one, read as healthy and the sign-in declined to run. The test is four facts in one
+  quick read: the Office Visits control on screen, no "Building your user experience" splash,
+  no loading veil, and no login field on the page. A page that cannot answer says it cannot
+  tell instead of claiming health, and `ecw where` no longer answers "fine" on a shell that
+  is not working.
+- **`ecw dialogs` stops instead of hanging, and says what stopped it.** Against two stacked
+  modals that could not be pressed it ran 180 seconds, was killed, and had cleared nothing.
+  Every wait in the sweep now comes out of one budget, and what it could not clear comes back
+  named in the application's own words, so the answer is "the application is showing a data
+  loading error" rather than an unexplained timeout. Fenced to the three entry dialogs, cut
+  short, with long numbers masked.
+- **The attempt ledger counts submitted passwords.** It counted invocations, so both of
+  13 Sep's attempts were spent by runs that never reached the password field, and the budget
+  was gone having risked nothing. Only a submitted password can lock a clinician out, so the
+  row is written at that moment, immediately before the control is pressed. A run that stops
+  earlier leaves the ledger alone and says so. The budget is still two, the window still six
+  hours, and a genuinely spent budget still refuses.
+- CI: `test_ecw.py` and `test_reach.py` now run in the pack job. Neither ever had, which is
+  why nobody noticed the eCW door had no cover over any of this; the ecw suite is 83 checks,
+  driven against a stand-in page.
+
 ## 0.11.4
 
 - `ecw` script: the sign-in reports the application only when the application has finished
