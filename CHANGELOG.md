@@ -9,8 +9,9 @@
   much of the person's own matters as the question needs, never somebody else's forwarded words
   and never a request the person did not ask for, the show-it-first path (the exact question, a yes to that question, and
   the person's own direct instruction counting as the yes), the ask-freely path (one line naming
-  who was asked, every time), the one-line first mention when the list gains a name, the four
-  fixed lines for a miss, a decline, no answer and too many questions, the spoken controls
+  who was asked, every time), the one-line first mention when the list gains a name, the five
+  fixed lines for a miss, a decline, no answer, too many questions and a question that has to wait,
+  the spoken controls
   ("Who can you ask?", "What did you ask X this week?", "Stop asking X"), and never a second
   attempt at a question that failed.
 - **assistant-standard gains "Answering another assistant".** The framing arrives as the turn's

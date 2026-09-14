@@ -15,8 +15,9 @@ neither is visible in a diff:
      is a forbidden word said out loud. Every line of the new skill and every
      line added to another skill is checked, whole words, any case.
 
-  2. THE FIXED LINES. Four of them answer a miss, a decline, no answer and too
-     many questions; one answers "you don't need to check with me each time";
+  2. THE FIXED LINES. Five of them answer a miss, a decline, no answer, too
+     many questions and a question that has to wait; one answers "you don't
+     need to check with me each time";
      three are the spoken controls. They are fixed because a person reads the
      same sentence every time and learns what it means. A reworded line is a
      new promise. Each is pinned here word for word.
@@ -126,6 +127,8 @@ MISS = "I'm not able to ask {name}'s assistant things yet. Want me to message {n
 DECLINED = "{name}'s assistant can't do that; you'd need to ask {name}."
 NO_ANSWER = "{name}'s assistant didn't answer; want me to ask {name} directly?"
 TOO_MANY = "{name}'s assistant has had enough questions from me for now; try later or ask {name}."
+# Said in a turn the person is not in, so nothing else would catch a reword.
+BUSY = "I'm answering something right now; ask me again in a minute."
 # The whole answer to "you don't need to check with me each time".
 KEEP_CHECKING = "I'll keep checking with you for now."
 
@@ -148,7 +151,7 @@ class AskAssistantSkill(unittest.TestCase):
 
     def test_every_fixed_line_is_there_word_for_word(self):
         flat = " ".join(self.text.split())
-        for line in (MISS, DECLINED, NO_ANSWER, TOO_MANY, KEEP_CHECKING):
+        for line in (MISS, DECLINED, NO_ANSWER, TOO_MANY, BUSY, KEEP_CHECKING):
             self.assertIn(line, flat, line)
 
     def test_the_keep_checking_line_is_the_whole_answer(self):
