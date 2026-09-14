@@ -235,8 +235,26 @@ for pj in sorted(ROOT.glob("skills/assistant-standard/presets/*.json")):
     # assistant wrote. Both jobs move into the script: it remembers what it has
     # already shown (so a repeat is impossible, not merely discouraged) and it
     # prints its own first-time marker.
+    #
+    # The ONE exception is the quiet-calendar gate (GATE_SCRIPTS). It closes a
+    # job only inside a person's quiet windows, a handful of ticks a month and
+    # none at all for someone who keeps no calendar, and the engine the fleet
+    # runs (v2026.9.11 onward, and the pinned engine CI fetches) skips a gate
+    # receipt when it builds the previous-run block (cron/scheduler_prompt.py,
+    # _inject_context_from, `silent_audit`). So a gated preset keeps its
+    # continuity and its ask-once question, and its prompt must tell the model
+    # what the calendar block is for.
+    GATE_SCRIPTS = {"jewish_time.py"}
     scripted = bool(job.get("script"))
-    if not scripted:
+    gated = job.get("script") in GATE_SCRIPTS
+    if gated and "QUIET CALENDAR" not in job.get("prompt", ""):
+        err(f"{rel}: runs the calendar gate but its prompt never says what the "
+            f"QUIET CALENDAR block is, so the model reads it as data about the day")
+    if gated:
+        script_rel = f"scripts/{job['script']}"
+        if script_rel not in owned:
+            err(f"{script_rel}: not in distribution_owned, so it never reaches a pod")
+    if not scripted or gated:
         if job.get("continuity") is not True:
             err(f"{rel}: continuity must be true (first-run detection depends on it)")
         m = re.search(r'"([^"]*' + re.escape(ASK_TAIL) + r')"', job.get("prompt", ""))
@@ -452,6 +470,57 @@ if wskill.is_file():
     if "When it is close, do not send it" not in wtext:
         err("mail-watch/SKILL.md: lost the tie-breaker that says a borderline "
             "message is not sent")
+
+# --- the bar for speaking first, and Jewish time ---------------------------
+#
+# 14 Sep 2026. One assistant's morning was fixed by hand overnight: a four-
+# question bar for anything unprompted, length ceilings, and a quiet calendar
+# for a person who keeps Shabbat and yom tov. The hand version lived in three
+# job prompts and a per-person skill, and its silence word was one the engine
+# does not listen for, so Shabbat would have been a message every half hour.
+# The rules now live here, and these phrases are what keep them from thinning.
+for phrase in ("one no means the line does not go",
+               "If you are building a case for a line, the case is the answer",
+               "Borderline means held, not dropped",
+               "answers exactly `[SILENT]`",
+               "the jewish-time skill decides when you may speak at all",
+               "No hyphen bullets",
+               "End on one question they can finish in a word or three",
+               "looks back to the person's last working day"):
+    if phrase not in std:
+        err(f"assistant-standard/SKILL.md: lost {phrase!r}")
+jt_skill = ROOT / "skills/jewish-time/SKILL.md"
+if not jt_skill.is_file():
+    err("skills/jewish-time/SKILL.md is missing")
+else:
+    jtext = jt_skill.read_text()
+    for phrase in ("You never work out a time yourself",
+                   "Nothing flushes when a window opens",
+                   "your whole answer is exactly `[SILENT]`",
+                   "Never explain any of it to them",
+                   "this skill does not apply to them"):
+        if phrase not in jtext:
+            err(f"jewish-time/SKILL.md: lost {phrase!r}")
+    # The times are a person's, never the pack's. A clock time or a date in the
+    # skill is somebody's calendar leaking into everyone's rules.
+    import re as _re
+    for hit in _re.findall(r"\b\d{1,2}:\d{2}\s*[ap]m\b", jtext):
+        err(f"jewish-time/SKILL.md: carries a clock time {hit!r}; times live in the person's calendar")
+    for rel in ("skills/jewish-time/SKILL.md",):
+        body = (ROOT / rel).read_text()
+        if "\u2014" in body or "\u2013" in body:
+            err(f"{rel}: carries an em or en dash")
+gate_code = (ROOT / "scripts/jewish_time.py").read_text() if (ROOT / "scripts/jewish_time.py").is_file() else ""
+if not gate_code:
+    err("scripts/jewish_time.py is missing; two presets and the mail watch rely on it")
+elif "scripts/jewish_time.py" not in owned:
+    err("scripts/jewish_time.py: not in distribution_owned")
+if watch.is_file():
+    main_body = watch.read_text().split("def main() -> int:", 1)[-1]
+    quiet_at = main_body.find("_quiet_now(")
+    if quiet_at < 0 or quiet_at > main_body.find("_call_door(") or quiet_at > main_body.find("_load_state("):
+        err("scripts/mail-watch.py: the quiet-calendar check must come before the state is read "
+            "and before the door is called, or Shabbat is read and marked seen")
 
 # --- result ---------------------------------------------------------------
 if errors:

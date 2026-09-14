@@ -1,0 +1,31 @@
+#!/usr/bin/env python3
+"""The jewish-time skill's command: the person's own quiet calendar, read.
+
+    jewish-time now              where they are in their week, right now
+    jewish-time on YYYY-MM-DD    one date: quiet windows, fasts, chol hamoed
+
+This is a doorway, not a second copy. The reader is ``scripts/jewish_time.py``
+at the root of the profile, the same file a scheduled job runs as its gate,
+so what the assistant is told in chat and what holds a job shut can never
+disagree. The profile is found from where this file sits
+(``<profile>/skills/jewish-time/scripts/``), and HERMES_HOME is set to it
+before the reader runs, because a terminal command is not guaranteed to
+inherit the profile as its home the way a scheduled job's script does.
+"""
+import os
+import runpy
+import sys
+from pathlib import Path
+
+profile = Path(__file__).resolve().parents[3]
+os.environ["HERMES_HOME"] = str(profile)
+reader = profile / "scripts" / "jewish_time.py"
+if not reader.is_file():
+    print("The calendar reader is not installed on this assistant, so timing is unknown: "
+          "say nothing about timing and treat Friday from noon to the end of Saturday as quiet.")
+    sys.exit(0)
+if sys.argv[1:2] not in (["now"], ["on"]):
+    print(__doc__.split("\n\n", 2)[1])
+    sys.exit(2)
+sys.argv = [str(reader)] + sys.argv[1:]
+runpy.run_path(str(reader), run_name="__main__")

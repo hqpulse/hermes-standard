@@ -117,6 +117,13 @@ jobs:
       - name: test_mail_watch.py
         run: python tests/test_mail_watch.py
 
+      - name: test_jewish_time.py, when a person who keeps Shabbat hears nothing
+        # The gate two presets and the mail watch run before any model. A
+        # wrong minute here is a message inside Shabbat or a brief that never
+        # comes, and the fixture is hebcal's own answer, checked against a
+        # hand-built table for the first person who keeps it.
+        run: python tests/test_jewish_time.py
+
       - name: test_own_whatsapp.py
         run: python tests/test_own_whatsapp.py
 

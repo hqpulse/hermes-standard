@@ -15,6 +15,7 @@ Everything under `tests/` runs on every push and pull request
     python3 tests/check_entity_notes.py
     python3 tests/test_login.py
     python3 tests/test_mail_watch.py
+    python3 tests/test_jewish_time.py
     python3 tests/test_own_whatsapp.py
 
 Run them on the Hermes interpreter (`~/.hermes/hermes-agent/venv/bin/python`), or set

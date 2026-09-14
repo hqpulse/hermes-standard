@@ -8,10 +8,10 @@ own jobs on update (the 3 Sep lesson).
 
 | File | Name | Schedule (person's timezone) | Delivers | Ends with | On at provision |
 |---|---|---|---|---|---|
-| `morning-brief.json` | `preset-morning-brief` | weekdays 08:00 | `__HOME_CHANNEL__` | the Brief plus a 60-second voice note (`text_to_speech`) | yes |
-| `meeting-prep.json` | `preset-meeting-prep` | weekdays 07:30 | `__HOME_CHANNEL__` | one pre-read per meeting; `[SILENT]` on a day with none | yes |
+| `morning-brief.json` | `preset-morning-brief` | weekdays 08:00, held by the quiet calendar | `__HOME_CHANNEL__` | the Brief plus a 60-second voice note (`text_to_speech`) | yes |
+| `meeting-prep.json` | `preset-meeting-prep` | weekdays 07:30, held by the quiet calendar | `__HOME_CHANNEL__` | one pre-read per meeting; `[SILENT]` on a day with none | yes |
 | `open-commitments.json` | `preset-open-commitments` | nightly 23:00 | `__HOME_CHANNEL__` | `[SILENT]`; rewrites `Open commitments.md` in the vault | yes |
-| `mail-watch.json` | `preset-mail-watch` | every 30 min, 07:00-21:00, every day | `__HOME_CHANNEL__` | `[SILENT]` unless something in their mailbox needs them | opt in |
+| `mail-watch.json` | `preset-mail-watch` | every 30 min, 07:00-21:00, every day; the script stays shut through a quiet window and until 09:00 the next morning | `__HOME_CHANNEL__` | `[SILENT]` unless something in their mailbox needs them | opt in |
 
 Everything below was read from the engine the fleet runs, at `v0.21.0` (2026.8.31).
 
@@ -50,6 +50,39 @@ Two consequences worth knowing before copying the pattern:
   found", the engine treats it as a data-collection failure, and the assistant
   reports a broken script to the person every half hour. `presets.CREATE_SCRIPT`
   stats `scripts/<name>` on the pod and refuses the create instead.
+
+## The quiet calendar, and why two presets with continuity run a script
+
+`morning-brief.json` and `meeting-prep.json` carry `"script": "jewish_time.py"`.
+It is a gate, not a data feed. For a person who keeps Shabbat and yom tov it
+reads their calendar (`<HERMES_HOME>/jewish-time/calendar.json`, built once
+per person, never owned by the pack) and prints `{"wakeAgent": false}` inside a
+quiet window and on erev Pesach and Tisha B'Av, so the job does not run at all.
+Outside one it prints a `QUIET CALENDAR` block (a fast day, chol hamoed, the
+first morning back and how far back to look) and an open gate. For everyone
+else it prints one neutral line; it always prints something, because a script
+with empty output skips the model and the brief would never come.
+
+That looks like it breaks the rule above, and it does not. The rule exists
+because a gate receipt used to become the continuity block. The engine the
+fleet runs (v2026.9.11) skips receipts when it builds that block
+(`cron/scheduler_prompt.py`, `_inject_context_from`), and this gate closes a
+handful of ticks a month, so the ask-once question and the "do not repeat
+yesterday" block both still see the last real brief. `check_pack.py` allows
+continuity on a scripted preset for this script only. On the v2026.8.31 engine
+a gated day would make the next day's block a receipt, which costs one day's
+continuity and nothing else.
+
+**Nothing already on a pod gets the gate by upgrading the pack.** The controller
+never rewrites a preset job that already exists (`presets.plan` keeps it by
+name), so an existing `preset-morning-brief` or `preset-meeting-prep` keeps no
+script and its old prompt, and so does every job the person made for
+themselves. To hold one of those for a person with a calendar, back up
+`cron/jobs.json`, then set the job's `script` to `jewish_time.py` and add the
+QUIET CALENDAR sentence to its prompt, on a pod already on this pack (before
+it, the engine reports "Script not found" on every tick). A job that already
+has a script, like the mail watch, cannot take a second one; the mail watch
+checks the calendar itself.
 
 ## What the payload fields are
 
