@@ -1,7 +1,7 @@
 ---
 name: brain
 version: 0.1.0
-description: The person's own knowledge base. Look someone up before you answer about them, instead of answering from memory.
+description: "Brain: the person's own knowledge base. Look someone up before you answer about them, instead of answering from memory."
 triggers:
   - "a person, company, project or place becomes the subject of the exchange"
   - "about to state a detail about someone from memory"
