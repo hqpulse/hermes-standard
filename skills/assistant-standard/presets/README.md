@@ -33,6 +33,28 @@ mailbox every half hour is a decision about that person, and a provision run
 must not make it on their behalf. The field is read by the controller and
 stripped before `create_job`, which has no such argument.
 
+## One is on everywhere, and it never asks
+
+Sruly's decision, 15 Sep 2026 (PUL-303): `open-commitments.json` is on for
+every assistant, the ones that exist today and the ones built tomorrow, and it
+does not ask. It replies `[SILENT]` on every run including the first, so the
+person is sent nothing, ever, unprompted, and there is nothing for them to
+consent to. An assistant without it is an assistant whose open commitments list
+goes stale in silence, which is what PUL-185 found on Susan's cell.
+
+The controller carries that as `presets.ALWAYS_ON`: the job goes on when an
+assistant is built, when its pod is moved onto a newer pack, and when a phone
+is wired up after the fact, so there is no rollout step. With no home channel
+it is created with `deliver: local` and kept on the box, because a silent job
+has nothing to deliver. Stopping stays the person's: the controller writes down
+every preset it installs (`pulse.hqpulse.ai/presets-installed` on the person's
+StatefulSet), and a name it installed with no job on the pod is a job somebody
+removed, which it never puts back.
+
+The morning brief and the meeting pre-read are NOT in this class. They send the
+person something every time they run, so asking once is still right for those
+two.
+
 
 `mail-watch.json` is the only preset that carries a `script`, and the field
 changes the shape of the job. `cron/scheduler.py` runs `scripts/mail-watch.py`
