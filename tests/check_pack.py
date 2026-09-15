@@ -232,6 +232,19 @@ for pj in sorted(ROOT.glob("skills/assistant-standard/presets/*.json")):
             err(f"{rel}: missing {key}")
     if not str(job.get("name", "")).startswith("preset-"):
         err(f"{rel}: name must start with preset-")
+    # A preset's `skills` list is how a rule shared between jobs reaches the
+    # model at all. A name with no skill behind it fails the way that hurts
+    # most: nothing errors, the job runs, and the model judges without the
+    # rule. Two presets now name interruption-gate instead of restating the
+    # bar, so a rename or a dropped distribution_owned line would quietly
+    # take the bar off both of them.
+    for named in job.get("skills") or []:
+        skill_rel = f"skills/{named}/SKILL.md"
+        if not (ROOT / skill_rel).is_file():
+            err(f"{rel}: names skill {named!r} and the pack ships no {skill_rel}")
+        elif skill_rel not in owned:
+            err(f"{skill_rel}: not in distribution_owned, so {rel} names a skill "
+                f"that never reaches a pod and the job runs without it")
     # A preset with a pre-run SCRIPT cannot use the continuity block for any of
     # this, and the difference is not stylistic. A gated tick (the script
     # answering {"wakeAgent": false}) still writes an output document saying so,
@@ -402,7 +415,7 @@ for phrase in ("## On a phone",
 if "never a dash" not in soul:
     err("SOUL.md: lost the one-line phone rule; the skill carries the detail but the soul names it")
 for rel in ("SOUL.md", "skills/assistant-standard/SKILL.md", "skills/mail-watch/SKILL.md",
-            "skills/first-contact/SKILL.md"):
+            "skills/first-contact/SKILL.md", "skills/interruption-gate/SKILL.md"):
     if "\u2014" in (ROOT / rel).read_text() or "\u2013" in (ROOT / rel).read_text():
         err(f"{rel}: carries an em or en dash; the file that forbids them cannot contain one")
 
@@ -512,12 +525,49 @@ if wskill.is_file():
                    "FIRST NOTICE"):
         if phrase.lower() not in wtext.lower():
             err(f"mail-watch/SKILL.md: lost {phrase!r}")
-    # The whole value of the watch is that it says nothing most of the time.
-    # A skill that stops saying so becomes an inbox summariser, which is the
-    # version a person switches off in its first week.
-    if "When it is close, do not send it" not in wtext:
-        err("mail-watch/SKILL.md: lost the tie-breaker that says a borderline "
-            "message is not sent")
+    # The whole value of the watch is that it says nothing most of the time,
+    # and the rule that makes it so now lives in one place for every watcher.
+    # A watch that stops pointing at the gate becomes an inbox summariser,
+    # which is the version a person switches off in its first week.
+    if "interruption-gate" not in wtext:
+        err("mail-watch/SKILL.md: no longer names the interruption-gate skill; "
+            "the bar lives there and this file does not restate it")
+
+# --- the interruption gate ------------------------------------------------
+#
+# The one rule that decides whether an assistant speaks at all. It was prose
+# inside the mail watch until 0.20.0, which is why the commitment watch could
+# not inherit it. Every phrase below is a branch of the rule that goes quiet
+# rather than loud when it is lost: a gate missing its third question still
+# reads like a complete gate.
+gate = ROOT / "skills/interruption-gate/SKILL.md"
+if not gate.is_file():
+    err("skills/interruption-gate/SKILL.md is missing; two presets name it")
+else:
+    gtext = gate.read_text()
+    for phrase in ("Value", "Authority", "Reversibility",
+                   "Act silently", "Stay silent", "[SILENT]",
+                   "One notice per run"):
+        if phrase not in gtext:
+            err(f"interruption-gate/SKILL.md: lost {phrase!r}")
+    # The tie-breaker that used to live in the mail watch. Without it the gate
+    # reads as a judgement call each time, and a judgement call under pressure
+    # is a message sent.
+    if "the case is the answer" not in gtext:
+        err("interruption-gate/SKILL.md: lost the tie-breaker that a borderline "
+            "item is held, not sent")
+    # Reversibility is the question a model most wants to stretch, so the one
+    # thing it may never buy is named explicitly.
+    if "reversibility does not buy it" not in gtext.lower():
+        err("interruption-gate/SKILL.md: lost the floor under the gate; without "
+            "it a reversible-looking message can go out in the person's name")
+    # The ledger is what stops the same thing being said twice, and the two
+    # ways it fails are a shell write the policy refuses and a path the pack
+    # wipes on upgrade. Both are named in the file; keep them named.
+    for phrase in ("never the shell", "outside the folders the pack owns"):
+        if phrase not in gtext:
+            err(f"interruption-gate/SKILL.md: the ledger has lost {phrase!r}; "
+                f"without it the ledger silently never gets written")
 
 # --- the bar for speaking first, and Jewish time ---------------------------
 #

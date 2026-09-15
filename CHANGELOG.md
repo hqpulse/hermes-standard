@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.20.0
+
+- **One rule about when to interrupt somebody, in one place, read by every
+  watcher.** The test for whether a thing is worth a message used to live as
+  prose inside the mail watch, so the commitment watch had no way to inherit
+  it. It is now its own skill, and it asks three things rather than one: is
+  this theirs to answer and time-bound, have they already said this one is
+  yours, and could they undo it in under a minute if you are wrong. The
+  answers decide between doing it quietly and saying nothing, asking in one
+  line with one offer, and staying silent, which is still the answer almost
+  every run. Each watcher keeps its own record of what it has already said so
+  nothing is said twice, and counts the runs where it looked and held its
+  peace, because that count is the only proof the judging works.
+
 ## 0.19.0
 
 - **A promise that moves can wake the assistant; a quiet day cannot.** A sixth
