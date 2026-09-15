@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.18.0
+
+- **The assistant can look someone up instead of guessing.** A new `brain`
+  skill teaches it when to open a person's page and when not to bother. The
+  person's own messages are now a searchable knowledge base, one page per
+  person and per group, and the assistant reaches it as a tool. The rule it
+  encodes is simple: if you are about to state a detail about someone from
+  memory, check first, and if the answer is not there say so rather than
+  filling the gap. It answers like someone who remembers, never by reciting
+  page names or counts.
+
 ## 0.17.0
 
 - **Three things I could take off your plate.** A fifth preset, opt in like
