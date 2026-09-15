@@ -120,13 +120,17 @@ audit and nothing it does is second-guessed.
 
 Five things the prompt holds to, and why:
 
-- **It reads Policy.md itself, and writes it in policy-keeper's phrasing.** A
+- **It reads Policy.md itself, and writes it as plain statements of fact.** A
   cron turn has no working folder, so the engine loads no context file and
   Policy.md is not in its prompt: without reading it the audit would call a
   line a second copy of something it never saw. And one Policy.md line in a
-  shape the engine's scanner refuses ("check in with") blanks the whole file
-  for the next session, first-contact lines included, so the job loads the
-  policy-keeper skill beside assistant-standard.
+  shape the engine's scanner refuses blanks the whole file for the next
+  session, first-contact lines included. The job does NOT load policy-keeper
+  for those phrasing rules: that skill quotes the attack phrasings it warns
+  about, and the engine scans a cron job's prompt together with its loaded
+  skills (`cron/scheduler_prompt.py`, `_scan_assembled_cron_prompt`), so the
+  run would be blocked every night and the failure notice sent to the
+  person's phone. `check_pack.py` runs that scanner over every preset.
 - **Only the memory tool touches the two files.** The store refuses a write
   when the file on disk no longer round-trips through its parser, so one
   `write_file` or `patch` on `MEMORY.md` would lock the assistant out of its

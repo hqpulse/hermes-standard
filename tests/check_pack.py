@@ -758,6 +758,29 @@ else:
         if phrase not in audit.get("prompt", ""):
             err(f"presets/memory-audit.json: the prompt lost {phrase!r}")
 
+# --- the engine's cron prompt scanner --------------------------------------
+# A cron run scans its prompt together with the text of every skill it loads
+# and, on a hit, blocks the run before the model starts. A blocked run is a
+# failed run, and its failure notice is delivered to the job's target: the
+# person's phone. The PUL-184 review caught a preset that loaded policy-keeper,
+# whose own text quotes the phrasings it warns about, so that job would have
+# spoken at 02:30 every night. Needs the engine (HERMES_SRC); skipped with a
+# note without it.
+try:
+    from tools.cronjob_prompt_scan import _scan_cron_skill_assembled
+except Exception:
+    _scan_cron_skill_assembled = None
+    print("note: engine cron prompt scanner unavailable; preset prompts left unscanned")
+if _scan_cron_skill_assembled is not None:
+    for pj in sorted(ROOT.glob("skills/assistant-standard/presets/*.json")):
+        job = json.loads(pj.read_text())
+        parts = [(ROOT / f"skills/{s}/SKILL.md").read_text()
+                 for s in job.get("skills") or [] if (ROOT / f"skills/{s}/SKILL.md").is_file()]
+        _, scan_error = _scan_cron_skill_assembled("\n\n".join(parts + [job.get("prompt", "")]))
+        if scan_error:
+            err(f"{pj.relative_to(ROOT)}: the engine's cron scanner blocks this job with its "
+                f"skills loaded ({scan_error}); every run would fail and tell the person")
+
 # --- result ---------------------------------------------------------------
 if errors:
     print("\n".join(f"FAIL {e}" for e in errors)); sys.exit(1)
