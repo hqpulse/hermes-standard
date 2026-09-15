@@ -49,7 +49,9 @@ browser=$(curl -fsS --max-time 5 "$CDP/json/version" 2>/dev/null \
 id="pod:$started browser:$browser"
 [ -f "$MARKER" ] && [ "$(cat "$MARKER" 2>/dev/null)" = "$id" ] && exit 0
 
-printf '%s' "$id" > "$MARKER"
+# A marker that cannot be written would make every tick look like a new start, and run the
+# guard every five minutes. Say nothing and do nothing instead.
+printf '%s' "$id" > "$MARKER" 2>/dev/null || exit 0
 {
   echo "=== $(date -u +%FT%TZ) first look at a new start -- $id"
   "$GUARD" 2>&1

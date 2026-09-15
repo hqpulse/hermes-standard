@@ -12,6 +12,10 @@ WHAT IS PROVEN HERE.
     shell whose session has gone still sits on the in-the-app address, so the word
     alone says "in-the-app" on a dead session; this guard used to skip the restore
     on that word and then save the dead cookie jar over the good one (PUL-217).
+  - the sign-in budget belongs to the seat: the guard sets none of its own, and
+    reads a number only from the seat's attempt-budget file.
+  - two guards on the same tick (05:45 and the boot job) spend at most one
+    password between them.
 
 NOT PROVEN HERE: the browser. The window step needs Chromium and Playwright and
 is allowed to fail on a machine without them; the stand-in `ecw` below records
@@ -86,6 +90,18 @@ class BootGuard(unittest.TestCase):
         self.assertFalse((self.state / "boot.id").exists(),
                          "a marker written before the browser answered would hide the real start")
 
+    @unittest.skipIf(os.geteuid() == 0, "root writes through a read-only folder")
+    def test_a_marker_that_cannot_be_written_runs_nothing(self):
+        self.browser("8d7d9314-73c8-4784-9dea-23058ad84013")
+        self.state.mkdir()
+        self.state.chmod(0o500)
+        try:
+            for _ in range(3):
+                self.assertEqual(self.run_boot().returncode, 0)
+        finally:
+            self.state.chmod(0o700)
+        self.assertEqual(self.runs(), 0, "an unrecorded start would run the guard on every tick")
+
     def test_marker_is_written_before_the_guard_runs(self):
         self.browser("8d7d9314-73c8-4784-9dea-23058ad84013")
         write_exec(self.guard, f'#!/bin/bash\ncat "{self.state}/boot.id" > "{self.calls}"\nexit 1\n')
@@ -103,26 +119,37 @@ class SessionGuard(unittest.TestCase):
         self.lane = self.tmp / "lane.env"
         self.lane.write_text("ECW_WEB_BASE=https://practice.example.test\n")
 
-    def fake_ecw(self, where_word, where_rc, after_restore_rc=None):
+    def fake_ecw(self, where_word, where_rc, after_restore_rc=None, signin_works=False):
         """A stand-in `ecw` that says `where_word` and exits `where_rc`; after a
-        restore it exits `after_restore_rc` instead."""
+        restore it exits `after_restore_rc` instead, and after a sign-in that
+        works it exits 0."""
         after = where_rc if after_restore_rc is None else after_restore_rc
+        flag = self.tmp / "signed-in"
         return write_exec(self.tmp / "ecw", f"""#!/bin/bash
 echo "$*" >> "{self.log}"
 case "$1" in
   where)
+    [ -f "{flag}" ] && {{ echo in-the-app; exit 0; }}
     echo "{where_word}"
     if grep -q "^session restore" "{self.log}"; then exit {after}; fi
     exit {where_rc} ;;
   session) [ "$2" = save ] && echo "5 cookie(s), 2 key(s)"; exit 0 ;;
-  signin) exit 2 ;;
+  signin)
+    echo "budget=${{ECW_ATTEMPT_BUDGET:-unset}}" >> "{self.log}"
+    sleep 1
+    {"touch '" + str(flag) + "'; exit 0" if signin_works else "exit 2"} ;;
 esac
 """)
 
-    def run_guard(self, ecw):
+    def guard_env(self, ecw):
         env = dict(os.environ, ECW_BIN=str(ecw), ECW_LANE_ENV=str(self.lane),
                    ECW_BROWSER_LOCK=str(self.tmp / "lock"), ECW_STATE_DIR=str(self.tmp / "state"))
-        return subprocess.run(["bash", str(GUARD)], env=env, capture_output=True, text=True, timeout=120)
+        env.pop("ECW_ATTEMPT_BUDGET", None)
+        return env
+
+    def run_guard(self, ecw):
+        return subprocess.run(["bash", str(GUARD)], env=self.guard_env(ecw),
+                              capture_output=True, text=True, timeout=120)
 
     def calls(self):
         return self.log.read_text().splitlines() if self.log.exists() else []
@@ -145,6 +172,26 @@ esac
         self.assertNotIn("session save", self.calls(),
                          "saving here would write the dead jar over the good one")
         self.assertIn("STILL SIGNED OUT", out.stdout)
+
+    def test_the_guard_sets_no_budget_of_its_own(self):
+        self.run_guard(self.fake_ecw("refused", 2))
+        self.assertIn("budget=unset", self.calls(), "the skill's own default of 2 must apply")
+
+    def test_the_seat_budget_file_is_read(self):
+        (self.tmp / "state").mkdir()
+        (self.tmp / "state" / "attempt-budget").write_text("6\n")
+        self.run_guard(self.fake_ecw("refused", 2))
+        self.assertIn("budget=6", self.calls())
+
+    def test_two_guards_on_one_tick_spend_one_password(self):
+        ecw = self.fake_ecw("refused", 2, signin_works=True)
+        procs = [subprocess.Popen(["bash", str(GUARD)], env=self.guard_env(ecw),
+                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+                 for _ in range(2)]
+        for proc in procs:
+            proc.communicate(timeout=120)
+            self.assertEqual(proc.returncode, 0)
+        self.assertEqual(self.calls().count("signin"), 1)
 
     def test_the_lock_is_released(self):
         self.run_guard(self.fake_ecw("in-the-app", 0))

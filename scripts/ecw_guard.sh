@@ -10,11 +10,27 @@ set -u
 for f in "${ECW_LANE_ENV:-}" /etc/hermes/lane/lane.env /etc/ista-andrew/lane.env; do
   [ -n "$f" ] && [ -f "$f" ] && { set -a; . "$f"; set +a; break; }
 done
-# PVC raised the budget from 2 to 6 on 2026-09-15 having accepted the lockout risk; a lane
-# that wants a different number sets ECW_ATTEMPT_BUDGET in its own lane file.
-: "${ECW_ATTEMPT_BUDGET:=6}"
-export ECW_ATTEMPT_BUDGET
+STATE_DIR="${ECW_STATE_DIR:-/opt/data/state/ecw}"
+# THE SIGN-IN BUDGET IS THE SEAT'S, never this file's. The skill's default is 2. A seat whose
+# owners have accepted more lockout risk writes the number into attempt-budget in its own state
+# folder (PVC: 6, Eli, 2026-09-15). A default here would hand that risk to every seat that
+# registers this job.
+if [ -z "${ECW_ATTEMPT_BUDGET:-}" ] && [ -f "$STATE_DIR/attempt-budget" ]; then
+  ECW_ATTEMPT_BUDGET=$(tr -dc '0-9' < "$STATE_DIR/attempt-budget")
+fi
+[ -n "${ECW_ATTEMPT_BUDGET:-}" ] && export ECW_ATTEMPT_BUDGET
 export PYTHONPATH="${PYTHONPATH:-/opt/vendor/site-packages}"
+
+# ONE GUARD AT A TIME. The 05:45 job and the boot job can fire on the same tick, and two
+# guards facing one dead session would each spend a password. The second waits here, and
+# by the time it goes on the first has restored or signed in, so it finds the app working.
+mkdir -p "$STATE_DIR"
+[ -e "$STATE_DIR/guard.lock" ] || { : > "$STATE_DIR/guard.lock"; chmod 666 "$STATE_DIR/guard.lock"; } 2>/dev/null
+if exec 9>>"$STATE_DIR/guard.lock"; then
+  flock -w 900 9 || { echo "another eCW guard has run for 15 minutes; leaving it to that one"; exit 0; }
+else
+  echo "could not open the guard lock; going on without it"
+fi
 
 E="${ECW_BIN:-/opt/data/profiles/hermes-standard/skills/ecw/scripts/ecw}"
 L="${ECW_BROWSER_LOCK:-/opt/data/workspace/scribe/state/.browser-lock}"
@@ -35,12 +51,16 @@ where_now() {
 }
 
 waited=0
-while [ "$waited" -lt 30 ] && [ -f "$L" ] && [ $(( $(date +%s) - $(stat -c %Y "$L") )) -lt 3600 ]; do
+# `|| echo 0`: a lock that vanishes between the test and the stat is simply gone. Without it the
+# arithmetic is empty and bash exits here, before any restore.
+while [ "$waited" -lt 30 ] && [ -f "$L" ] && [ $(( $(date +%s) - $(stat -c %Y "$L" 2>/dev/null || echo 0) )) -lt 3600 ]; do
   [ "$waited" -eq 0 ] && echo "another job holds the browser lock; waiting up to 10 minutes"
   waited=$(( waited + 1 )); sleep 20
 done
 [ "$waited" -gt 0 ] && echo "waited $(( waited * 20 ))s for the browser lock"
 echo "ecw-guard $(date -u +%FT%TZ)" > "$L"
+# A guard killed mid-run (the sign-in has a 7-minute timeout) must not leave the browser locked.
+trap 'rm -f "$L"' EXIT
 
 # WIDEN THE ECW WINDOW, not whatever page happens to be first. Every target on this Chromium
 # has its own window id, and the shared browser also holds PointClickCare pages opened at
@@ -83,6 +103,5 @@ if [ "$W" = "in-the-app" ]; then "$E" session save 2>&1 | tail -1; else echo "ST
 # A person running this by hand through kubectl exec is root, and the save above then leaves a
 # root-only session file the scheduled run (uid 10000) cannot read: its restore fails and it
 # spends a password on a session that was fine. Hand the files back to the directory's owner.
-STATE_DIR="${ECW_STATE_DIR:-/opt/data/state/ecw}"
-[ "$(id -u)" -eq 0 ] && [ -d "$STATE_DIR" ] && chown -R --reference="$STATE_DIR/.." "$STATE_DIR" 2>/dev/null
-rm -f "$L"
+if [ "$(id -u)" -eq 0 ] && [ -d "$STATE_DIR" ]; then chown -R --reference="$STATE_DIR/.." "$STATE_DIR" 2>/dev/null; fi
+exit 0
