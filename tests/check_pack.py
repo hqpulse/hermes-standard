@@ -397,7 +397,8 @@ for phrase in ("must name a `deliver` target",
 oc = json.loads((ROOT / "skills/assistant-standard/presets/open-commitments.json").read_text())
 for phrase in ("type: commitment",
                "The type key is not optional",
-               "bare wikilink"):
+               "bare wikilink",
+               "Commitments.md"):
     if phrase not in oc.get("prompt", ""):
         err(f"presets/open-commitments.json: the prompt lost {phrase!r}. Without it the "
             f"nightly pass writes commitment notes the vault's own tables cannot see")
@@ -406,7 +407,7 @@ for phrase in ("type: commitment",
 # note it points at as two promises (scripts/commitments_state.py, collect()).
 # It only skips a row whose source link resolves to a note filename, so the
 # prompt has to name the link FORM, not just ask for a link.
-if ".md" not in oc.get("prompt", "") or "no alias" not in oc.get("prompt", ""):
+if "no .md" not in oc.get("prompt", "") or "no alias" not in oc.get("prompt", ""):
     err("presets/open-commitments.json: the prompt must say the row link carries no .md "
         "and no alias; the commitment watch matches on the bare note name and double "
         "counts the promise otherwise")
