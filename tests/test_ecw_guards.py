@@ -142,7 +142,9 @@ esac
 """)
 
     def guard_env(self, ecw):
-        env = dict(os.environ, ECW_BIN=str(ecw), ECW_LANE_ENV=str(self.lane),
+        # The window step needs Chromium; a stand-in interpreter records when it was asked.
+        python = write_exec(self.tmp / "python", f'#!/bin/bash\ncat >/dev/null\necho "widen $3" >> "{self.log}"\n')
+        env = dict(os.environ, ECW_BIN=str(ecw), ECW_LANE_ENV=str(self.lane), ECW_PYTHON=str(python),
                    ECW_BROWSER_LOCK=str(self.tmp / "lock"), ECW_STATE_DIR=str(self.tmp / "state"))
         env.pop("ECW_ATTEMPT_BUDGET", None)
         return env
@@ -157,7 +159,20 @@ esac
     def test_a_live_session_is_saved_and_nothing_else(self):
         out = self.run_guard(self.fake_ecw("in-the-app", 0))
         self.assertEqual(out.returncode, 0, out.stderr)
-        self.assertEqual([c for c in self.calls() if c != "where"], ["session save"])
+        self.assertEqual([c for c in self.calls() if c != "where" and not c.startswith("widen")],
+                         ["session save"])
+
+    def test_the_window_is_widened_after_the_restore_opens_the_page(self):
+        # On a cold start there is no eCW page until the restore opens one (15 Sep, 17:45Z).
+        self.run_guard(self.fake_ecw("elsewhere", 2, after_restore_rc=0))
+        calls = self.calls()
+        self.assertIn("widen after restore", calls)
+        self.assertGreater(calls.index("widen after restore"), calls.index("session restore"))
+
+    def test_the_window_is_widened_before_a_password_is_submitted(self):
+        self.run_guard(self.fake_ecw("refused", 2))
+        calls = self.calls()
+        self.assertLess(calls.index("widen before sign-in"), calls.index("signin"))
 
     def test_the_word_alone_on_a_dead_shell_does_not_pass(self):
         # `ecw where` says in-the-app and exits 2: the address, not a working screen.
