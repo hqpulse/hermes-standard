@@ -768,15 +768,22 @@ else:
 # note without it.
 try:
     from tools.cronjob_prompt_scan import _scan_cron_skill_assembled
-except Exception:
+except Exception as e:
     _scan_cron_skill_assembled = None
-    print("note: engine cron prompt scanner unavailable; preset prompts left unscanned")
+    if (HERMES / "cron" / "scheduler_prompt.py").exists():
+        err(f"the engine is present but its cron prompt scanner did not import ({e}); "
+            f"preset prompts would go unscanned, so find where it moved")
+    else:
+        print("note: engine cron prompt scanner unavailable; preset prompts left unscanned")
 if _scan_cron_skill_assembled is not None:
     for pj in sorted(ROOT.glob("skills/assistant-standard/presets/*.json")):
         job = json.loads(pj.read_text())
         parts = [(ROOT / f"skills/{s}/SKILL.md").read_text()
                  for s in job.get("skills") or [] if (ROOT / f"skills/{s}/SKILL.md").is_file()]
         _, scan_error = _scan_cron_skill_assembled("\n\n".join(parts + [job.get("prompt", "")]))
+        if not scan_error:
+            from tools.cronjob_tools import _scan_cron_prompt
+            scan_error = _scan_cron_prompt(job.get("prompt", ""))
         if scan_error:
             err(f"{pj.relative_to(ROOT)}: the engine's cron scanner blocks this job with its "
                 f"skills loaded ({scan_error}); every run would fail and tell the person")
