@@ -33,9 +33,11 @@ mailbox every half hour is a decision about that person, and a provision run
 must not make it on their behalf. The field is read by the controller and
 stripped before `create_job`, which has no such argument.
 
-## One is on everywhere, and it never asks
+## None of them asks, and one is on everywhere
 
-Decided 15 Sep 2026 (PUL-303): `open-commitments.json` is on for every
+Decided 15 Sep 2026: no preset asks whether to keep going, on its first run or
+any other (PUL-303 for the nightly pass; Sruly extended it to every preset the
+same day). `open-commitments.json` is on for every
 assistant, the ones that exist today and the ones built tomorrow, and it does
 not ask. It replies `[SILENT]` on every run including the first, so the person
 is sent nothing, ever, unprompted, and there is nothing for them to consent to.
@@ -51,9 +53,11 @@ every preset it installs (`pulse.hqpulse.ai/presets-installed` on the person's
 StatefulSet), and a name it installed with no job on the pod is a job somebody
 removed, which it never puts back.
 
-The morning brief and the meeting pre-read are NOT in this class. They send the
-person something every time they run, so asking once is still right for those
-two.
+The morning brief and the meeting pre-read go on at provision and do not ask
+either: they arrive, and a person who does not want one says so in chat and it
+is removed. The opt-in presets are on because somebody asked for them, so there
+is nothing left to ask. `tests/check_pack.py` fails any preset that carries a
+keep, change or stop question.
 
 
 `mail-watch.json` is the only preset that carries a `script`, and the field
@@ -199,8 +203,8 @@ That looks like it breaks the rule above, and it does not. The rule exists
 because a gate receipt used to become the continuity block. The engine the
 fleet runs (v2026.9.11) skips receipts when it builds that block
 (`cron/scheduler_prompt.py`, `_inject_context_from`), and this gate closes a
-handful of ticks a month, so the ask-once question and the "do not repeat
-yesterday" block both still see the last real brief. `check_pack.py` allows
+handful of ticks a month, so the "do not repeat yesterday" block still sees the
+last real brief. `check_pack.py` allows
 continuity on a scripted preset for this script only. On the v2026.8.31 engine
 a gated day would make the next day's block a receipt, which costs one day's
 continuity and nothing else.
@@ -306,26 +310,25 @@ arguments of `cron.jobs.create_job`, with one exception noted.
   `enabled_toolsets` (a native-toolset allowlist; leave unset so the Pulse MCP
   tools stay), `workdir`.
 
-## How the job knows it is its first run
+## What continuity is for
 
-Continuity. On the first run there is no previous output, so the prompt runs as
-written. On every later run the scheduler prepends the block "Your previous
+On every run after the first, the scheduler prepends the block "Your previous
 run's output" (`cron/scheduler.py`, `context_from` handling; output is saved
-before the `[SILENT]` check, so a silent run still counts). Each prompt says:
-no block, first run, add the question; block present, never ask again, even if
-the person never answered. That is the whole mechanism; no memory entry and no
-job field is involved.
+before the `[SILENT]` check, so a silent run still counts). The brief reads it
+so it does not repeat yesterday, and the delegation scan reads it so nothing it
+proposed before is proposed again. Until 15 Sep 2026 three presets also used it
+to ask a keep, change or stop question on their first run only; none asks now.
 
 The saved output embeds the run's whole assembled prompt, so each run's
 output nests the previous one. From about the third run the 8,000-character
 injection cap truncates the tail, which is the previous brief; what survives
-is the prompt echo. The first-run check still works (the block is present),
-but do not rely on continuity for dedupe here.
+is the prompt echo. Do not rely on continuity for anything exact.
 
-The question is asked by the job; the answer is handled in chat. The
-assistant-standard skill (section "Presets") tells the assistant what to do with
-keep, change and stop, and to update the job so the first-run paragraph is gone
-from its prompt. Both halves together mean the question is asked once.
+Older copies of the brief and the pre-read on pods still carry the first-run
+question, because the controller never rewrites a job that exists. Those jobs
+have had their first run, so they do not ask again. If a person answers one
+anyway, the assistant-standard skill (section "Presets") acts on the answer and
+removes the paragraph.
 
 ## What the controller must do and allow
 
@@ -372,7 +375,8 @@ from its prompt. Both halves together mean the question is asked once.
    already has the `cronjob` toolset: it is not in the rulebook's
    `disabled_toolsets`. The engine has no per-job ownership, so the restriction to
    `preset-` names is the skill's rule, not a mechanism. If the rulebook ever
-   disables `cronjob`, the ask-once answer stops working. Verified 2026-09-07
+   disables `cronjob`, the assistant can no longer change or stop a preset when the
+   person asks. Verified 2026-09-07
    against the live org rulebook ConfigMaps: `hermes-venza` (14 disabled toolsets),
    `hermes-ista` (14) and `hermes-pvc` (16) all leave `cronjob` and `file`
    enabled.

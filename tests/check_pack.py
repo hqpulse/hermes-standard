@@ -13,8 +13,6 @@ green run on a plain interpreter proves less than a green run on the Hermes
 one: it has not checked any schedule.
 
 KNOWN GAPS, so nobody reads a green run as more than it is:
-  - The ask-once distinctness check compares exact strings. Two questions that
-    differ by a word but read identically to a person still pass.
   - The dossier check greps for the literal "240". It does not do the
     arithmetic, so raising the entry count past what 2,000 characters can hold
     would sail through as long as that number is still on the page.
@@ -208,14 +206,9 @@ for phrase in ("comes from Pulse", "waits for their word", "a tool did it and yo
 # --- presets --------------------------------------------------------------
 ASK_TAIL = "Say keep, change, or stop."
 
-#: Presets whose whole job is to stay quiet unless something clears the bar.
-#: They keep a file or a list; the morning brief is what surfaces it. They
-#: carry no ask-once question, because a job with nothing to say has no
-#: message for that question to ride on, and the question would BE the
-#: message. See tests/test_presets_never_announce.py for the incident.
-SILENT_PRESETS = {"open-commitments.json", "mail-watch.json", "commitment-watch.json",
-                  "memory-audit.json"}
-ask_lines = {}
+#: No preset asks whether to keep going (Sruly, 15 Sep 2026). A person who
+#: wants one changed or stopped says so in chat. See
+#: tests/test_presets_never_announce.py for the 14 Sep incident that started it.
 # The controller substitutes this before create_job. A preset that ships a real
 # platform name delivers to whichever channel happens to be connected, which on
 # a two-platform pod is the wrong phone and nothing alerts.
@@ -276,17 +269,13 @@ for pj in sorted(ROOT.glob("skills/assistant-standard/presets/*.json")):
         script_rel = f"scripts/{job['script']}"
         if script_rel not in owned:
             err(f"{script_rel}: not in distribution_owned, so it never reaches a pod")
-    # A preset may declare itself silent: it keeps a file or a list and never
-    # speaks unless something clears the bar. Such a job has no message for an
-    # ask-once question to ride on, so requiring one turns the question INTO
-    # the message. That is what shipped on 14 Sept 2026 and reached seven
-    # people at 11pm with nothing in it. A silent preset keeps its continuity
-    # block (it still needs to know what it did last night) and carries no
-    # question at all.
-    silent = rel.name in SILENT_PRESETS
-    if silent and ASK_TAIL in job.get("prompt", ""):
-        err(f"{rel}: is silent by design yet carries the ask-once question; a "
-            f"job with nothing to say has no message for that question to ride on")
+    # No preset asks "keep, change, or stop", on its first run or any other.
+    # Silent presets never had a message for the question to ride on (14 Sep),
+    # and since 15 Sep the brief, the pre-read and the delegation scan do not
+    # ask either: they arrive, and a person who wants one gone says so in chat.
+    if ASK_TAIL in job.get("prompt", ""):
+        err(f"{rel}: carries the keep, change or stop question; no preset asks "
+            f"whether to keep going")
     if monitored:
         # A MONITOR preset (the commitment watch) is a different shape again.
         # The engine runs `monitor_script` first, hashes its stdout, and only
@@ -315,18 +304,8 @@ for pj in sorted(ROOT.glob("skills/assistant-standard/presets/*.json")):
                 err(f"{rel}: a monitor preset's prompt must carry {phrase!r}")
     elif not scripted or gated:
         if job.get("continuity") is not True:
-            err(f"{rel}: continuity must be true (first-run detection depends on it)")
-        m = re.search(r'"([^"]*' + re.escape(ASK_TAIL) + r')"', job.get("prompt", ""))
-        if not m:
-            if not silent:
-                err(f"{rel}: prompt lacks the ask-once question ending {ASK_TAIL!r}")
-        else:
-            ask_lines[str(rel)] = m.group(1)
-        if "Your previous run's output" not in job.get("prompt", "") and not silent:
-            err(f"{rel}: prompt does not say how to recognise the first run")
-        if "does not begin with" in job.get("prompt", ""):
-            err(f"{rel}: first-run test says 'does not begin with'; the continuity "
-                f"block never starts the prompt, so that test is false on every run")
+            err(f"{rel}: continuity must be true (the job reads its last run so it "
+                f"does not repeat itself)")
     else:
         if job.get("continuity"):
             err(f"{rel}: a scripted preset must not set continuity; a gated tick "
@@ -369,19 +348,6 @@ for pj in sorted(ROOT.glob("skills/assistant-standard/presets/*.json")):
             parse_schedule(job["schedule"])
         except Exception as e:
             err(f"{rel}: schedule {job['schedule']!r} rejected: {e}")
-
-# Three presets can fire in the same minute: a gateway that was down across
-# all three windows collapses the backlog and fires each ONCE on the next tick
-# (cron/jobs.py, get_due_jobs), and one tick dispatches them together. An
-# identical question in each is then unanswerable -- neither the person nor the
-# assistant can tell which job a bare "stop" belongs to.
-by_line = {}
-for rel, line in sorted(ask_lines.items()):
-    if line in by_line:
-        err(f"{rel}: ask-once question is word-for-word {by_line[line]}'s; each "
-            f"preset must name its own thing so an answer is unambiguous")
-    else:
-        by_line[line] = rel
 
 # --- reminders reach a phone ----------------------------------------------
 #

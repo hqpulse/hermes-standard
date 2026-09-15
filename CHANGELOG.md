@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.22.1
+
+- **No scheduled job asks whether to keep going any more.** The morning brief,
+  the meeting pre-read and the Monday look for work to take off someone's plate
+  used to end their first message with "Say keep, change, or stop." They now
+  simply arrive, like the nightly commitments pass. A person who wants one moved,
+  shortened or stopped says so in chat, and the assistant does it. Jobs already
+  on a pod keep their old wording; they have had their first run and do not ask
+  again.
+
 ## 0.22.0
 
 - **The assistant stops saying "I have nothing on her" about people it does
