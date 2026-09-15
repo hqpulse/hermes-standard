@@ -155,8 +155,9 @@ jobs a person registers once per eCW seat; you do not run them yourself:
 that session is dead, and saves again. `ecw_boot_guard.sh` runs it exactly once after a new
 pod or a new browser and is silent every other time. Both must sit in the PROFILE's
 `scripts/` folder: the scheduler refuses a script anywhere else, symlinks included. The guard
-sets no sign-in budget of its own; a seat whose owners accepted more than two writes the number
-into `attempt-budget` in the eCW state folder.
+sets no sign-in budget of its own. A seat whose owners accepted more than two writes the number
+into `attempt-budget` in the eCW state folder, and only the guard reads that file: when you run
+`ecw signin` yourself, the budget is still two.
 
 **Run it with the terminal tool, never with `execute_code`** — the same reason `logins`
 gives: `execute_code` drops the environment the script needs and it would tell you the

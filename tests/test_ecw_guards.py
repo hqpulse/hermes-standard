@@ -136,7 +136,7 @@ case "$1" in
   session) [ "$2" = save ] && echo "5 cookie(s), 2 key(s)"; exit 0 ;;
   signin)
     echo "budget=${{ECW_ATTEMPT_BUDGET:-unset}}" >> "{self.log}"
-    sleep 1
+    sleep 3
     {"touch '" + str(flag) + "'; exit 0" if signin_works else "exit 2"} ;;
 esac
 """)
@@ -185,9 +185,13 @@ esac
 
     def test_two_guards_on_one_tick_spend_one_password(self):
         ecw = self.fake_ecw("refused", 2, signin_works=True)
-        procs = [subprocess.Popen(["bash", str(GUARD)], env=self.guard_env(ecw),
+        # Each run gets its own browser lock, so only the guard lock can keep them apart:
+        # the browser lock is checked and then written, and two runs on one tick can both
+        # pass the check.
+        procs = [subprocess.Popen(["bash", str(GUARD)],
+                                  env=dict(self.guard_env(ecw), ECW_BROWSER_LOCK=str(self.tmp / f"lock{i}")),
                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-                 for _ in range(2)]
+                 for i in range(2)]
         for proc in procs:
             proc.communicate(timeout=120)
             self.assertEqual(proc.returncode, 0)
