@@ -213,7 +213,8 @@ ASK_TAIL = "Say keep, change, or stop."
 #: carry no ask-once question, because a job with nothing to say has no
 #: message for that question to ride on, and the question would BE the
 #: message. See tests/test_presets_never_announce.py for the incident.
-SILENT_PRESETS = {"open-commitments.json", "mail-watch.json", "commitment-watch.json"}
+SILENT_PRESETS = {"open-commitments.json", "mail-watch.json", "commitment-watch.json",
+                  "memory-audit.json"}
 ask_lines = {}
 # The controller substitutes this before create_job. A preset that ships a real
 # platform name delivers to whichever channel happens to be connected, which on
@@ -495,7 +496,7 @@ for marker in ("=== CONTEXT SKILL ===", "=== USER.MD ===", "6,000", "240", "§")
 # Three invariants, each of which has a specific way of going wrong quietly.
 optional = [p.name for p in sorted(ROOT.glob("skills/assistant-standard/presets/*.json"))
             if json.loads(p.read_text()).get("opt_in")]
-if optional != ["commitment-watch.json", "delegation-scan.json", "mail-watch.json"]:
+if optional != ["commitment-watch.json", "delegation-scan.json", "mail-watch.json", "memory-audit.json"]:
     err(f"opt_in presets are {optional}; a preset that reads a person's mail "
         f"or speaks first waits to be asked for, and everything else is what the assistant IS")
 
@@ -707,6 +708,85 @@ if watch.is_file():
     if quiet_at < 0 or quiet_at > main_body.find("_call_door(") or quiet_at > main_body.find("_load_state("):
         err("scripts/mail-watch.py: the quiet-calendar check must come before the state is read "
             "and before the door is called, or Shabbat is read and marked seen")
+
+# --- the memory admission test -----------------------------------------------
+# PUL-184. The routing rule for memory was prose for two weeks and one pilot
+# pod broke it on eight of twenty-one lines: warehouse residue, a named
+# executive's pay, a stale copy of an always-loaded skill. The seven questions,
+# the stamp and the three retirement rules are what make it checkable, and the
+# engine's memory writer (hermes-fleet images/agent/fleet/apply.py) carries the
+# same test, so a pack edit that thins one of these puts the two out of step.
+MEMORY_PHRASES = (
+    "ask these seven questions in order. The first one that fires decides",
+    "Will it still be true next week, whoever is asking?",
+    "Is it already in something loaded on every turn?",
+    "Is it about your own tools?",
+    "Never memory, never `USER.md`, never a note.",
+    "Is it pay, a rating, a hire, an exit, or a private matter about a named person?",
+    "Does it carry a date, a figure, or a named person's business?",
+    "Is it an unresolved promise with an owner and something owed?",
+    "Then it goes to `USER.md`. Never `MEMORY.md`.",
+    "name the line you would drop for it",
+    "The stamp lives inside the line because the file keeps nothing but the text",
+    "An engine state is not memory.",
+    "A line with no stamp cannot be retired.",
+    "A correction replaces, it never adds.",
+    "A reversal prunes its branch, and the branch is found by name.",
+)
+std_now = (ROOT / "skills/assistant-standard/SKILL.md").read_text()
+for phrase in MEMORY_PHRASES:
+    if phrase not in std_now:
+        err(f"assistant-standard/SKILL.md: the memory admission test lost {phrase!r}")
+if "admission test" not in soul:
+    err("SOUL.md: lost the pointer to the memory admission test")
+# The audit must be an ordinary cron turn, never a review fork: an unattended
+# fork stages every replace and remove for approval, so it could only ever add.
+# And a file edited around the memory tool refuses the tool's next write.
+audit_path = ROOT / "skills/assistant-standard/presets/memory-audit.json"
+if not audit_path.is_file():
+    err("presets/memory-audit.json is missing")
+else:
+    audit = json.loads(audit_path.read_text())
+    if audit.get("script") or audit.get("monitor_script"):
+        err("presets/memory-audit.json: must not carry a script or a monitor; it reads the files every night")
+    if audit.get("opt_in") is not True:
+        err("presets/memory-audit.json: must be opt in; it rewrites memory unattended and "
+            "reaches no pod until somebody names it")
+    for phrase in ("seven-question admission test", "change them only through the memory tool",
+                   "Never edit either file with write_file or patch",
+                   "the add before the remove", "Reply with only [SILENT]. Every run, including the first."):
+        if phrase not in audit.get("prompt", ""):
+            err(f"presets/memory-audit.json: the prompt lost {phrase!r}")
+
+# --- the engine's cron prompt scanner --------------------------------------
+# A cron run scans its prompt together with the text of every skill it loads
+# and, on a hit, blocks the run before the model starts. A blocked run is a
+# failed run, and its failure notice is delivered to the job's target: the
+# person's phone. The PUL-184 review caught a preset that loaded policy-keeper,
+# whose own text quotes the phrasings it warns about, so that job would have
+# spoken at 02:30 every night. Needs the engine (HERMES_SRC); skipped with a
+# note without it.
+try:
+    from tools.cronjob_prompt_scan import _scan_cron_skill_assembled
+except Exception as e:
+    _scan_cron_skill_assembled = None
+    if (HERMES / "cron" / "scheduler_prompt.py").exists():
+        err(f"the engine is present but its cron prompt scanner did not import ({e}); "
+            f"preset prompts would go unscanned, so find where it moved")
+    else:
+        print("note: engine cron prompt scanner unavailable; preset prompts left unscanned")
+if _scan_cron_skill_assembled is not None:
+    for pj in sorted(ROOT.glob("skills/assistant-standard/presets/*.json")):
+        job = json.loads(pj.read_text())
+        parts = [(ROOT / f"skills/{s}/SKILL.md").read_text()
+                 for s in job.get("skills") or [] if (ROOT / f"skills/{s}/SKILL.md").is_file()]
+        _, scan_error = _scan_cron_skill_assembled("\n\n".join(parts + [job.get("prompt", "")]))
+        if not scan_error:
+            from tools.cronjob_tools import _scan_cron_prompt
+            scan_error = _scan_cron_prompt(job.get("prompt", ""))
+        if scan_error:
+            err(f"{pj.relative_to(ROOT)}: the engine's cron scanner blocks this job with its "
+                f"skills loaded ({scan_error}); every run would fail and tell the person")
 
 # --- result ---------------------------------------------------------------
 if errors:

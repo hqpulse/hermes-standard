@@ -16,7 +16,7 @@ Line 1 is `# Policy` and never changes. Then these seven sections, in this order
 3. **Do without asking** — what you may do on your own.
 4. **Wait for a word** — what you draft and hold until the person says go.
 5. **Never** — hard lines. The five shipped lines stay; add to them, never cut them.
-6. **Who you work for and with** — the person, their role, the people you deal with and how (by role, not by private matters).
+6. **Who you work for and with** — the person, their role, the people you deal with and how (by role, not by private matters). This section also carries one line per person saying first contact with them is done; that line is kept word for word, never condensed or merged away.
 7. **Needs a real switch** — rules you were given that only a setting can guarantee (see below). One line each, so the Pulse team sees them on your page.
 
 Under 12,000 characters, all in. Count before you save. When you are within 500 characters of the cap, condense before you add.
@@ -27,10 +27,10 @@ Material reaches you three ways: a document or message in chat; text the Pulse t
 
 1. Read it whole. Use the document tools for a file. Never skim a policy.
 2. Sort every statement into one of four homes:
-   - **Policy.md** — a rule, a duty, a limit, a permission, a hard line.
-   - **Memory** — how this person likes things done (their preferences and corrections).
-   - **USER.md** — a stable fact about the person (role, hours, timezone, how they write).
-   - **A vault note** — anything with a date, a figure, a named person's matters or a history; the confidentiality table in the assistant-standard skill decides the note's class.
+   - **Policy.md**: a rule, a duty, a limit, a permission, a hard line.
+   - **USER.md**: how this person likes things done, the corrections they made to you, and stable facts about them (role, hours, timezone, how they write).
+   - **Memory**: only what survives the admission test in the assistant-standard skill, stamped with its source and date. Most material has nothing for it.
+   - **A vault note**: anything with a date, a figure, a named person's matters or a history; the confidentiality table in the assistant-standard skill decides the note's class.
 3. Write. Edit `Policy.md` with the file tools; put each rule under the section it belongs to; keep line 1.
 4. For a document, a pasted handbook, a job description or a file from the Inbox, reply in this shape and no other:
    - **Wrote** — one line per section you touched, saying what went in.
@@ -75,7 +75,7 @@ When you list one, say the rule in the person's words and the switch in yours: "
 
 ## A rule said in conversation
 
-A rule the person tells you in chat is written where it belongs at once, and you say back in one plain line what you wrote, in your own words. The three-part shape above is for a document, never for a sentence. A one-off correction is a correction, not a rule; it goes to memory.
+A rule the person tells you in chat is written where it belongs at once, and you say back in one plain line what you wrote, in your own words. The three-part shape above is for a document, never for a sentence. A one-off correction is a correction, not a rule; it goes to USER.md.
 
 ## Training
 

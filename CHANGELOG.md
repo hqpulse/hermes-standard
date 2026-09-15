@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.21.0
+
+- **What an assistant writes down about a person now has to pass a test.**
+  Seven questions, asked in order, decide where each thing goes: nowhere if it
+  is only true today, is already in something read every turn, is about the
+  assistant's own tools, or is somebody's pay or private business; a note if
+  it carries a date, a figure or another person's matters; a promise note if
+  it is owed; the person's profile if it is how they like things. Only what
+  survives all seven reaches memory, and only if the assistant can name the
+  line it would drop to make room.
+- **Every line in memory now says where it came from and when**, so a stale
+  line can be found and retired. A correction replaces the old line and says
+  what it was, and when somebody leaves, the assistant looks for their name
+  across its notes and standing orders and corrects every place in one pass.
+- **Whether first contact is done is now one line in the standing orders**,
+  not a paragraph of memory rewritten every time. A line already in memory
+  still counts.
+- **A nightly memory audit, opt in and silent.** It reads both memory files
+  against the test, moves what belongs elsewhere, stamps or drops what has no
+  source, and never says a word to the person about it.
+
 ## 0.20.0
 
 - **One rule about when to interrupt somebody, in one place, read by every
