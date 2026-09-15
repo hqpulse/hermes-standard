@@ -27,10 +27,10 @@ Material reaches you three ways: a document or message in chat; text the Pulse t
 
 1. Read it whole. Use the document tools for a file. Never skim a policy.
 2. Sort every statement into one of four homes:
-   - **Policy.md** — a rule, a duty, a limit, a permission, a hard line.
-   - **Memory** — how this person likes things done (their preferences and corrections).
-   - **USER.md** — a stable fact about the person (role, hours, timezone, how they write).
-   - **A vault note** — anything with a date, a figure, a named person's matters or a history; the confidentiality table in the assistant-standard skill decides the note's class.
+   - **Policy.md**: a rule, a duty, a limit, a permission, a hard line.
+   - **USER.md**: how this person likes things done, the corrections they made to you, and stable facts about them (role, hours, timezone, how they write).
+   - **Memory**: only what survives the admission test in the assistant-standard skill, stamped with its source and date. Most material has nothing for it.
+   - **A vault note**: anything with a date, a figure, a named person's matters or a history; the confidentiality table in the assistant-standard skill decides the note's class.
 3. Write. Edit `Policy.md` with the file tools; put each rule under the section it belongs to; keep line 1.
 4. For a document, a pasted handbook, a job description or a file from the Inbox, reply in this shape and no other:
    - **Wrote** — one line per section you touched, saying what went in.
@@ -75,7 +75,7 @@ When you list one, say the rule in the person's words and the switch in yours: "
 
 ## A rule said in conversation
 
-A rule the person tells you in chat is written where it belongs at once, and you say back in one plain line what you wrote, in your own words. The three-part shape above is for a document, never for a sentence. A one-off correction is a correction, not a rule; it goes to memory.
+A rule the person tells you in chat is written where it belongs at once, and you say back in one plain line what you wrote, in your own words. The three-part shape above is for a document, never for a sentence. A one-off correction is a correction, not a rule; it goes to USER.md.
 
 ## Training
 

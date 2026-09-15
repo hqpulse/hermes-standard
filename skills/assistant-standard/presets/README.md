@@ -1,6 +1,6 @@
 # Presets: the jobs every new assistant starts with
 
-Six cron job specs, one JSON file each, in the shape of the engine's `create_job`
+Seven cron job specs, one JSON file each, in the shape of the engine's `create_job`
 payload. The controller applies them at provision, and again from a Presets tab
 for assistants that already exist. The pack does not ship a `cron/jobs.json`:
 that file is per person and a pack-owned copy would overwrite every person's
@@ -14,6 +14,7 @@ own jobs on update (the 3 Sep lesson).
 | `mail-watch.json` | `preset-mail-watch` | every 30 min, 07:00-21:00, every day; the script stays shut through a quiet window and until 09:00 the next morning | `__HOME_CHANNEL__` | `[SILENT]` unless something in their mailbox needs them | opt in |
 | `delegation-scan.json` | `preset-delegation-scan` | Mondays 09:00, held by the quiet calendar | `__HOME_CHANNEL__` | three named things the assistant could take off their plate, one question; `[SILENT]` when there is nothing worth proposing | opt in |
 | `commitment-watch.json` | `preset-commitment-watch` | 09:00, 13:00 and 17:00 every day; the monitor source holds its last answer through a quiet window | `__HOME_CHANNEL__` | no model run at all when no promise moved; `[SILENT]` unless a change clears the interruption gate | opt in |
+| `memory-audit.json` | `preset-memory-audit` | nightly 02:30 | `__HOME_CHANNEL__` | `[SILENT]`; holds `MEMORY.md` and `USER.md` to the admission test | opt in |
 
 Everything below was read from the engine the fleet runs, at `v0.21.0` (2026.8.31).
 
@@ -97,6 +98,44 @@ What that shape costs, and how the watch pays it:
 
 It is opt in for the same reason as the mail watch: it is a job whose purpose
 is to speak first.
+
+## The memory audit is a cron turn on purpose, not the review fork
+
+`memory-audit.json` does the same job as the engine's memory writer from the
+other end: the writer decides what goes in after a conversation, the audit
+re-reads what is already there against the admission test in the
+assistant-standard skill's Memory section, and consolidates.
+
+It has to be an ordinary scheduled turn. The writer runs as an unattended
+review fork, and an unattended fork is add-only: every `replace` and `remove`
+it makes is staged for a person to approve (`tools/memory_tool.py`,
+`_background_delete_gate`), so a fork could never retire a line. A cron turn is
+not a review: its writes go through as in any foreground turn, so the audit
+can replace and remove. The other half of the same fact is that the engine
+sets `skip_background_review` on every cron turn, so no writer runs after the
+audit and nothing it does is second-guessed.
+
+Four things the prompt holds to, and why:
+
+- **Only the memory tool touches the two files.** The store refuses a write
+  when the file on disk no longer round-trips through its parser, so one
+  `write_file` or `patch` on `MEMORY.md` would lock the assistant out of its
+  own memory until somebody cleans the file by hand.
+- **The add before the remove.** Moving a preference from `MEMORY.md` to
+  `USER.md` is two calls. Adding first means a refused add (a full `USER.md`)
+  leaves the line where it was instead of losing it.
+- **02:30, after the nightly commitments pass at 23:00** and before the
+  morning session reset, so a line the audit moved into a note has a
+  commitment note to sit beside, and the next session starts from the cleaned
+  files (memory is frozen into the system prompt when a session starts).
+- **Opt in.** It changes memory with nobody watching, so a provision run
+  offers it and never creates it. It is not the person's to ask for either:
+  the people who run Pulse turn it on per assistant, starting with one pod and
+  a week of reading what it changed before any other.
+
+It is silent like the nightly commitments pass: `[SILENT]` on every run, no
+ask-once question, and nothing about memory, files or schedules ever reaches
+the person.
 
 ## Quiet hours for everyone
 
