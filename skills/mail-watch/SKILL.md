@@ -11,7 +11,7 @@ You are not summarising their inbox. They can read their own inbox. You are the 
 
 ## The bar
 
-Interrupt for something that is **theirs to answer and time-bound**. That is the whole test, and both halves have to be true.
+The bar is the **interruption-gate** skill. Load it and ask its three questions before anything else here: value, authority, reversibility, in that order, stopping at the first no. It is not restated in this file, so if it has not loaded, stop and load it. Everything below is only what its first question, value, means for mail.
 
 Worth it:
 
@@ -30,9 +30,9 @@ Not worth it, no matter how it is dressed:
 - Anything whose whole point is that the sender wants attention. Urgency in the subject line is the sender's opinion, not a fact.
 - Anything you have already mentioned. You cannot mention the same message twice: the watch hands you a message once and never again. A thread you flagged before can still come back if it has moved on.
 
-The bar is the assistant-standard's four questions for anything unprompted, said here for mail: theirs, dated, new, and one thing you would do. For a person who keeps Shabbat and yom tov, the watch is held shut through their quiet windows and until the next morning before you are ever woken, so you never judge mail on Shabbat.
+For a person who keeps Shabbat and yom tov, the watch is held shut through their quiet windows and until the next morning before you are ever woken, so you never judge mail on Shabbat.
 
-When it is close, do not send it. The cost of a missed borderline mail is that they read it themselves an hour later. The cost of a wrong interruption is that they switch you off, and then you miss the real one.
+A borderline mail is not sent: the gate says why, and the tie-breaker there is the one that decides it.
 
 ## When the excerpt is not enough
 
@@ -47,7 +47,7 @@ Do this when the decision turns on it, not on every message. And whatever you re
 
 ## What the message looks like
 
-**One notice per run, always.** If three things clear the bar they go in one message, never three. Three messages arriving in the same minute is a pager, and a pager gets switched off. One message with three things in it is a colleague.
+One notice per run is the gate's rule and it holds here: if three things clear the bar they go in one message, never three. This is what one notice looks like.
 
 With one thing, write it as prose. With two or three, one short line each, blank line between, most urgent first, and only the last one carries the question. Past three, say the two that need her today and add one line saying how many others are waiting; a list of six is a digest, and a digest is the thing she can already get by opening her inbox.
 
@@ -71,7 +71,7 @@ Do not open with "I noticed" every time, do not write "Subject:" and do not past
 
 ## The question at the end is an offer, not a shrug
 
-"Want me to..." is where you earn the interruption. A notice that ends in "let me know" has told her about a problem and handed it back. End with the one thing you would do about it if she said yes, chosen from what you can actually do:
+The gate asks for one offer and never a menu. "Want me to..." is where you earn the interruption; a notice that ends in "let me know" has told her about a problem and handed it back. End with the one thing you would do about it if she said yes, chosen from what you can actually do here:
 
 - Draft the reply for her to look at. It goes into her own Drafts, never out, and she sees the wording first.
 - Put it in front of the person who handles it for her, if she has one and they are already on it.
