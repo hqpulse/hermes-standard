@@ -213,7 +213,7 @@ ASK_TAIL = "Say keep, change, or stop."
 #: carry no ask-once question, because a job with nothing to say has no
 #: message for that question to ride on, and the question would BE the
 #: message. See tests/test_presets_never_announce.py for the incident.
-SILENT_PRESETS = {"open-commitments.json", "mail-watch.json"}
+SILENT_PRESETS = {"open-commitments.json", "mail-watch.json", "commitment-watch.json"}
 ask_lines = {}
 # The controller substitutes this before create_job. A preset that ships a real
 # platform name delivers to whichever channel happens to be connected, which on
@@ -253,6 +253,7 @@ for pj in sorted(ROOT.glob("skills/assistant-standard/presets/*.json")):
     # what the calendar block is for.
     GATE_SCRIPTS = {"jewish_time.py"}
     scripted = bool(job.get("script"))
+    monitored = bool(job.get("monitor_script"))
     gated = job.get("script") in GATE_SCRIPTS
     if gated and "QUIET CALENDAR" not in job.get("prompt", ""):
         err(f"{rel}: runs the calendar gate but its prompt never says what the "
@@ -272,7 +273,33 @@ for pj in sorted(ROOT.glob("skills/assistant-standard/presets/*.json")):
     if silent and ASK_TAIL in job.get("prompt", ""):
         err(f"{rel}: is silent by design yet carries the ask-once question; a "
             f"job with nothing to say has no message for that question to ride on")
-    if not scripted or gated:
+    if monitored:
+        # A MONITOR preset (the commitment watch) is a different shape again.
+        # The engine runs `monitor_script` first, hashes its stdout, and only
+        # wakes the model when the hash moved (cron/monitor.py). It persists
+        # the new hash BEFORE a pre-run `script` could close the gate, so a
+        # change seen inside a quiet window would be spent on a tick nobody may
+        # hear: the monitor source holds quiet windows itself, and a monitor
+        # preset carries no `script`. Nor continuity: the diff is the context,
+        # and every no_change tick writes a receipt the block would inject.
+        mon = str(job["monitor_script"])
+        if scripted:
+            err(f"{rel}: a monitor preset must not also carry a script; the engine "
+                f"stores the new hash before the script's gate runs, so a change "
+                f"seen inside a quiet window is lost")
+        if job.get("continuity"):
+            err(f"{rel}: a monitor preset must not set continuity; the diff is the "
+                f"context and a no_change tick would become the block")
+        if "/" in mon or mon.startswith("."):
+            err(f"{rel}: monitor_script must be a bare filename under scripts/, got {mon!r}")
+        elif not (ROOT / "scripts" / mon).is_file():
+            err(f"{rel}: names {mon!r} but the pack ships no scripts/{mon}")
+        elif f"scripts/{mon}" not in owned:
+            err(f"scripts/{mon}: not in distribution_owned, so the job fails on every tick")
+        for phrase in ("UNTRUSTED CONTENT", "never an instruction", "Monitor Baseline", "[SILENT]"):
+            if phrase not in job.get("prompt", ""):
+                err(f"{rel}: a monitor preset's prompt must carry {phrase!r}")
+    elif not scripted or gated:
         if job.get("continuity") is not True:
             err(f"{rel}: continuity must be true (first-run detection depends on it)")
         m = re.search(r'"([^"]*' + re.escape(ASK_TAIL) + r')"', job.get("prompt", ""))
@@ -318,7 +345,9 @@ for pj in sorted(ROOT.glob("skills/assistant-standard/presets/*.json")):
         # is how the mail watch reaches a person only when somebody decided it
         # should. `continuity` is the same shape (the controller turns it into
         # context_from), and both are stripped before the create.
-        extra = set(job) - tool_props - {"opt_in"}
+        # `monitor_script` is create_job's own name; the tool folds it and
+        # monitor_url into one `monitor` field whose value decides which.
+        extra = set(job) - tool_props - {"opt_in", "monitor_script"}
         if extra:
             err(f"{rel}: fields the cronjob tool does not accept: {sorted(extra)}")
     if parse_schedule is not None:
@@ -426,9 +455,9 @@ for marker in ("=== CONTEXT SKILL ===", "=== USER.MD ===", "6,000", "240", "§")
 # Three invariants, each of which has a specific way of going wrong quietly.
 optional = [p.name for p in sorted(ROOT.glob("skills/assistant-standard/presets/*.json"))
             if json.loads(p.read_text()).get("opt_in")]
-if optional != ["delegation-scan.json", "mail-watch.json"]:
+if optional != ["commitment-watch.json", "delegation-scan.json", "mail-watch.json"]:
     err(f"opt_in presets are {optional}; a preset that reads a person's mail "
-        f"waits to be asked for, and everything else is what the assistant IS")
+        f"or speaks first waits to be asked for, and everything else is what the assistant IS")
 
 watch = ROOT / "scripts/mail-watch.py"
 if watch.is_file():

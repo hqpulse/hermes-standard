@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.19.0
+
+- **A promise that moves can wake the assistant; a quiet day cannot.** A sixth
+  preset, opt in: the commitment watch. A few times a day a script reads every
+  open promise in the person's notes and the engine compares it with the last
+  look. When nothing moved the model never runs and nothing is sent. When a
+  promise closes, comes due or goes overdue, the assistant sees just that
+  change and decides, through the interruption gate, whether it is worth a
+  message. Almost always it is not. Inside a quiet window the change waits
+  until the window ends.
+
 ## 0.18.0
 
 - **The assistant can look someone up instead of guessing.** A new `brain`

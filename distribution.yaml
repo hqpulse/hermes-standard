@@ -1,5 +1,5 @@
 name: hermes-standard
-version: 0.18.0
+version: 0.19.0
 description: "HQ Pulse standard employee assistant: persona and skills"
 hermes_requires: ">=0.21.0"
 author: "HQ Pulse"
@@ -61,6 +61,7 @@ distribution_owned:
   - skills/assistant-standard/presets/open-commitments.json
   - skills/assistant-standard/presets/mail-watch.json
   - skills/assistant-standard/presets/delegation-scan.json
+  - skills/assistant-standard/presets/commitment-watch.json
   - skills/browser/SKILL.md
   - skills/humanizer/SKILL.md
   - skills/humanizer/LICENSE
@@ -100,6 +101,7 @@ distribution_owned:
   - scripts/quiet_windows.py
   - scripts/ecw_guard.sh
   - scripts/ecw_boot_guard.sh
+  - scripts/commitments_state.py
   - skills/quiet-windows/SKILL.md
   - skills/quiet-windows/scripts/quiet-windows
   - skills/jewish-time/SKILL.md
