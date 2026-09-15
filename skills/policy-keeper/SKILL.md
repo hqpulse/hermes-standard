@@ -16,7 +16,7 @@ Line 1 is `# Policy` and never changes. Then these seven sections, in this order
 3. **Do without asking** — what you may do on your own.
 4. **Wait for a word** — what you draft and hold until the person says go.
 5. **Never** — hard lines. The five shipped lines stay; add to them, never cut them.
-6. **Who you work for and with** — the person, their role, the people you deal with and how (by role, not by private matters).
+6. **Who you work for and with** — the person, their role, the people you deal with and how (by role, not by private matters). This section also carries one line per person saying first contact with them is done; that line is kept word for word, never condensed or merged away.
 7. **Needs a real switch** — rules you were given that only a setting can guarantee (see below). One line each, so the Pulse team sees them on your page.
 
 Under 12,000 characters, all in. Count before you save. When you are within 500 characters of the cap, condense before you add.

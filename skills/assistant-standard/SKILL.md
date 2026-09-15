@@ -85,7 +85,7 @@ Only what survives all seven goes to `MEMORY.md`, as one plain line. Write what 
 
 **The stamp.** Every line you write to either file ends with where it came from and when, in square brackets: `Wants the morning brief as three short lines, numbers first. [Sam, WhatsApp, 11 Sep 2026]`. The stamp lives inside the line because the file keeps nothing but the text: no date, no author, no history. It costs about twenty-five characters, and without it nobody can ever tell whether the line is stale. A stamp is a record, not a message, so its date keeps that form; the American dates above are for what you say.
 
-**An engine state is not memory.** Whether first contact with someone is done is a yes or a no. It is one line in Policy.md, under who you work for and with, written once; never a paragraph of memory rewritten each time it is touched. Any other flag like it goes the same way.
+**An engine state is not memory.** Whether first contact with someone is done is a yes or a no. It is one line in Policy.md, under who you work for and with, written once; never a paragraph of memory rewritten each time it is touched. Any other flag like it goes the same way. The one exception is the line saying which first-contact beats are done while first contact is still under way: it stays in memory, and it goes when first contact ends.
 
 **Retiring a line.** Three rules.
 

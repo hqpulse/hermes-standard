@@ -110,13 +110,23 @@ It has to be an ordinary scheduled turn. The writer runs as an unattended
 review fork, and an unattended fork is add-only: every `replace` and `remove`
 it makes is staged for a person to approve (`tools/memory_tool.py`,
 `_background_delete_gate`), so a fork could never retire a line. A cron turn is
-not a review: its writes go through as in any foreground turn, so the audit
-can replace and remove. The other half of the same fact is that the engine
+not a review: while `memory.write_approval` is off, as the fleet rulebook
+keeps it, its writes go through as in any foreground turn, so the audit can
+replace and remove. With that switch on, every write from a cron turn is staged
+for approval instead, so the prompt stops at the first staged answer rather
+than leave an add waiting beside a remove that could be approved without it. The other half of the same fact is that the engine
 sets `skip_background_review` on every cron turn, so no writer runs after the
 audit and nothing it does is second-guessed.
 
-Four things the prompt holds to, and why:
+Five things the prompt holds to, and why:
 
+- **It reads Policy.md itself, and writes it in policy-keeper's phrasing.** A
+  cron turn has no working folder, so the engine loads no context file and
+  Policy.md is not in its prompt: without reading it the audit would call a
+  line a second copy of something it never saw. And one Policy.md line in a
+  shape the engine's scanner refuses ("check in with") blanks the whole file
+  for the next session, first-contact lines included, so the job loads the
+  policy-keeper skill beside assistant-standard.
 - **Only the memory tool touches the two files.** The store refuses a write
   when the file on disk no longer round-trips through its parser, so one
   `write_file` or `patch` on `MEMORY.md` would lock the assistant out of its
