@@ -145,6 +145,20 @@ So the skill ships one command instead of loosening rules 5 and 6:
                            password is actually submitted
     session save|restore   keep a live session across a pod roll
 
+**A restart does not cost the session, if the two guard jobs are set.** They are no-model
+jobs a person registers once per eCW seat; you do not run them yourself:
+
+- `hermes cron create "45 5 * * 1-5" --name ecw-session-guard --script ecw_guard.sh --no-agent --deliver local`
+- `hermes cron create "*/5 * * * *" --name ecw-boot-guard --script ecw_boot_guard.sh --no-agent --deliver local --failure-deliver local`
+
+`ecw_guard.sh` widens the eCW window, puts the saved session back, spends a password only if
+that session is dead, and saves again. `ecw_boot_guard.sh` runs it exactly once after a new
+pod or a new browser and is silent every other time. Both must sit in the PROFILE's
+`scripts/` folder: the scheduler refuses a script anywhere else, symlinks included. The guard
+sets no sign-in budget of its own. A seat whose owners accepted more than two writes the number
+into `attempt-budget` in the eCW state folder, and only the guard reads that file: when you run
+`ecw signin` yourself, the budget is still two.
+
 **Run it with the terminal tool, never with `execute_code`** — the same reason `logins`
 gives: `execute_code` drops the environment the script needs and it would tell you the
 door is not configured when it is.
