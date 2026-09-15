@@ -398,6 +398,33 @@ for phrase in ("must name a `deliver` target",
         err(f"assistant-standard/SKILL.md: lost {phrase!r} — without it the "
             f"assistant leaves `deliver` unset and its reminders go nowhere")
 
+# --- a promise the vault can read back -------------------------------------
+#
+# PUL-185, measured on the pilot pod: all three shipped Base tables returned
+# zero rows. `Open commitments.base` filters `type == "commitment"`, and the
+# nightly pass's prompt listed the frontmatter to write without ever naming
+# `type`. So every promise the job filed was invisible to the table the person
+# reads AND to the job itself on its next run, which would re-file the same
+# promise for ever. These phrases are the fix, and a reworded prompt that drops
+# one of them puts the bug straight back.
+oc = json.loads((ROOT / "skills/assistant-standard/presets/open-commitments.json").read_text())
+for phrase in ("type: commitment",
+               "The type key is not optional",
+               "bare wikilink",
+               "Commitments.md"):
+    if phrase not in oc.get("prompt", ""):
+        err(f"presets/open-commitments.json: the prompt lost {phrase!r}. Without it the "
+            f"nightly pass writes commitment notes the vault's own tables cannot see")
+
+# The row link is what stops the commitment watch counting a table row and the
+# note it points at as two promises (scripts/commitments_state.py, collect()).
+# It only skips a row whose source link resolves to a note filename, so the
+# prompt has to name the link FORM, not just ask for a link.
+if "no .md" not in oc.get("prompt", "") or "no alias" not in oc.get("prompt", ""):
+    err("presets/open-commitments.json: the prompt must say the row link carries no .md "
+        "and no alias; the commitment watch matches on the bare note name and double "
+        "counts the promise otherwise")
+
 # --- on a phone -----------------------------------------------------------
 #
 # 11 Sep: Susan's first real morning. A six-meeting day came back as one
