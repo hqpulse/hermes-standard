@@ -1,6 +1,6 @@
 # Presets: the jobs every new assistant starts with
 
-Five cron job specs, one JSON file each, in the shape of the engine's `create_job`
+Six cron job specs, one JSON file each, in the shape of the engine's `create_job`
 payload. The controller applies them at provision, and again from a Presets tab
 for assistants that already exist. The pack does not ship a `cron/jobs.json`:
 that file is per person and a pack-owned copy would overwrite every person's
@@ -13,6 +13,7 @@ own jobs on update (the 3 Sep lesson).
 | `open-commitments.json` | `preset-open-commitments` | nightly 23:00 | `__HOME_CHANNEL__` | `[SILENT]`; rewrites `Open commitments.md` in the vault | yes |
 | `mail-watch.json` | `preset-mail-watch` | every 30 min, 07:00-21:00, every day; the script stays shut through a quiet window and until 09:00 the next morning | `__HOME_CHANNEL__` | `[SILENT]` unless something in their mailbox needs them | opt in |
 | `delegation-scan.json` | `preset-delegation-scan` | Mondays 09:00, held by the quiet calendar | `__HOME_CHANNEL__` | three named things the assistant could take off their plate, one question; `[SILENT]` when there is nothing worth proposing | opt in |
+| `commitment-watch.json` | `preset-commitment-watch` | 09:00, 13:00 and 17:00 every day; the monitor source holds its last answer through a quiet window | `__HOME_CHANNEL__` | no model run at all when no promise moved; `[SILENT]` unless a change clears the interruption gate | opt in |
 
 Everything below was read from the engine the fleet runs, at `v0.21.0` (2026.8.31).
 
@@ -55,6 +56,47 @@ Two consequences worth knowing before copying the pattern:
   found", the engine treats it as a data-collection failure, and the assistant
   reports a broken script to the person every half hour. `presets.CREATE_SCRIPT`
   stats `scripts/<name>` on the pod and refuses the create instead.
+
+## The commitment watch is a monitor, not a script
+
+`commitment-watch.json` carries `monitor_script`, which is a different engine
+mode from `script`. On every tick `cron/monitor.py` runs
+`scripts/commitments_state.py` FIRST and hashes its exact stdout against the
+hash from the last tick that woke the model. Same hash: a silent `no_change`
+run, no model, no delivery. Different hash: a capped unified diff plus the new
+output is put in front of the prompt and the model runs. The first tick ever is
+a "Monitor Baseline" and the prompt answers it with `[SILENT]`. A source that
+exits non-zero is an ERROR, never a change, and the stored hash is left alone.
+
+What that shape costs, and how the watch pays it:
+
+- **No clock in the output.** The engine compares bytes, so the script prints
+  no timestamp and no day count: days-to-due is a bucket (overdue, due today,
+  due tomorrow, due within a week, due later, no due date) that moves only when
+  a promise crosses a line.
+- **No `script` beside it.** The engine stores the new hash before a pre-run
+  gate could close, so `jewish_time.py` cannot sit in front of this job: a
+  change seen on Shabbat would be spent on a tick nobody may hear. The monitor
+  source reads the quiet calendar and the stated quiet hours itself and, while
+  held, prints its last answer from outside the window byte for byte
+  (`<HERMES_HOME>/commitment-watch/last-output.txt`), so everything that moved
+  arrives as one diff when the hold lifts. `check_pack.py` refuses a monitor
+  preset that also carries a script. That file is written by ANY run outside
+  a hold, so do not run the script by hand on a pod just before a quiet
+  window: a hand run that saw a different state than the engine's last tick
+  would make the held output differ from the stored hash and wake the model
+  inside the window.
+- **No continuity, and no writer.** The diff is the context. And the engine
+  sets `skip_background_review` on every cron turn, so no memory review runs
+  after this job: whatever it learns it writes itself, in its own turn.
+- **The controller installs it.** `cron.allow_agent_scheduling` is false, so
+  the assistant cannot create it; the controller must pass `monitor_script`
+  through to `create_job` and check the script exists first, as it already
+  does for `script`. A controller that drops the field creates an ordinary job
+  that wakes the model three times a day.
+
+It is opt in for the same reason as the mail watch: it is a job whose purpose
+is to speak first.
 
 ## Quiet hours for everyone
 

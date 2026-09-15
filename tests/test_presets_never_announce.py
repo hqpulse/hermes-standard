@@ -31,7 +31,7 @@ PRESETS = ROOT / "skills" / "assistant-standard" / "presets"
 
 # Presets whose whole job is to stay quiet unless something needs saying.
 # These may never carry a first-run announcement of any kind.
-SILENT_BY_DESIGN = {"open-commitments", "mail-watch"}
+SILENT_BY_DESIGN = {"open-commitments", "mail-watch", "commitment-watch"}
 
 ASK = re.compile(r"keep,\s*change,\s*or\s*stop", re.I)
 # "except on your first run, ... reply with one line saying ..." and friends:
