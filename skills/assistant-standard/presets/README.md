@@ -81,7 +81,11 @@ What that shape costs, and how the watch pays it:
   held, prints its last answer from outside the window byte for byte
   (`<HERMES_HOME>/commitment-watch/last-output.txt`), so everything that moved
   arrives as one diff when the hold lifts. `check_pack.py` refuses a monitor
-  preset that also carries a script.
+  preset that also carries a script. That file is written by ANY run outside
+  a hold, so do not run the script by hand on a pod just before a quiet
+  window: a hand run that saw a different state than the engine's last tick
+  would make the held output differ from the stored hash and wake the model
+  inside the window.
 - **No continuity, and no writer.** The diff is the context. And the engine
   sets `skip_background_review` on every cron turn, so no memory review runs
   after this job: whatever it learns it writes itself, in its own turn.

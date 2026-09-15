@@ -66,10 +66,13 @@ def main() -> int:
         (vault / "Commitments.md").write_text(
             "---\ntags: [commitments]\n---\n\n# Commitments\n\n"
             "| Owner | Promise | Due | Source |\n|---|---|---|---|\n"
-            "| Mark Josephson | Gather the info request | 2026-09-22 | [[Mark Josephson - gather the info request]] |\n"
+            "| Mark Josephson | Gather the info request | 2026-09-22 | [[Commitments/Mark Josephson - gather the info request]] |\n"
             "| Fred Rowe | Venue for the holiday party | not set | [[2026-09-07 Party|party call]] |\n"
             "| Adam Madison | Replace the administrator | 2026-09-30 | [[2026-09-06 Adam call]] |\n"
             "| Joe Frustaci | An old promise | 2026-09-01 | [[x]] | \n", encoding="utf-8")
+        (vault / "Commitments" / "Gone.md").symlink_to(vault / "nowhere.md")
+        note(vault, "Rae Pike - sign the lease", type="Commitment", owner="Rae Pike",
+             due="2026-10-30", status="open")
         (vault / ".obsidian").mkdir()
         (vault / ".obsidian" / "hidden.md").write_text("---\ntype: commitment\nowner: Hidden\n---\n")
 
@@ -78,22 +81,24 @@ def main() -> int:
         check("exits cleanly", first.returncode == 0, first.stderr)
         lines = first.stdout.splitlines()
         check("a header with the count, then one line per open promise",
-              lines[:1] == ["open commitments: 5"], first.stdout)
+              lines[:1] == ["open commitments: 6"], first.stdout)
         check("lines are sorted", lines[1:] == sorted(lines[1:]))
         check("a note's owner comes out without the link brackets",
-              "Mark Josephson | gather the info request | 2026-09-22 | open | due within a week" in lines,
+              "Mark Josephson | Frank Cid | gather the info request | 2026-09-22 | open | due within a week" in lines,
               first.stdout)
         check("a table row that points at a commitment note is not counted twice",
               sum("Mark Josephson" in l for l in lines) == 1, first.stdout)
         check("a met promise is left out", "Esther Kohn" not in first.stdout)
         check("a row with no due date says so",
-              "Fred Rowe | Venue for the holiday party | not set | open | no due date" in lines,
+              "Fred Rowe | not set | Venue for the holiday party | not set | open | no due date" in lines,
               first.stdout)
         check("a link alias in a table row does not shift the columns",
               "party call" not in first.stdout and "Fred Rowe" in first.stdout)
         check("the nightly rewrite and hidden folders are never read",
               "Ghost" not in first.stdout and "Hidden" not in first.stdout)
-        check("an overdue row reads overdue", "Joe Frustaci | An old promise | 2026-09-01 | open | overdue" in lines)
+        check("a dangling link in the vault is skipped, not a failure", "Gone" not in first.stdout)
+        check("a capitalised type still counts", "Rae Pike" in first.stdout, first.stdout)
+        check("an overdue row reads overdue", "Joe Frustaci | not set | An old promise | 2026-09-01 | open | overdue" in lines)
         check("no clock in the output", not re.search(r"\d{1,2}:\d{2}|2026-09-15", first.stdout),
               first.stdout)
 
@@ -107,12 +112,12 @@ def main() -> int:
         print("a real move changes the output")
         crossed = run(home, vault, "2026-09-22T10:00:00-04:00")
         check("the day a promise comes due, its line changes",
-              "Mark Josephson | gather the info request | 2026-09-22 | open | due today" in crossed.stdout,
+              "Mark Josephson | Frank Cid | gather the info request | 2026-09-22 | open | due today" in crossed.stdout,
               crossed.stdout)
         mark.write_text(mark.read_text().replace("status: open", "status: done"), encoding="utf-8")
         closed = run(home, vault, "2026-09-16T10:00:00-04:00")
         check("a promise that closes leaves the list",
-              "Mark Josephson" not in closed.stdout and closed.stdout.startswith("open commitments: 4"),
+              "Mark Josephson" not in closed.stdout and closed.stdout.startswith("open commitments: 5"),
               closed.stdout)
 
         print("a missing vault is an error, never a change")

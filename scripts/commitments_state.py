@@ -109,29 +109,36 @@ def _when(due: str, today: date) -> str:
     return {0: "due today", 1: "due tomorrow"}.get(days, "due within a week" if days <= 7 else "due later")
 
 
-def _line(owner, what, due, status, today: date) -> str:
+def _line(owner, owed_to, what, due, status, today: date) -> str:
     due = _plain(due)
     due = "" if due.lower() in NOT_SET else due
-    return " | ".join((_plain(owner) or "no owner", _plain(what), due or "not set",
+    return " | ".join((_plain(owner) or "no owner", _plain(owed_to) or "not set", _plain(what),
+                       due or "not set",
                        _plain(status).lower() or "open", _when(due, today)))
 
 
 def collect(vault: Path, today: date, entity_note) -> list[str]:
-    lines, note_names = set(), set()
+    # A list, not a set: two identical promises are two, and one closing is a move.
+    lines, note_names = [], set()
     for dirpath, dirnames, filenames in os.walk(vault):
         dirnames[:] = [d for d in dirnames if not d.startswith(".")]
         for filename in filenames:
             if not filename.endswith(".md"):
                 continue
             path = Path(dirpath) / filename
-            text = path.read_text(encoding="utf-8", errors="replace")
-            if "commitment" not in text:
+            try:
+                text = path.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                # A dangling link, a locked file or a note renamed mid-walk. One
+                # odd file must not turn every tick into a source failure.
+                continue
+            if "commitment" not in text.lower():
                 continue
             try:
                 fm, _body = entity_note.parse_frontmatter(text)
             except entity_note.Refusal:
-                if re.search(r"^type:\s*commitment\s*$", text, re.M):
-                    lines.add(f"unreadable commitment note | {_plain(path.stem)}")
+                if re.search(r"^type:\s*commitment\s*$", text, re.M | re.I):
+                    lines.append(f"unreadable commitment note | {_plain(path.stem)}")
                 continue
             if str(fm.get("type") or "").strip().lower() != "commitment":
                 continue
@@ -139,7 +146,8 @@ def collect(vault: Path, today: date, entity_note) -> list[str]:
             if _plain(fm.get("status")).lower() in CLOSED:
                 continue
             what = fm.get("what") or path.stem.split(" - ", 1)[-1]
-            lines.add(_line(fm.get("owner"), what, fm.get("due"), fm.get("status"), today))
+            lines.append(_line(fm.get("owner"), fm.get("owed_to"), what, fm.get("due"),
+                               fm.get("status"), today))
     table = vault / "Commitments.md"
     if table.is_file():
         header = None
@@ -158,11 +166,13 @@ def collect(vault: Path, today: date, entity_note) -> list[str]:
             row = dict(zip(header, cells))
             what = row.get("what") or row.get("promise") or row.get("commitment") or ""
             source = LINK.search(row.get("source") or row.get("from") or "")
-            if not what.strip() or (source and source.group(1).strip().lower() in note_names):
+            target = source.group(1).strip().rsplit("/", 1)[-1].lower() if source else ""
+            if not what.strip() or target in note_names:
                 continue
             if _plain(row.get("status")).lower() in CLOSED or what.strip().startswith("~~"):
                 continue
-            lines.add(_line(row.get("owner"), what, row.get("due"), row.get("status"), today))
+            lines.append(_line(row.get("owner"), row.get("owed to") or row.get("owed_to"), what,
+                               row.get("due"), row.get("status"), today))
     return sorted(lines)
 
 
