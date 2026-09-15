@@ -34,6 +34,11 @@ skill.
 | entity | <Kind>/<Name> - <KEY>.md | entity_kind, entity_key, entity_keys, display, source_system, read_at, read_on, encounters | one thing you meet again and again: dated sections appended for ever, and what changed since last time | a fact belonging to any other entity |
 
 Rules:
+- `type` is not optional, and it is the key the vault root's Base tables
+  filter on. A note written without it is invisible to `Open commitments.base`,
+  `Meetings.base` and `People.base`, so the skill's own instruction to read the
+  tables before answering a follow-up reads nothing. If a note does not fit a
+  type above, say so to the person rather than leaving the key off.
 - A commitment is created the moment a meeting note records an action item; the meeting note links to it and it links back.
 - When a commitment is met, set status: done and add `done: YYYY-MM-DD`; never delete.
 - A person note is role facts. The dated log lines point at meeting notes; they do not restate them.

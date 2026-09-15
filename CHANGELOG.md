@@ -10,6 +10,13 @@
   change and decides, through the interruption gate, whether it is worth a
   message. Almost always it is not. Inside a quiet window the change waits
   until the window ends.
+- **A promise the assistant writes down can now be found again.** The nightly
+  commitments pass used to write notes without the one key the vault's open
+  commitments table reads, so a promise it filed was invisible the next night
+  and invisible to the person looking for it. Every note it writes now carries
+  its type, and where the promise is already a row in the person's own
+  commitments table it points the row at the note, so one promise is counted
+  once.
 
 ## 0.18.0
 
