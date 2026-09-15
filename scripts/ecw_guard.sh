@@ -66,36 +66,51 @@ trap 'rm -f "$L"' EXIT
 # has its own window id, and the shared browser also holds PointClickCare pages opened at
 # 950 x 600; resizing one of those does nothing for eCW and reads in the log as if it had
 # worked. Measured 2026-09-15 (PUL-217).
-/opt/hermes/.venv/bin/python3 - "${ECW_WEB_BASE:-}" <<'PY'
+#
+# Called AFTER the restore as well as before it. On a cold start there is no eCW page until the
+# restore opens one, so a widen that only runs first widens nothing (17:45Z, 15 Sep). And it
+# reports the page's own size next to the window's, because they can differ on purpose: the
+# scribe's eCW adapter holds the page at 1600 x 1000 with a viewport setting for as long as its
+# client is attached, and no window size overrides that. Above the floor is all this needs.
+widen() {
+  "${ECW_PYTHON:-/opt/hermes/.venv/bin/python3}" - "${ECW_WEB_BASE:-}" "$1" <<'PY'
 import sys, urllib.parse
 from playwright.sync_api import sync_playwright
 host = urllib.parse.urlsplit(sys.argv[1]).netloc if len(sys.argv) > 1 else ""
+when = sys.argv[2] if len(sys.argv) > 2 else ""
+FLOOR = (1600, 900)   # the login page's own resolution floor
 with sync_playwright() as p:
     b = p.chromium.connect_over_cdp("http://127.0.0.1:9222")
     ctx = b.contexts[0]
     pages = [pg for pg in ctx.pages if host and host in pg.url]
     if not pages:
-        # Nothing on the practice site yet. A page the skill opens next inherits the
-        # browser's launch size (--window-size=1920,1200), so there is nothing to fix.
-        print("window: no eCW page open yet; nothing to widen")
+        print(f"window ({when}): no eCW page open yet")
         raise SystemExit(0)
     pg = pages[0]
     s = ctx.new_cdp_session(pg)
     wid = s.send("Browser.getWindowForTarget")["windowId"]
     s.send("Browser.setWindowBounds", {"windowId": wid, "bounds": {"left": 0, "top": 0,
                                        "width": 1920, "height": 1200, "windowState": "normal"}})
-    print("window:", pg.evaluate("[window.innerWidth, window.innerHeight]"))
+    bounds = s.send("Browser.getWindowBounds", {"windowId": wid})["bounds"]
+    w, h = pg.evaluate("[window.innerWidth, window.innerHeight]")
+    note = "at or over the floor" if w >= FLOOR[0] and h >= FLOOR[1] else "UNDER the login page's floor"
+    held = "" if w >= bounds["width"] - 40 else "; the page is held smaller by a viewport setting from another client"
+    print(f"window ({when}): {bounds['width']}x{bounds['height']}, page {w}x{h}, {note}{held}")
 PY
+}
 
+widen "before restore"
 W=$(where_now)
 echo "where before: $W"
 if [ "$W" != "in-the-app" ]; then
   echo "putting the saved session back"
   "$E" session restore 2>&1 | grep -vE "^\s+(at |File )" | tail -3
+  widen "after restore"
   W=$(where_now); echo "where after restore: $W"
 fi
 if [ "$W" != "in-the-app" ]; then
   echo "the saved session is gone; signing in"
+  widen "before sign-in"
   timeout 420 "$E" signin 2>&1 | grep -vE "^\s+(at |File |\^|~)" | tail -6
   W=$(where_now); echo "where after signin: $W"
 fi
