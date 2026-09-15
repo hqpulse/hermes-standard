@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.22.0
+
+- **The assistant stops saying "I have nothing on her" about people it does
+  have.** Contacts are saved under phone-book labels, not plain names, so a
+  page can be titled "Chevy Bauman ( Shaindy Mom )" or "Aliza Schachar - Ltc".
+  Looking one up by the obvious name missed it, and the assistant then
+  honestly reported it knew nothing. It now looks up loosely, and when a name
+  does not resolve it tries the near matches and the other half of the name
+  before answering. Every contact now has a page, not just the frequent ones,
+  and each one opens with a summary of who that person is rather than a wall
+  of chat.
+
 ## 0.21.0
 
 - **What an assistant writes down about a person now has to pass a test.**
