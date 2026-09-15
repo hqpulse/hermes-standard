@@ -128,7 +128,11 @@ VEIL = "div#load"
 CRYPTO_KEYS = ("crypto_aesKey_requestEnc", "crypto_aesIv_requestEnc")
 
 #: SKILL.md rule 7. On disk, because a fresh session does not remember.
-ATTEMPT_BUDGET = 2
+#: Sign-in attempts allowed per window. Two is the safe default: eCW locks an account
+#: for real after a few wrong passwords and only the practice can unlock it. A lane that
+#: has accepted that risk raises it with ECW_ATTEMPT_BUDGET (Eli, 2026-09-15, after a
+#: night where the budget ran out on a browser-window fault rather than a bad password).
+ATTEMPT_BUDGET = max(1, int(os.environ.get("ECW_ATTEMPT_BUDGET") or 2))
 ATTEMPT_WINDOW_S = 6 * 3600
 
 DEFAULT_FLEET = "http://hermes-fleet:8787"
@@ -689,6 +693,26 @@ def raise_viewport(page, want_w: int = MIN_W, want_h: int = MIN_H) -> tuple:
     image (references/login.md section 0); this is the second answer, and it is
     a browser setting -- it writes nothing to the page and presses no control.
     """
+    w, h = window_size(page)
+    if w >= want_w and h >= want_h:
+        return w, h, True
+    # The window itself, first and always. Browser.setWindowBounds is a BROWSER-level
+    # call: it resizes the real window and outlives this CDP client, so the next run
+    # and every other door on this shared Chromium inherit it. Measured 2026-09-15:
+    # the page-level calls below both answered 0 x 0 on a page this process did not
+    # create, the login page kept refusing to advance, and two sign-in attempts were
+    # spent on it; one setWindowBounds to 1920 x 1200 and the sign-in went through
+    # first try. The launch flag (--window-size on the browser image) is already
+    # right and was not enough, because an adopted page can report no window at all.
+    try:
+        session = page.context.new_cdp_session(page)
+        wid = session.send("Browser.getWindowForTarget")["windowId"]
+        session.send("Browser.setWindowBounds",
+                     {"windowId": wid,
+                      "bounds": {"left": 0, "top": 0, "width": want_w,
+                                 "height": want_h, "windowState": "normal"}})
+    except Exception:  # noqa: BLE001 -- a browser that will not resize still gets the page calls
+        pass
     w, h = window_size(page)
     if w >= want_w and h >= want_h:
         return w, h, True
