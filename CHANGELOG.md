@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.22.2
+
+- **The 5:45 am eCW guard now signs in on a fresh page.** A login page left
+  open from the day before keeps its own stale state: it reports a tiny screen
+  whatever size the window is, never gets past the first screen, and reads
+  back as "username not recognized". Widening the window around it did not
+  help; this morning's guard did that and was still signed out. When the
+  session is not working the guard now closes every page on the practice
+  site, opens one fresh page sized well over the login floor, and puts the
+  saved session back on that page, spending a password only if the saved
+  session is really gone. A session that is working is left alone.
+
 ## 0.22.1
 
 - **No scheduled job asks whether to keep going any more.** The morning brief,
