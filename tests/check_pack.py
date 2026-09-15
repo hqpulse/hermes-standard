@@ -613,6 +613,22 @@ else:
     if "only place you can write" not in gtext:
         err("interruption-gate/SKILL.md: no longer says WHY the ledger lives under "
             "the workspace, so the next edit moves it back")
+    # A key that changes when the wording changes dedupes nothing while still
+    # looking written, which is the quietest way this whole file stops working.
+    if "has to survive rewording" not in gtext:
+        err("interruption-gate/SKILL.md: the ledger key no longer has to survive "
+            "rewording, so the same thing gets said twice in different words")
+
+    # THE CARVE-OUT. Read without it, the value question forbids the silent
+    # acting the gate itself prescribes: a nightly pass that rewrites a list,
+    # a note the person asked to have kept, and the ledger above all fail
+    # "theirs to answer and time-bound". The first draft of this skill did
+    # read that way, an independent review caught it, and nothing else here
+    # would notice if it came back.
+    if "work they already asked for on a clock" not in gtext:
+        err("interruption-gate/SKILL.md: lost the carve-out for standing work; "
+            "without it a low-value answer reads as forbidding the nightly pass, "
+            "the notes the person asked for, and the ledger itself")
 
 # --- the bar for speaking first, and Jewish time ---------------------------
 #
