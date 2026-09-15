@@ -174,6 +174,21 @@ esac
         calls = self.calls()
         self.assertLess(calls.index("widen before sign-in"), calls.index("signin"))
 
+    def test_a_dead_session_gets_a_fresh_page_before_the_restore(self):
+        # 15 Sep, 05:46: widened, restored and signed in on the STALE login page, still signed
+        # out. 06:03, by hand: old pages closed, one fresh page, same credential, first try.
+        self.run_guard(self.fake_ecw("refused", 2, after_restore_rc=0))
+        calls = self.calls()
+        self.assertIn("widen fresh page", calls)
+        self.assertLess(calls.index("widen fresh page"), calls.index("session restore"))
+        self.assertEqual(calls.count("widen fresh page"), 1)
+
+    def test_a_live_session_keeps_its_pages(self):
+        # Closing a working session's pages and putting the saved file back over live cookies
+        # could turn a good session into a dead one, and then spend a password on it.
+        self.run_guard(self.fake_ecw("in-the-app", 0))
+        self.assertNotIn("widen fresh page", self.calls())
+
     def test_the_word_alone_on_a_dead_shell_does_not_pass(self):
         # `ecw where` says in-the-app and exits 2: the address, not a working screen.
         out = self.run_guard(self.fake_ecw("in-the-app", 2, after_restore_rc=0))

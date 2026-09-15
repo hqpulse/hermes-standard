@@ -7,6 +7,13 @@
 # Called on a clock (05:45 ET weekdays) and by ecw_boot_guard.sh after a pod or browser restart.
 set -u
 
+# THE WINDOW THIS GUARD ASKS FOR. Well over the login page's 1600 x 900 floor and over the
+# 1600 x 1000 the scribe's own adapter holds a page at, so nothing this guard does ever makes
+# a page smaller than a client that comes after it wants. Measured 2026-09-15: the sign-in
+# that failed at 1600 x 1000 on a stale page went through first try on a fresh page at this size.
+WIN_W=2200
+WIN_H=1400
+
 for f in "${ECW_LANE_ENV:-}" /etc/hermes/lane/lane.env /etc/ista-andrew/lane.env; do
   [ -n "$f" ] && [ -f "$f" ] && { set -a; . "$f"; set +a; break; }
 done
@@ -73,11 +80,12 @@ trap 'rm -f "$L"' EXIT
 # scribe's eCW adapter holds the page at 1600 x 1000 with a viewport setting for as long as its
 # client is attached, and no window size overrides that. Above the floor is all this needs.
 widen() {
-  "${ECW_PYTHON:-/opt/hermes/.venv/bin/python3}" - "${ECW_WEB_BASE:-}" "$1" <<'PY'
+  "${ECW_PYTHON:-/opt/hermes/.venv/bin/python3}" - "${ECW_WEB_BASE:-}" "$1" "$WIN_W" "$WIN_H" <<'PY'
 import sys, urllib.parse
 from playwright.sync_api import sync_playwright
 host = urllib.parse.urlsplit(sys.argv[1]).netloc if len(sys.argv) > 1 else ""
 when = sys.argv[2] if len(sys.argv) > 2 else ""
+WIN = (int(sys.argv[3]), int(sys.argv[4])) if len(sys.argv) > 4 else (2200, 1400)
 FLOOR = (1600, 900)   # the login page's own resolution floor
 with sync_playwright() as p:
     b = p.chromium.connect_over_cdp("http://127.0.0.1:9222")
@@ -90,7 +98,7 @@ with sync_playwright() as p:
     s = ctx.new_cdp_session(pg)
     wid = s.send("Browser.getWindowForTarget")["windowId"]
     s.send("Browser.setWindowBounds", {"windowId": wid, "bounds": {"left": 0, "top": 0,
-                                       "width": 1920, "height": 1200, "windowState": "normal"}})
+                                       "width": WIN[0], "height": WIN[1], "windowState": "normal"}})
     bounds = s.send("Browser.getWindowBounds", {"windowId": wid})["bounds"]
     w, h = pg.evaluate("[window.innerWidth, window.innerHeight]")
     note = "at or over the floor" if w >= FLOOR[0] and h >= FLOOR[1] else "UNDER the login page's floor"
@@ -99,10 +107,61 @@ with sync_playwright() as p:
 PY
 }
 
+# A STALE eCW PAGE IS THE THING THAT ACTUALLY BREAKS A SIGN-IN. The login page keeps its own
+# state, and a page left sitting on it reports a screen of 800 x 600 whatever the window says,
+# never advances past screen one, and reads back as "the username was not recognized". Widening
+# the window around it does not help: this morning's 05:46 run (2026-09-15) widened, restored,
+# signed in at 1600 x 1000 on the old page and was STILL SIGNED OUT. The same credential signed
+# in first try once the old pages were closed and a fresh one opened (06:03 ET, by hand). So when
+# the session is not working: close every page on the practice host, open one fresh page, drop
+# any page-size override a previous client left on it, size the window, and land on the login
+# page. The restore and the sign-in then run on that clean page.
+#
+# Only when the session is NOT working. A working session is left exactly as it is: closing its
+# pages and putting the saved file back over live cookies could turn a good session into a dead
+# one and then spend a password on it.
+fresh_page() {
+  "${ECW_PYTHON:-/opt/hermes/.venv/bin/python3}" - "${ECW_WEB_BASE:-}" "fresh page" "$WIN_W" "$WIN_H" <<'PY'
+import sys, urllib.parse
+from playwright.sync_api import sync_playwright
+base = sys.argv[1].rstrip("/") if len(sys.argv) > 1 else ""
+host = urllib.parse.urlsplit(base).netloc
+WIN = (int(sys.argv[3]), int(sys.argv[4])) if len(sys.argv) > 4 else (2200, 1400)
+LOGIN = "/mobiledoc/jsp/webemr/login/newLogin.jsp"
+if not host:
+    print("fresh page: the lane names no practice site (ECW_WEB_BASE); leaving the pages as they are")
+    raise SystemExit(0)
+with sync_playwright() as p:
+    b = p.chromium.connect_over_cdp("http://127.0.0.1:9222")
+    ctx = b.contexts[0]
+    closed = 0
+    for pg in list(ctx.pages):
+        if urllib.parse.urlsplit(pg.url or "").netloc == host:
+            try:
+                pg.close(); closed += 1
+            except Exception:
+                pass
+    pg = ctx.new_page()
+    s = ctx.new_cdp_session(pg)
+    try:
+        s.send("Emulation.clearDeviceMetricsOverride")
+    except Exception:
+        pass
+    wid = s.send("Browser.getWindowForTarget")["windowId"]
+    s.send("Browser.setWindowBounds", {"windowId": wid, "bounds": {"left": 0, "top": 0,
+                                       "width": WIN[0], "height": WIN[1], "windowState": "normal"}})
+    pg.goto(base + LOGIN, wait_until="domcontentloaded", timeout=60000)
+    pg.wait_for_timeout(3000)
+    w, h = pg.evaluate("[window.innerWidth, window.innerHeight]")
+    print(f"fresh page: closed {closed} old page(s) on {host}, opened the login page, page {w}x{h}")
+PY
+}
+
 widen "before restore"
 W=$(where_now)
 echo "where before: $W"
 if [ "$W" != "in-the-app" ]; then
+  fresh_page
   echo "putting the saved session back"
   "$E" session restore 2>&1 | grep -vE "^\s+(at |File )" | tail -3
   widen "after restore"
