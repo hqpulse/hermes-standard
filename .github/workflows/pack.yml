@@ -134,6 +134,12 @@ jobs:
         # loopback https stand-in, which ubuntu-latest has.
         run: python tests/test_ecw.py
 
+      - name: test_ecw_guards.py, a restart must not cost the eCW session
+        # The two no-model jobs that put a saved session back after a pod or browser
+        # restart. A guard that misreads a dead session skips the restore and then saves
+        # the dead cookie jar over the good one (PUL-217).
+        run: python tests/test_ecw_guards.py
+
       - name: test_ask_assistant.py, the words a person never hears
         # The skill this guards is the first one that reaches outside the
         # person the assistant works for, and every rule in it is text a model

@@ -97,6 +97,8 @@ distribution_owned:
   - scripts/mail-watch.py
   - scripts/jewish_time.py
   - scripts/quiet_windows.py
+  - scripts/ecw_guard.sh
+  - scripts/ecw_boot_guard.sh
   - skills/quiet-windows/SKILL.md
   - skills/quiet-windows/scripts/quiet-windows
   - skills/jewish-time/SKILL.md
