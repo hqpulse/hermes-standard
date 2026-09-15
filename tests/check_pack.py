@@ -537,37 +537,82 @@ if wskill.is_file():
 #
 # The one rule that decides whether an assistant speaks at all. It was prose
 # inside the mail watch until 0.20.0, which is why the commitment watch could
-# not inherit it. Every phrase below is a branch of the rule that goes quiet
-# rather than loud when it is lost: a gate missing its third question still
-# reads like a complete gate.
+# not inherit it.
+#
+# Everything here is pinned as a PHRASE, never as a bare word. The first
+# version of this check pinned "Value", "Authority" and "Reversibility" on
+# their own; an independent review then wrote a gate where value was "anything
+# they would want to know", authority was "if it seems helpful", reversibility
+# was "normally yes" and the ASK branch was gone altogether, and it passed. A
+# gate missing a branch still reads like a complete gate, and the failure
+# direction is always the same one: an assistant that speaks more, or acts
+# without asking.
 gate = ROOT / "skills/interruption-gate/SKILL.md"
 if not gate.is_file():
     err("skills/interruption-gate/SKILL.md is missing; two presets name it")
 else:
     gtext = gate.read_text()
-    for phrase in ("Value", "Authority", "Reversibility",
-                   "Act silently", "Stay silent", "[SILENT]",
-                   "One notice per run"):
-        if phrase not in gtext:
+    # The three questions, each with the clause that makes it a question and
+    # not a nod: both halves of value, authority as something they SAID, and
+    # undoing in under a minute with nobody outside the house knowing.
+    QUESTIONS = [
+        "Is it theirs to answer, and is it time-bound?",
+        "Both halves have to be true",
+        "Have they already said this one is yours?",
+        "is not authority",
+        "can they undo it in under a minute, with nobody outside the house knowing?",
+    ]
+    # All THREE branches. Two out of three reads complete and is not.
+    BRANCHES = [
+        "**Act silently** when value is high, authority is yes, and it is reversible",
+        "**Ask** when value is high but authority is missing, or the act is not reversible",
+        "**Stay silent** when value is low",
+        "One offer, never a menu",
+        "[SILENT]",
+    ]
+    # The four rules on top of the three questions.
+    ON_TOP = [
+        # Borderline is silent. Without it the gate is a judgement call every
+        # time, and a judgement call under pressure is a message sent.
+        "the case is the answer",
+        "One notice per run",
+        "Never the same thing twice",
+        # The floor under the gate. This is the one a model most wants to
+        # reason around, because the act it covers can look perfectly
+        # reversible right up to the moment it has been sent.
+        "reversibility does not buy it",
+        # The proof is the silence. An uncounted watcher cannot be shown to be
+        # working, and its notices are the only part anyone ever sees.
+        "Count the runs where you were woken and said nothing",
+    ]
+    for phrase in QUESTIONS + BRANCHES + ON_TOP:
+        if phrase.lower() not in gtext.lower():
             err(f"interruption-gate/SKILL.md: lost {phrase!r}")
-    # The tie-breaker that used to live in the mail watch. Without it the gate
-    # reads as a judgement call each time, and a judgement call under pressure
-    # is a message sent.
-    if "the case is the answer" not in gtext:
-        err("interruption-gate/SKILL.md: lost the tie-breaker that a borderline "
-            "item is held, not sent")
-    # Reversibility is the question a model most wants to stretch, so the one
-    # thing it may never buy is named explicitly.
-    if "reversibility does not buy it" not in gtext.lower():
-        err("interruption-gate/SKILL.md: lost the floor under the gate; without "
-            "it a reversible-looking message can go out in the person's name")
-    # The ledger is what stops the same thing being said twice, and the two
-    # ways it fails are a shell write the policy refuses and a path the pack
-    # wipes on upgrade. Both are named in the file; keep them named.
-    for phrase in ("never the shell", "outside the folders the pack owns"):
-        if phrase not in gtext:
-            err(f"interruption-gate/SKILL.md: the ledger has lost {phrase!r}; "
-                f"without it the ledger silently never gets written")
+
+    # THE LEDGER PATH, which the model writes itself. The engine's file tools
+    # refuse every path outside HERMES_WRITE_SAFE_ROOT, and the controller sets
+    # that to /opt/data/workspace and nothing else (hermes-fleet render.py).
+    # The first draft of this skill put the ledger beside the mail watch's own
+    # state under /opt/data/profiles/...; that state is written by a SCRIPT, a
+    # subprocess the safe root does not cover, so the precedent does not carry.
+    # A denied write fails in the worst way available: the ledger stays empty,
+    # "never the same thing twice" quietly stops working, and a failed tool
+    # call sits in a run whose only correct output is one word.
+    LEDGER_ROOT = "/opt/data/workspace/.interruption-gate/"
+    if LEDGER_ROOT not in gtext:
+        err(f"interruption-gate/SKILL.md: the ledger is not under {LEDGER_ROOT}; the "
+            f"file tools refuse every path outside /opt/data/workspace, so it would "
+            f"never be written")
+    for watcher in ("mail-watch", "commitment-watch"):
+        if f"{LEDGER_ROOT}{watcher}.json" not in gtext:
+            err(f"interruption-gate/SKILL.md: does not name the {watcher} ledger file; "
+                f"an unnamed file is a different file on every run")
+    if "/opt/data/profiles/" in gtext:
+        err("interruption-gate/SKILL.md: sends the model to write under "
+            "/opt/data/profiles/, which the file tools deny (HERMES_WRITE_SAFE_ROOT)")
+    if "only place you can write" not in gtext:
+        err("interruption-gate/SKILL.md: no longer says WHY the ledger lives under "
+            "the workspace, so the next edit moves it back")
 
 # --- the bar for speaking first, and Jewish time ---------------------------
 #
