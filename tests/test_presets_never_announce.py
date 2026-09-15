@@ -12,12 +12,11 @@ The rule it enforces has two halves:
   1. A preset that has nothing to report says nothing, on its first run like
      every other run. "Nothing to say" is a complete answer, and it is never
      an excuse to introduce the feature.
-  2. A preset may ask whether to keep going ONLY on the back of a message it
-     was going to send anyway. The question rides on real content; it is
-     never the content.
-
-A preset that is silent by design therefore carries no keep/change/stop
-question at all, because it has no message to ride on.
+  2. No preset asks whether to keep going, on its first run or any other
+     (Sruly, 15 Sep 2026). A silent preset never had a message for the
+     question to ride on; the brief, the pre-read and the delegation scan
+     now simply arrive. A person who wants one changed or stopped says so in
+     chat.
 """
 from __future__ import annotations
 
@@ -57,11 +56,10 @@ def main() -> int:
                 f"{name}: breaks its own silence on the first run to introduce "
                 f"itself. Nothing to say means say nothing, first run included."
             )
-        if name in SILENT_BY_DESIGN and ASK.search(prompt):
+        if ASK.search(prompt):
             failures.append(
-                f"{name}: is silent by design and still carries a "
-                f"keep/change/stop question. It has no message for that "
-                f"question to ride on, so the question IS the message."
+                f"{name}: carries a keep/change/stop question. No preset asks "
+                f"whether to keep going; a person who wants it gone says so."
             )
 
     checked = [n for n, _ in prompts()]
@@ -74,7 +72,7 @@ def main() -> int:
     if failures:
         return 1
 
-    print(f"ok  {len(checked)} presets: none speaks only to announce itself")
+    print(f"ok  {len(checked)} presets: none speaks only to announce itself, none asks")
     print(f"    silent by design and confirmed silent: "
           f"{', '.join(sorted(SILENT_BY_DESIGN & set(checked)))}")
     return 0
